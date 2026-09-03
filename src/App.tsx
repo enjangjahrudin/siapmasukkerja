@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { TargetRole, TestCategory } from './types';
 import { LandingPage } from './components/auth/LandingPage';
 import { AuthPage } from './components/auth/AuthPage';
@@ -20,36 +20,47 @@ import { AiInterviewSimulator } from './components/interview/AiInterviewSimulato
 import { FullTryoutModal } from './components/tryout/FullTryoutModal';
 import { AdminDashboard } from './components/admin/AdminDashboard';
 import { sounds } from './utils/sound-effects';
+import { 
+  getActiveSession, 
+  setActiveSession, 
+  logoutSession, 
+  updateActiveUserScore, 
+  RegisteredUser 
+} from './utils/auth-storage';
 
 export const App: React.FC = () => {
+  // Check persisted session on startup
+  const [currentUser, setCurrentUser] = useState<RegisteredUser | null>(() => getActiveSession());
+  
   // App navigation state: 'landing' | 'login' | 'register' | 'main' | 'admin'
-  const [appScreen, setAppScreen] = useState<'landing' | 'login' | 'register' | 'main' | 'admin'>('landing');
+  const [appScreen, setAppScreen] = useState<'landing' | 'login' | 'register' | 'main' | 'admin'>(() => {
+    const session = getActiveSession();
+    if (!session) return 'landing';
+    return session.isAdmin ? 'admin' : 'main';
+  });
+
   const [activeNavTab, setActiveNavTab] = useState<'home' | 'tests' | 'interview' | 'tips' | 'profile'>('home');
   const [activeSubView, setActiveSubView] = useState<TestCategory | null>(null);
   
-  // User profile
-  const [userName, setUserName] = useState<string>('Ahmad Fauzi');
-  const [targetRole, setTargetRole] = useState<TargetRole>('operator');
-
   // Tryout modal state
   const [isTryoutOpen, setIsTryoutOpen] = useState<boolean>(false);
 
-  const handleStartFromLanding = () => {
-    sounds.playClick();
-    setAppScreen('main');
-    setActiveNavTab('home');
+  const handleSuccessAuth = (user: RegisteredUser) => {
+    setCurrentUser(user);
+    if (user.isAdmin) {
+      setAppScreen('admin');
+    } else {
+      setAppScreen('main');
+      setActiveNavTab('home');
+    }
   };
 
-  const handleLoginFromLanding = () => {
+  const handleLogout = () => {
     sounds.playClick();
-    setAppScreen('login');
-  };
-
-  const handleSuccessLogin = (user: { name: string; targetRole: TargetRole }) => {
-    setUserName(user.name);
-    setTargetRole(user.targetRole);
-    setAppScreen('main');
-    setActiveNavTab('home');
+    logoutSession();
+    setCurrentUser(null);
+    setActiveSubView(null);
+    setAppScreen('landing');
   };
 
   const handleSelectModule = (test: TestCategory | 'tips' | 'tryout-full') => {
@@ -64,6 +75,19 @@ export const App: React.FC = () => {
       setActiveSubView(null);
     } else {
       setActiveSubView(test);
+    }
+  };
+
+  const handleFinishKraepelin = (analysis: any) => {
+    if (currentUser) {
+      updateActiveUserScore({
+        kraepelinScore: {
+          panker: analysis.panker,
+          janker: analysis.janker,
+          grade: analysis.statusGrade
+        }
+      });
+      setCurrentUser(getActiveSession());
     }
   };
 
@@ -90,32 +114,39 @@ export const App: React.FC = () => {
           sounds.playClick();
           setAppScreen('main');
         }}
+        onLogoutAdmin={handleLogout}
       />
     );
   }
 
-  // 2. LANDING / SALES PAGE (App Opening Experience)
+  // 2. LANDING / SALES PAGE (Strict Entry Point)
   if (appScreen === 'landing') {
     return (
       <div className="min-h-screen bg-slate-950 flex justify-center">
         <div className="w-full max-w-md min-h-screen bg-slate-900 shadow-2xl flex flex-col justify-between">
           <LandingPage
-            onStart={handleStartFromLanding}
-            onLogin={handleLoginFromLanding}
+            onGoToRegister={() => {
+              sounds.playClick();
+              setAppScreen('register');
+            }}
+            onGoToLogin={() => {
+              sounds.playClick();
+              setAppScreen('login');
+            }}
           />
         </div>
       </div>
     );
   }
 
-  // 3. LOGIN & REGISTER SCREENS
+  // 3. REGISTRATION & LOGIN SCREENS
   if (appScreen === 'login' || appScreen === 'register') {
     return (
       <div className="min-h-screen bg-slate-950 flex justify-center">
         <div className="w-full max-w-md min-h-screen bg-slate-900 shadow-2xl flex flex-col justify-between">
           <AuthPage
             initialMode={appScreen}
-            onSuccessLogin={handleSuccessLogin}
+            onSuccessLogin={handleSuccessAuth}
             onBackToLanding={() => {
               sounds.playClick();
               setAppScreen('landing');
@@ -126,7 +157,10 @@ export const App: React.FC = () => {
     );
   }
 
-  // 4. MAIN SMARTPHONE APP SHELL (Native Mobile Experience)
+  // 4. MAIN SMARTPHONE APP SHELL (Requires Valid User Session)
+  const userTargetRole: TargetRole = currentUser?.targetRole || 'operator';
+  const userNameString: string = currentUser?.name || 'Peserta SMK';
+
   return (
     <div className="min-h-screen bg-slate-950 flex justify-center items-center sm:py-4">
       
@@ -141,9 +175,14 @@ export const App: React.FC = () => {
             sounds.playClick();
             setActiveSubView(null);
           }}
-          targetRole={targetRole}
-          setTargetRole={setTargetRole}
-          userName={userName}
+          targetRole={userTargetRole}
+          setTargetRole={(r) => {
+            if (currentUser) {
+              updateActiveUserScore({ targetRole: r });
+              setCurrentUser(getActiveSession());
+            }
+          }}
+          userName={userNameString}
           onOpenTryout={() => setIsTryoutOpen(true)}
         />
 
@@ -152,7 +191,7 @@ export const App: React.FC = () => {
           
           {/* Sub Views (Running tests) */}
           {activeSubView === 'kraepelin' && (
-            <KraepelinSimulator />
+            <KraepelinSimulator onFinishTest={handleFinishKraepelin} />
           )}
 
           {activeSubView === 'qc-accuracy' && (
@@ -189,8 +228,8 @@ export const App: React.FC = () => {
               {activeNavTab === 'home' && (
                 <MobileHomeDashboard
                   onSelectTest={handleSelectModule}
-                  targetRole={targetRole}
-                  userName={userName}
+                  targetRole={userTargetRole}
+                  userName={userNameString}
                 />
               )}
 
@@ -203,8 +242,13 @@ export const App: React.FC = () => {
               {activeNavTab === 'interview' && (
                 <div className="p-4 pb-20">
                   <AiInterviewSimulator 
-                    targetRole={targetRole} 
-                    setTargetRole={setTargetRole}
+                    targetRole={userTargetRole} 
+                    setTargetRole={(r) => {
+                      if (currentUser) {
+                        updateActiveUserScore({ targetRole: r });
+                        setCurrentUser(getActiveSession());
+                      }
+                    }}
                   />
                 </div>
               )}
@@ -217,13 +261,15 @@ export const App: React.FC = () => {
 
               {activeNavTab === 'profile' && (
                 <MobileProfileTab
-                  userName={userName}
-                  targetRole={targetRole}
-                  setTargetRole={setTargetRole}
-                  onLogout={() => {
-                    sounds.playClick();
-                    setAppScreen('landing');
+                  userName={userNameString}
+                  targetRole={userTargetRole}
+                  setTargetRole={(r) => {
+                    if (currentUser) {
+                      updateActiveUserScore({ targetRole: r });
+                      setCurrentUser(getActiveSession());
+                    }
                   }}
+                  onLogout={handleLogout}
                   onOpenAdmin={() => {
                     sounds.playClick();
                     setAppScreen('admin');
@@ -235,7 +281,7 @@ export const App: React.FC = () => {
 
         </main>
 
-        {/* Sticky Mobile Bottom Tab Navigation - Hidden automatically during test subviews for full-screen keyboard immersion */}
+        {/* Sticky Mobile Bottom Tab Navigation - Hidden during test subviews */}
         {!activeSubView && (
           <MobileBottomNav
             activeNavTab={activeNavTab}

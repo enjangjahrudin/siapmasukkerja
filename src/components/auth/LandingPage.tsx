@@ -12,15 +12,17 @@ import {
   TrendingUp,
   Building2,
   Lock,
-  Flame
+  Flame,
+  UserPlus,
+  LogIn
 } from 'lucide-react';
 
 interface LandingPageProps {
-  onStart: () => void;
-  onLogin: () => void;
+  onGoToRegister: () => void;
+  onGoToLogin: () => void;
 }
 
-export const LandingPage: React.FC<LandingPageProps> = ({ onStart, onLogin }) => {
+export const LandingPage: React.FC<LandingPageProps> = ({ onGoToRegister, onGoToLogin }) => {
   return (
     <div className="min-h-screen bg-slate-900 text-white flex flex-col justify-between select-none">
       
@@ -46,10 +48,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStart, onLogin }) =>
         </div>
 
         <button
-          onClick={onLogin}
-          className="text-xs font-bold text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 px-3.5 py-1.5 rounded-xl border border-slate-700 transition-colors"
+          onClick={onGoToLogin}
+          className="text-xs font-bold text-sky-300 hover:text-white bg-slate-800 hover:bg-slate-700 px-3.5 py-1.5 rounded-xl border border-slate-700 transition-colors flex items-center gap-1.5"
         >
-          Masuk
+          <LogIn className="w-3.5 h-3.5" />
+          <span>Masuk</span>
         </button>
       </div>
 
@@ -141,19 +144,23 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStart, onLogin }) =>
 
       </div>
 
-      {/* Sticky Bottom Action Buttons */}
+      {/* Sticky Bottom Action Buttons: DIRECTS TO REGISTER / LOGIN */}
       <div className="p-4 bg-slate-900/95 border-t border-slate-800 backdrop-blur-md sticky bottom-0 z-20 space-y-2">
         <button
-          onClick={onStart}
+          onClick={onGoToRegister}
           className="w-full py-3.5 bg-gradient-to-r from-brand-600 via-sky-500 to-teal-400 hover:from-brand-500 hover:to-teal-300 text-slate-950 font-black text-sm rounded-2xl shadow-lg shadow-brand-500/25 flex items-center justify-center gap-2 transition-all transform active:scale-98"
         >
-          <span>Mulai Belajar Sekarang (Gratis)</span>
-          <ArrowRight className="w-4 h-4" />
+          <UserPlus className="w-4 h-4" />
+          <span>Daftar Akun Baru (Gratis)</span>
         </button>
 
-        <p className="text-center text-[10px] text-slate-400">
-          Akses modul latihan gratis tanpa perlu kartu kredit
-        </p>
+        <button
+          onClick={onGoToLogin}
+          className="w-full py-2.5 bg-slate-800 hover:bg-slate-750 text-slate-200 font-bold text-xs rounded-xl border border-slate-700 flex items-center justify-center gap-1.5 transition-colors"
+        >
+          <span>Sudah Punya Akun? Masuk di Sini</span>
+          <ArrowRight className="w-3.5 h-3.5" />
+        </button>
       </div>
 
     </div>
