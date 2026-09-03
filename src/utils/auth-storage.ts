@@ -23,6 +23,7 @@ export interface RegisteredUser {
 
 const STORAGE_USERS_KEY = 'siapkerja_users_database';
 const STORAGE_CURRENT_USER_KEY = 'siapkerja_active_session';
+const API_BASE_URL = '/api';
 
 export const initialDefaultUsers: RegisteredUser[] = [
   {
@@ -88,7 +89,7 @@ export const initialDefaultUsers: RegisteredUser[] = [
   {
     id: 'SMK-ADMIN-001',
     name: 'Super Administrator',
-    phone: '080000000000',
+    phone: 'admin',
     school: 'Management Pusat',
     major: 'Sistem Operasional',
     password: 'admin',
@@ -113,6 +114,22 @@ export const getStoredUsers = (): RegisteredUser[] => {
   } catch (e) {
     return initialDefaultUsers;
   }
+};
+
+export const fetchRemoteUsers = async (): Promise<RegisteredUser[]> => {
+  try {
+    const res = await fetch(`${API_BASE_URL}/users`);
+    if (res.ok) {
+      const json = await res.json();
+      if (json.success && Array.isArray(json.data)) {
+        localStorage.setItem(STORAGE_USERS_KEY, JSON.stringify(json.data));
+        return json.data;
+      }
+    }
+  } catch (err) {
+    // Graceful fallback to local cache
+  }
+  return getStoredUsers();
 };
 
 export const saveUser = (user: RegisteredUser): void => {
@@ -161,6 +178,14 @@ export const registerNewCandidate = (data: {
 
   saveUser(newUser);
   setActiveSession(newUser);
+
+  // Background sync to MySQL API
+  fetch(`${API_BASE_URL}/register`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  }).catch(() => {});
+
   return newUser;
 };
 
@@ -187,6 +212,14 @@ export const loginUser = (phone: string, password?: string): { success: boolean;
   found.lastActive = 'Baru saja aktif';
   saveUser(found);
   setActiveSession(found);
+
+  // Background login sync to MySQL API
+  fetch(`${API_BASE_URL}/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ phone: cleanPhone, password })
+  }).catch(() => {});
+
   return { success: true, user: found };
 };
 
@@ -236,4 +269,16 @@ export const updateActiveUserScore = (update: Partial<RegisteredUser>): void => 
 
   saveUser(updated);
   setActiveSession(updated);
+
+  // Background score sync to MySQL API
+  fetch(`${API_BASE_URL}/scores`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      userId: updated.id,
+      testType: 'training',
+      scoreSummary: updated.overallStatus,
+      scoreDetails: update
+    })
+  }).catch(() => {});
 };
