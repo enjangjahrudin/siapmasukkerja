@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>Project Blueprint - Aplikasi SiapKerja</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+
+    @page {
+      size: A4;
+      margin: 18mm 16mm 18mm 16mm;
+      @bottom-right {
+        content: "Halaman " counter(page);
+        font-family: 'Plus Jakarta Sans', sans-serif;
+        font-size: 8pt;
+        color: #64748b;
+      }
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    body {
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      color: #1e293b;
+      background-color: #ffffff;
+      line-height: 1.55;
+      font-size: 9.5pt;
+      margin: 0;
+      padding: 0;
+    }
+
+    /* Cover / Header Banner */
+    .header-banner {
+      background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 50%, #0369a1 100%);
+      color: #ffffff;
+      padding: 26px 28px;
+      border-radius: 12px;
+      margin-bottom: 24px;
+      box-shadow: 0 4px 14px rgba(15, 23, 42, 0.15);
+    }
+
+    .badge {
+      display: inline-block;
+      background: rgba(255, 255, 255, 0.18);
+      color: #e0f2fe;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 8pt;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.25);
+    }
+
+    .header-title {
+      font-size: 20pt;
+      font-weight: 800;
+      margin: 0 0 6px 0;
+      letter-spacing: -0.02em;
+      color: #ffffff;
+    }
+
+    .header-subtitle {
+      font-size: 11pt;
+      color: #bae6fd;
+      margin: 0 0 16px 0;
+      font-weight: 400;
+    }
+
+    .meta-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      border-top: 1px solid rgba(255, 255, 255, 0.2);
+      padding-top: 12px;
+      font-size: 8pt;
+    }
+
+    .meta-item strong {
+      display: block;
+      color: #93c5fd;
+      font-size: 7.5pt;
+      text-transform: uppercase;
+      margin-bottom: 2px;
+    }
+
+    .meta-item span {
+      color: #ffffff;
+      font-weight: 600;
+    }
+
+    /* Section Headings */
+    h2 {
+      font-size: 12.5pt;
+      font-weight: 700;
+      color: #0f172a;
+      border-left: 4px solid #0284c7;
+      padding-left: 10px;
+      margin-top: 22px;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      letter-spacing: -0.01em;
+    }
+
+    h3 {
+      font-size: 10.5pt;
+      font-weight: 600;
+      color: #1e3a8a;
+      margin-top: 14px;
+      margin-bottom: 6px;
+    }
+
+    p {
+      margin: 0 0 10px 0;
+      text-align: justify;
+    }
+
+    /* Tables */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 12px 0 18px 0;
+      font-size: 8.5pt;
+    }
+
+    th {
+      background-color: #f1f5f9;
+      color: #0f172a;
+      font-weight: 700;
+      text-align: left;
+      padding: 8px 10px;
+      border: 1px solid #cbd5e1;
+      font-size: 8pt;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    td {
+      padding: 8px 10px;
+      border: 1px solid #e2e8f0;
+      vertical-align: top;
+    }
+
+    tr:nth-child(even) {
+      background-color: #f8fafc;
+    }
+
+    /* Card Boxes */
+    .card {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 12px 14px;
+      margin-bottom: 12px;
+    }
+
+    .card-title {
+      font-weight: 700;
+      font-size: 9pt;
+      color: #0f172a;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .highlight-box {
+      background-color: #eff6ff;
+      border: 1px solid #bfdbfe;
+      border-left: 4px solid #2563eb;
+      border-radius: 6px;
+      padding: 10px 14px;
+      margin: 12px 0;
+      font-size: 8.5pt;
+    }
+
+    .highlight-box strong {
+      color: #1e40af;
+    }
+
+    .success-box {
+      background-color: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      border-left: 4px solid #16a34a;
+      border-radius: 6px;
+      padding: 10px 14px;
+      margin: 12px 0;
+      font-size: 8.5pt;
+    }
+
+    /* Workflow Diagram Box */
+    .diagram-box {
+      background: #0f172a;
+      color: #f8fafc;
+      border-radius: 8px;
+      padding: 14px;
+      font-family: monospace;
+      font-size: 8pt;
+      line-height: 1.4;
+      margin: 12px 0;
+      overflow-x: auto;
+    }
+
+    ul, ol {
+      margin: 0 0 10px 0;
+      padding-left: 20px;
+    }
+
+    li {
+      margin-bottom: 4px;
+    }
+
+    .tag {
+      display: inline-block;
+      background: #e2e8f0;
+      color: #334155;
+      font-size: 7pt;
+      font-weight: 600;
+      padding: 2px 6px;
+      border-radius: 4px;
+      margin-right: 4px;
+    }
+
+    .tag-blue { background: #dbeafe; color: #1e40af; }
+    .tag-green { background: #dcfce7; color: #166534; }
+    .tag-purple { background: #f3e8ff; color: #6b21a8; }
+    .tag-orange { background: #ffedd5; color: #9a3412; }
+
+    .page-break {
+      page-break-before: always;
+    }
+
+    .footer-note {
+      text-align: center;
+      font-size: 7.5pt;
+      color: #94a3b8;
+      margin-top: 30px;
+      border-top: 1px solid #e2e8f0;
+      padding-top: 10px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header Banner -->
+  <div class="header-banner">
+    <div class="badge">Official Product Blueprint & Technical Roadmap</div>
+    <div class="header-title">Platform SiapKerja</div>
+    <div class="header-subtitle">Aplikasi Persiapan Tes Seleksi Masuk Perusahaan & AI Voice Mock Interview (SMA/SMK Level)</div>
+    
+    <div class="meta-grid">
+      <div class="meta-item">
+        <strong>Peran Dokumen</strong>
+        <span>Project Blueprint v1.0</span>
+      </div>
+      <div class="meta-item">
+        <strong>Target Pengguna</strong>
+        <span>Lulusan SMA/SMK (Operator/QC)</span>
+      </div>
+      <div class="meta-item">
+        <strong>Penyusun</strong>
+        <span>Project Manager (PM)</span>
+      </div>
+      <div class="meta-item">
+        <strong>Status Proyek</strong>
+        <span>Ready for Execution</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Section 1 -->
+  <h2>1. Ringkasan Eksekutif & Visi Produk</h2>
+  <p>
+    <strong>SiapKerja</strong> adalah platform edutech dan <em>career preparation</em> yang dirancang khusus untuk menjembatani lulusan SMA/SMK sederajat agar siap 100% menghadapi seluruh rangkaian seleksi masuk dunia industri (Manufaktur, Otomotif, FMCG, Elektronik, Logistik, dan Retail).
+  </p>
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">🎯 Tahap 1: Latihan Tes & Psikotes Interaktif</div>
+      <p style="font-size: 8pt; margin: 0;">
+        Fokus pada penguasaan materi ujian tertulis, simulasi tes Koran (Kraepelin/Pauli), tes ketelitian data QC, tes mekanika dasar, bank soal interaktif, pembahasan komprehensif, dan trik pengerjaan cepat dengan akurasi tinggi.
+      </p>
+    </div>
+    <div class="card">
+      <div class="card-title">🎙️ Tahap 2: AI Voice Mock Interview (Fitur Premium)</div>
+      <p style="font-size: 8pt; margin: 0;">
+        Simulasi wawancara kerja dua arah berbasis suara interaktif berbahasa Indonesia natural dengan AI HRD/User. Dilengkapi kalkulator probabilitas kelulusan (%) berakurasi tinggi dan evaluasi performa menyeluruh.
+      </p>
+    </div>
+  </div>
+
+  <!-- Section 2 -->
+  <h2>2. Target Pengguna & Profil Pekerjaan Sasaran</h2>
+  <p>
+    Fokus inisial platform SiapKerja ditujukan untuk fresh graduate maupun pencari kerja pemula (0–2 tahun pengalaman) yang melamar pada formasi berikut:
+  </p>
+  <div class="grid-3">
+    <div class="card">
+      <strong style="color: #1e3a8a; font-size: 8.5pt;">1. Operator Produksi</strong>
+      <p style="font-size: 7.5pt; margin-top: 4px;">Perakitan (Assembly), Mesin CNC/Stamping, Injection Molding, Packaging. Menuntut stamina, kecepatan, dan disiplin tinggi.</p>
+    </div>
+    <div class="card">
+      <strong style="color: #1e3a8a; font-size: 8.5pt;">2. Quality Control (QC) Inspector</strong>
+      <p style="font-size: 7.5pt; margin-top: 4px;">Pemeriksaan visual produk, pengukuran dimensi, pengecekan ketelitian data barcode, dan kepatuhan standar zero defect.</p>
+    </div>
+    <div class="card">
+      <strong style="color: #1e3a8a; font-size: 8.5pt;">3. Maintenance & Logistik</strong>
+      <p style="font-size: 7.5pt; margin-top: 4px;">Teknisi mekanikal/elektrikal dasar, staff pergudangan (Warehouse), picker, packer, dan inventory checker.</p>
+    </div>
+  </div>
+
+  <!-- Section 3 -->
+  <h2>3. Analisis & Referensi Jenis Tes Masuk Perusahaan (Tahap 1)</h2>
+  <p>
+    Berdasarkan studi rekrutmen perusahaan terkemuka di kawasan industri (Astra Group, Yamaha Motor, PT Epson, PT Denso, PT Mayora, Indofood, PT KAI, dsb.), berikut 7 modul tes utama yang diintegrasikan ke dalam SiapKerja:
+  </p>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width: 22%;">Modul Tes</th>
+        <th style="width: 25%;">Karakteristik & Format Soal</th>
+        <th style="width: 28%;">Aspek Penilaian Perusahaan</th>
+        <th style="width: 25%;">Tips & Trik SiapKerja</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>1. Tes Kraepelin & Pauli (Tes Koran)</strong></td>
+        <td>Penjumlahan angka satuan vertikal cepat dengan instruksi pindah kolom berkala (per 15/30 detik).</td>
+        <td>Ketahanan kerja (<em>endurance</em>), kestabilan emosi, kecepatan grafik ritme kerja, dan rasio ketelitian.</td>
+        <td>Teknik pernapasan ritmis, menjaga kestabilan tinggi grafik (bukan cepat di awal lalu anjlok), pencegahan keram jari.</td>
+      </tr>
+      <tr>
+        <td><strong>2. Tes Ketelitian & Kecermatan Huruf/Angka</strong></td>
+        <td>Mencocokkan deret kode huruf/angka identik, mendeteksi simbol hilang, perbedaan kode barcode acak.</td>
+        <td>Fokus visual, ketajaman mata terhadap anomali/cacat produk (Sangat krusial untuk lolos seleksi QC).</td>
+        <td>Metode pemindaian per-blok 3 karakter, teknik eliminasi visual cepat, latihan konsentrasi anti-distraksi.</td>
+      </tr>
+      <tr>
+        <td><strong>3. Tes Mekanika Dasar (Bennett Mechanical)</strong></td>
+        <td>Soal ilustrasi gambar: roda gigi (gear arah putar), katrol beban, bidang miring, tuas pengungkit, bejana berhubungan.</td>
+        <td>Nalar teknis praktis, pemahaman logika fisika terapan, dan kesiapan mengoperasikan mesin produksi.</td>
+        <td>Rumus kilat tanpa hitungan rumit: "Jumlah katrol bergerak = hemat tenaga", logika putaran ganjil-genap pada gerigi.</td>
+      </tr>
+      <tr>
+        <td><strong>4. Tes Aritmatika & Deret Angka</strong></td>
+        <td>Operasi pecahan, persentase, perbandingan senilai/berbalik nilai, deret Fibonacci, deret 2 tingkat acak.</td>
+        <td>Kecepatan komputasi mental tanpa bantuan kalkulator dan logika pola angka terstruktur.</td>
+        <td>Pola jembatan lompat 1 atau 2 angka, hafalan perkalian kuadrat kilat, eliminasi opsi jawaban mustahil.</td>
+      </tr>
+      <tr>
+        <td><strong>5. Penalaran Spasial & Bangun Ruang (Army Alpha)</strong></td>
+        <td>Jaring-jaring lipatan kubus 3D, rotasi bayangan bentuk, analogi visual, instruksi cepat mengikuti perintah kode.</td>
+        <td>Daya imajinasi spasial 3 dimensi dan daya tangkap instruksi lisan pimpinan/supervisor kerja.</td>
+        <td>Teknik patokan tanda khusus pada salah satu sisi bidang jaring kubus agar tidak pusing saat diputar.</td>
+      </tr>
+      <tr>
+        <td><strong>6. Panduan Tes Gambar (Wartegg & Pohon/DAP)</strong></td>
+        <td>8 kotak stimulus bentuk dasar, gambar pohon berkambium, dan gambar manusia lengkap dengan aktivitas kerja.</td>
+        <td>Karakter kepribadian, ketekunan, perencanaan hidup, keterbukaan adaptasi, dan dinamisme diri.</td>
+        <td>Urutan kotak Wartegg seimbang (kombinasi 1-2-3-4-5-6-7-8 yang direkomendasikan), cara menggambar akar/batang pohon proporsional.</td>
+      </tr>
+      <tr>
+        <td><strong>7. Tes Sikap Kerja & Kepribadian (DISC / PAPI)</strong></td>
+        <td>Pilihan pernyataan perilaku kerja ("Paling mencerminkan diri" vs "Paling tidak mencerminkan diri").</td>
+        <td>Kepatuhan pada SOP, loyalitas, toleransi terhadap kejenuhan kerja repetitif, kemampuan bekerja dalam shift tim.</td>
+        <td>Memilih jawaban konsisten yang mencerminkan profil pekerja patuh aturan, teliti, dan bertanggung jawab.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="page-break"></div>
+
+  <!-- Section 4 -->
+  <h2>4. Arsitektur Fitur Tahap 1 (Latihan, Tryout & Edukasi)</h2>
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">📚 1. Mode Latihan Mandiri (Practice Mode)</div>
+      <ul>
+        <li>Bebas memilih topik & level kesulitan (Mudah, Sedang, Sulit).</li>
+        <li><strong>Instant Explanation:</strong> Pembahasan langsung muncul beserta rumus cepat dan cara nalar.</li>
+        <li><strong>Bookmark & Catatan Soal:</strong> Simpan soal yang sulit untuk diulang kembali.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <div class="card-title">⏱️ 2. Mode Simulasi Ujian Realistis (Real Tryout)</div>
+      <ul>
+        <li>Timer dinamis sesuai standar rekrutmen asli (Auto-Submit).</li>
+        <li>Sistem Anti-Curang & Simulasi Navigasi Ujian CAT Industri.</li>
+        <li><strong>Rapor Hasil Ujian:</strong> Grafik kelemahan, ranking nasional, dan persentase kelayakan lolos passing grade.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="highlight-box">
+    <strong>💡 Pojok Tips-Trik & Strategi Lolos:</strong> Dilengkapi modul artikel & infografis praktis:
+    <em>"Rahasia Menjaga Ritme Tes Koran Tanpa Lelah", "Cara Menjawab Pertanyaan Jebakan Seputar Gaji dan Lembur",</em> dan <em>"Daftar Kesalahan Fatal Saat Tes Fisik & Psikotes Pabrik".</em>
+  </div>
+
+  <!-- Section 5 -->
+  <h2>5. Arsitektur Tahap 2: AI Voice Mock Interview (Fitur Premium)</h2>
+  <p>
+    Fitur wawancara kerja virtual berbasis AI yang mensimulasikan interaksi nyata dengan HRD / User Pabrik menggunakan percakapan suara interaktif berbahasa Indonesia dengan intonasi natural.
+  </p>
+
+  <div class="diagram-box">
+[PENGGUNA] ──(Suara Mikrofon ID)──> [Speech-to-Text: Whisper / Deepgram]
+                                                    │
+                                                    ▼ (Transkrip Teks)
+[Prediksi % Lolos & Feedback] <── [LLM AI Persona HRD: Evaluasi & Respon]
+                                                    │
+                                                    ▼ (Audio Respons Natural)
+[PENGGUNA] <──(Suara AI HRD Natural)─── [Text-to-Speech: Google Neural2 / ElevenLabs]
+  </div>
+
+  <h3>Matriks & Algoritma Penilaian Akurasi Prediksi Kelulusan (%)</h3>
+  <p>
+    Tingkat prediksi penerimaan kerja dikalkulasi secara presisi berdasarkan 4 pilar rubrik objektif:
+  </p>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width: 25%;">Pilar Penilaian</th>
+        <th style="width: 15%;">Bobot</th>
+        <th style="width: 35%;">Parameter yang Dianalisis AI</th>
+        <th style="width: 25%;">Tolok Ukur Standar Lolos</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>1. Relevansi Jawaban & Metode STAR</strong></td>
+        <td><strong>35%</strong></td>
+        <td>Kesesuaian dengan konteks pertanyaan, kelengkapan alur (<em>Situation, Task, Action, Result</em>), pemahaman SOP industri.</td>
+        <td>Jawaban to-the-point, menyertakan bukti pengalaman/tanggung jawab nyata.</td>
+      </tr>
+      <tr>
+        <td><strong>2. Artikulasi, Kecepatan & Kelancaran</strong></td>
+        <td><strong>25%</strong></td>
+        <td>Deteksi <em>filler words</em> ("e... e...", "anu..."), tempo bicara (110–140 kata/menit), kejelasan diksi formal Bahasa Indonesia.</td>
+        <td>Percaya diri, minim jeda hening berkepanjangan, artikulasi tegas dan jelas.</td>
+      </tr>
+      <tr>
+        <td><strong>3. Sikap, Etika & Antusiasme</strong></td>
+        <td><strong>20%</strong></td>
+        <td>Penggunaan kata sapaan sopan, motivasi bekerja tinggi, kesiapan bekerja sistem shift/lembur, loyalitas.</td>
+        <td>Sopan, antusias, tidak mengeluhkan beban kerja fisik, menunjukkan kemauan belajar.</td>
+      </tr>
+      <tr>
+        <td><strong>4. Kesesuaian Profil Posisi (Job-Fit)</strong></td>
+        <td><strong>20%</strong></td>
+        <td>Untuk <em>Operator:</em> ketahanan fisik & kepatuhan aturan. Untuk <em>QC:</em> ketelitian, ketegasan memisahkan produk reject.</td>
+        <td>Karakter sesuai dengan standar kualifikasi posisi yang dilamar.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="success-box">
+    <strong>🎯 Output Laporan Interview Pengguna:</strong>
+    1. <strong>Skor Probabilitas:</strong> Contoh: <em>"88% - Peluang Sangat Tinggi Lolos Tahap User/HRD"</em>.<br>
+    2. <strong>Evaluasi Transkrip:</strong> Rekaman audio per pertanyaan + catatan kalimat yang kurang tepat.<br>
+    3. <strong>Jawaban Rekomendasi (Model Answer):</strong> Contoh jawaban ideal yang disukai perekrut.
+  </div>
+
+  <!-- Section 6 -->
+  <h2>6. Spesifikasi Tech Stack & Infrastruktur</h2>
+  <div class="grid-3">
+    <div class="card">
+      <strong style="color: #0f172a; font-size: 8.5pt;">Frontend Layer</strong>
+      <p style="font-size: 7.5pt; margin-top: 4px;">
+        • <strong>Next.js 14 (App Router)</strong><br>
+        • <strong>Tailwind CSS + shadcn/ui</strong><br>
+        • <strong>PWA Support</strong> (Installable di Android/iOS layaknya native app)
+      </p>
+    </div>
+    <div class="card">
+      <strong style="color: #0f172a; font-size: 8.5pt;">Backend & Database</strong>
+      <p style="font-size: 7.5pt; margin-top: 4px;">
+        • <strong>Node.js / FastAPI</strong><br>
+        • <strong>PostgreSQL (Prisma ORM)</strong><br>
+        • <strong>Redis</strong> (Leaderboard & Session Kraepelin real-time)
+      </p>
+    </div>
+    <div class="card">
+      <strong style="color: #0f172a; font-size: 8.5pt;">AI & Payment Gateway</strong>
+      <p style="font-size: 7.5pt; margin-top: 4px;">
+        • <strong>Whisper / Deepgram</strong> (STT ID)<br>
+        • <strong>Gemini / GPT-4o</strong> (HRD Evaluator)<br>
+        • <strong>Google TTS / ElevenLabs</strong><br>
+        • <strong>Midtrans / Xendit</strong> (QRIS, e-Wallet)
+      </p>
+    </div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 7 -->
+  <h2>7. Timeline & Rencana Pelaksanaan Proyek (Roadmap)</h2>
+  <table>
+    <thead>
+      <tr>
+        <th style="width: 18%;">Fase / Sprint</th>
+        <th style="width: 18%;">Durasi</th>
+        <th style="width: 38%;">Deliverables & Fitur Utama</th>
+        <th style="width: 26%;">Milestone Target</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Sprint 1: Fondasi & UI Core</strong></td>
+        <td>Minggu 1 - 2</td>
+        <td>Setup Repository, Next.js 14, Tailwind, Schema Database User & Soal, Landing Page, Authentication.</td>
+        <td>Sistem dasar & dashboard user aktif.</td>
+      </tr>
+      <tr>
+        <td><strong>Sprint 2: Engine Tes Tertulis</strong></td>
+        <td>Minggu 3 - 4</td>
+        <td>Engine Kraepelin/Pauli interaktif, Tes Ketelitian QC, Tes Mekanika Bennett, Bank Soal & Pembahasan.</td>
+        <td>Rilis <strong>MVP Tahap 1 (Beta)</strong> untuk latihan tertulis.</td>
+      </tr>
+      <tr>
+        <td><strong>Sprint 3: Tryout & Rapor</strong></td>
+        <td>Minggu 5 - 6</td>
+        <td>Mode Ujian CAT Realistis, Timer Ketat, Kalkulasi Skor Otomatis, Grafik Kelemahan, Leaderboard.</td>
+        <td>Fitur Tryout Siap Kerja Lengkap.</td>
+      </tr>
+      <tr>
+        <td><strong>Sprint 4: AI Interview Engine</strong></td>
+        <td>Minggu 7 - 8</td>
+        <td>Integrasi STT (Audio Bahasa Indonesia) + Prompt Persona HRD Pabrik + TTS Natural Voice + Evaluasi Skor.</td>
+        <td>Simulasi Interview AI berfungsi penuh.</td>
+      </tr>
+      <tr>
+        <td><strong>Sprint 5: Monetisasi & Launching</strong></td>
+        <td>Minggu 9 - 10</td>
+        <td>Integrasi Payment Gateway QRIS/E-Wallet, Paket Akses Premium, Stress Testing, Grand Launching.</td>
+        <td><strong>Full Production Release (Tahap 1 & 2)</strong>.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- Section 8 -->
+  <h2>8. Model Bisnis & Strategi Monetisasi</h2>
+  <div class="grid-3">
+    <div class="card">
+      <strong style="color: #1e3a8a; font-size: 8.5pt;">1. Paket Gratis (Freemium)</strong>
+      <p style="font-size: 7.5pt; margin-top: 4px;">Akses latihan soal dasar harian, 1x simulasi tes Kraepelin per hari, akses modul materi umum.</p>
+    </div>
+    <div class="card">
+      <strong style="color: #1e3a8a; font-size: 8.5pt;">2. Paket Pro Tryout</strong>
+      <p style="font-size: 7.5pt; margin-top: 4px;">Akses unlimited semua bank soal, pembahasan lengkap, ranking nasional, dan statistik kelemahan tanpa batas.</p>
+    </div>
+    <div class="card">
+      <strong style="color: #1e3a8a; font-size: 8.5pt;">3. Token AI Mock Interview</strong>
+      <p style="font-size: 7.5pt; margin-top: 4px;">Sistem beli paket sesi interview (misal: 3x sesi / 10x sesi interview dengan laporan PDF hasil evaluasi lengkap).</p>
+    </div>
+  </div>
+
+  <!-- Section 9 -->
+  <h2>9. Rekomendasi & Persetujuan Langkah Kerja (Next Actions)</h2>
+  <div class="highlight-box">
+    <strong>Langkah Segera yang Direkomendasikan:</strong>
+    <ol style="margin-top: 6px; margin-bottom: 0;">
+      <li>Inisialisasi Project Skeleton (Next.js 14, Tailwind CSS, TypeScript, Shadcn UI).</li>
+      <li>Membangun <strong>Engine Interaktif Tes Kraepelin & Tes Ketelitian QC</strong> sebagai fitur unggulan pertama.</li>
+      <li>Mengisi Bank Soal awal (500+ soal terverifikasi beserta pembahasan & tips trik).</li>
+    </ol>
+  </div>
+
+  <div class="footer-note">
+    Dokumen Cetak Biru Proyek SiapKerja &copy; 2026. Hak Cipta Dilindungi. Disusun oleh Project Management Team.
+  </div>
+
+</body>
+</html>
