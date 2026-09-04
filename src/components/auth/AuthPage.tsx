@@ -185,7 +185,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
   // --------------------------------------------------------------------------
   // STEP 3: LOGIN SUBMIT
   // --------------------------------------------------------------------------
-  const handleLoginSubmit = (e: React.FormEvent) => {
+  const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
     setSuccessMessage(null);
@@ -195,18 +195,26 @@ export const AuthPage: React.FC<AuthPageProps> = ({
       return;
     }
 
-    const result = loginUser(phone, password);
-    if (result.success && result.user) {
-      if (rememberMe) {
-        localStorage.setItem('siapkerja_remember_login', phone.trim());
+    setIsLoading(true);
+    try {
+      const result = await loginUser(phone, password);
+      if (result.success && result.user) {
+        if (rememberMe) {
+          localStorage.setItem('siapkerja_remember_login', phone.trim());
+        } else {
+          localStorage.removeItem('siapkerja_remember_login');
+        }
+        sounds.playCorrect();
+        onSuccessLogin(result.user);
       } else {
-        localStorage.removeItem('siapkerja_remember_login');
+        sounds.playWrong();
+        setErrorMessage(result.message || 'Nomor WhatsApp / Email atau kata sandi tidak sesuai.');
       }
-      sounds.playCorrect();
-      onSuccessLogin(result.user);
-    } else {
+    } catch (err: any) {
       sounds.playWrong();
-      setErrorMessage(result.message || 'Nomor WhatsApp / Email atau kata sandi tidak sesuai.');
+      setErrorMessage(err.message || 'Gagal masuk ke akun.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -860,10 +868,11 @@ export const AuthPage: React.FC<AuthPageProps> = ({
 
             <button
               type="submit"
-              className="w-full py-3.5 bg-gradient-to-r from-brand-600 to-sky-500 hover:from-brand-500 text-slate-950 font-black text-sm rounded-xl shadow-lg shadow-brand-500/25 flex items-center justify-center gap-2 transition-all"
+              disabled={isLoading}
+              className="w-full py-3.5 bg-gradient-to-r from-brand-600 to-sky-500 hover:from-brand-500 disabled:opacity-50 text-slate-950 font-black text-sm rounded-xl shadow-lg shadow-brand-500/25 flex items-center justify-center gap-2 transition-all"
             >
-              <span>Masuk ke Akun Saya</span>
-              <ArrowRight className="w-4 h-4" />
+              {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-4 h-4" />}
+              <span>{isLoading ? 'Memverifikasi Akun...' : 'Masuk ke Akun Saya'}</span>
             </button>
           </form>
         )}

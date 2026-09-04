@@ -411,10 +411,38 @@ export const confirmPasswordReset = async (email: string, otp: string, newPasswo
 };
 
 /**
- * Login user by Phone, Email, or Admin ID
+ * Login user by Phone, Email, or Admin ID (API-first with offline fallback)
  */
-export const loginUser = (phoneOrEmail: string, password?: string): { success: boolean; user?: RegisteredUser; message?: string } => {
+export const loginUser = async (
+  phoneOrEmail: string, 
+  password?: string
+): Promise<{ success: boolean; user?: RegisteredUser; message?: string }> => {
   const cleanInput = phoneOrEmail.trim().toLowerCase();
+
+  // 1. Try Live Server Login (MySQL Database)
+  try {
+    const response = await fetch(`${API_BASE_URL}/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone: cleanInput, password })
+    });
+
+    const resData = await response.json();
+    if (response.ok && resData.user) {
+      saveUser(resData.user);
+      setActiveSession(resData.user);
+      return { success: true, user: resData.user, message: resData.message };
+    } else if (response.status === 401 || response.status === 404 || response.status === 400) {
+      // If server returned specific message (e.g. wrong password or not found), respect it unless local has it
+      if (response.status === 401) {
+        return { success: false, message: resData.message || 'Kata sandi tidak sesuai.' };
+      }
+    }
+  } catch (err) {
+    // Offline / network failure -> fallback to local storage
+  }
+
+  // 2. Local Storage Cache Fallback
   const users = getStoredUsers();
 
   // Super Admin Login
@@ -439,13 +467,6 @@ export const loginUser = (phoneOrEmail: string, password?: string): { success: b
   found.lastActive = 'Baru saja aktif';
   saveUser(found);
   setActiveSession(found);
-
-  // Background login sync to MySQL API
-  fetch(`${API_BASE_URL}/login`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ phone: cleanInput, password })
-  }).catch(() => {});
 
   return { success: true, user: found };
 };
