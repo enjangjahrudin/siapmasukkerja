@@ -24,7 +24,10 @@ import {
   AlertTriangle,
   Sun,
   Moon,
-  LogOut
+  LogOut,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Menu
 } from 'lucide-react';
 import { TargetRole } from '../../types';
 import { getStoredUsers, RegisteredUser, saveUser } from '../../utils/auth-storage';
@@ -42,6 +45,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
   const [searchCandidate, setSearchCandidate] = useState<string>('');
   const [selectedRoleFilter, setSelectedRoleFilter] = useState<string>('all');
   const [selectedCandidateModal, setSelectedCandidateModal] = useState<RegisteredUser | null>(null);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
 
   // Live database users
   const [candidates, setCandidates] = useState<RegisteredUser[]>(() => getStoredUsers());
@@ -63,7 +67,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
           setLastSyncTime(new Date().toLocaleTimeString('id-ID'));
         }
       } else {
-        // Fallback to local store
         setCandidates(getStoredUsers());
       }
     } catch (err) {
@@ -114,33 +117,46 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
     }`}>
       
       {/* Top Admin Global Bar */}
-      <header className={`h-16 border-b px-6 flex items-center justify-between sticky top-0 z-40 backdrop-blur-md transition-colors ${
+      <header className={`h-16 border-b px-4 sm:px-6 flex items-center justify-between sticky top-0 z-40 backdrop-blur-md transition-colors ${
         isDark ? 'bg-[#0d1322]/90 border-slate-800/90' : 'bg-white/95 border-slate-200 shadow-xs'
       }`}>
         
-        {/* Left: Brand & Status Indicator */}
-        <div className="flex items-center gap-4">
+        {/* Left: Sidebar Toggle Button & Brand Logo */}
+        <div className="flex items-center gap-3">
+          
+          <button
+            onClick={() => setIsSidebarCollapsed(prev => !prev)}
+            className={`p-2 rounded-xl border transition-colors flex items-center justify-center ${
+              isDark 
+                ? 'bg-slate-800/80 border-slate-700 text-slate-300 hover:text-white hover:bg-slate-700' 
+                : 'bg-slate-100 border-slate-200 text-slate-700 hover:bg-slate-200'
+            }`}
+            title={isSidebarCollapsed ? 'Buka Sidebar Penuh' : 'Sembunyikan Sidebar (Hanya Ikon)'}
+          >
+            {isSidebarCollapsed ? <PanelLeftOpen className="w-4 h-4 text-sky-400" /> : <PanelLeftClose className="w-4 h-4" />}
+          </button>
+
           <AppLogo size="md" isDark={isDark} showText={true} />
 
-          <div className={`hidden md:flex items-center gap-2 pl-4 border-l text-xs ${isDark ? 'border-slate-800' : 'border-slate-200'}`}>
+          <div className={`hidden lg:flex items-center gap-2 pl-4 border-l text-xs ${isDark ? 'border-slate-800' : 'border-slate-200'}`}>
             <span className={`inline-block w-2.5 h-2.5 rounded-full ${serverConnection === 'connected' ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
             <span className={isDark ? 'text-slate-400' : 'text-slate-600'}>
-              Database MySQL: <strong className={serverConnection === 'connected' ? 'text-emerald-500 font-bold' : 'text-amber-500'}>
-                {serverConnection === 'connected' ? 'Terkoneksi Realtime' : 'Cache Lokal'}
+              MySQL: <strong className={serverConnection === 'connected' ? 'text-emerald-500 font-bold' : 'text-amber-500'}>
+                {serverConnection === 'connected' ? 'Live Realtime' : 'Cache'}
               </strong>
             </span>
-            <span className="text-[10px] text-slate-400 font-mono ml-1">({lastSyncTime})</span>
+            <span className="text-[10px] text-slate-400 font-mono ml-0.5">({lastSyncTime})</span>
           </div>
         </div>
 
         {/* Center: Quick Search */}
-        <div className="hidden lg:flex items-center relative w-80">
+        <div className="hidden md:flex items-center relative w-72 lg:w-80">
           <Search className={`w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 ${isDark ? 'text-slate-400' : 'text-slate-500'}`} />
           <input
             type="text"
             value={searchCandidate}
             onChange={(e) => setSearchCandidate(e.target.value)}
-            placeholder="Cari nama, SMK, no WA, atau ID peserta..."
+            placeholder="Cari nama, SMK, no WA, ID..."
             className={`w-full pl-10 pr-4 py-2 rounded-xl text-xs outline-none transition-colors border font-sans ${
               isDark 
                 ? 'bg-slate-900/80 border-slate-800 text-white placeholder-slate-500 focus:border-brand-500' 
@@ -150,7 +166,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
         </div>
 
         {/* Right: Theme Toggle, Switch to User App & Admin Profile */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5">
           
           {/* Theme Toggle Sun / Moon */}
           <button
@@ -167,18 +183,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
 
           <button
             onClick={onSwitchToMobileApp}
-            className="px-3.5 py-2 bg-gradient-to-r from-brand-600 via-sky-500 to-teal-400 hover:from-brand-500 text-slate-950 font-extrabold text-xs rounded-xl shadow-md shadow-brand-500/20 flex items-center gap-2 transition-all transform active:scale-95"
+            className="px-3 py-2 bg-gradient-to-r from-brand-600 via-sky-500 to-teal-400 hover:from-brand-500 text-slate-950 font-extrabold text-xs rounded-xl shadow-md shadow-brand-500/20 flex items-center gap-1.5 transition-all transform active:scale-95"
             title="Buka tampilan smartphone aplikasi pengguna"
           >
             <Smartphone className="w-4 h-4" />
-            <span>Lihat Tampilan HP</span>
+            <span className="hidden sm:inline">Tampilan HP</span>
           </button>
 
-          <div className={`flex items-center gap-2.5 pl-3 border-l ${isDark ? 'border-slate-800' : 'border-slate-200'}`}>
+          <div className={`flex items-center gap-2 pl-2 sm:pl-3 border-l ${isDark ? 'border-slate-800' : 'border-slate-200'}`}>
             <div className="w-8 h-8 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center font-bold text-xs text-amber-400">
               AD
             </div>
-            <div className="hidden sm:block text-left">
+            <div className="hidden xl:block text-left">
               <span className={`text-xs font-bold block leading-tight ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>Super Admin</span>
               <span className="text-[10px] text-slate-500">Divisi Rekrutmen</span>
             </div>
@@ -186,7 +202,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
             {onLogoutAdmin && (
               <button
                 onClick={onLogoutAdmin}
-                className={`p-1.5 rounded-lg border ml-1 transition-colors ${
+                className={`p-1.5 rounded-lg border ml-0.5 transition-colors ${
                   isDark ? 'text-red-400 border-red-900/40 hover:bg-red-950/60' : 'text-red-600 border-red-200 hover:bg-red-50'
                 }`}
                 title="Keluar Admin"
@@ -199,25 +215,29 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
 
       </header>
 
-      {/* Main Admin Workspace with Left-Aligned Sidebar */}
+      {/* Main Admin Workspace with Collapsible Sidebar */}
       <div className="flex-1 flex overflow-hidden">
         
-        {/* Left Sidebar Navigation (Left Aligned Text) */}
-        <aside className={`w-64 border-r flex flex-col justify-between p-4 shrink-0 hidden md:flex transition-colors ${
-          isDark ? 'bg-[#0b101d] border-slate-800/90' : 'bg-white border-slate-200'
-        }`}>
+        {/* Left Collapsible Sidebar Navigation */}
+        <aside className={`border-r flex flex-col justify-between p-3 shrink-0 hidden md:flex transition-all duration-300 ${
+          isSidebarCollapsed ? 'w-20' : 'w-64'
+        } ${isDark ? 'bg-[#0b101d] border-slate-800/90' : 'bg-white border-slate-200'}`}>
           
-          <div className="space-y-6">
+          <div className="space-y-5">
+            
+            {/* Group 1: Monitoring */}
             <div>
-              <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 px-3 block mb-2 text-left">
-                Monitoring & Database
-              </span>
+              {!isSidebarCollapsed && (
+                <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 px-3 block mb-2 text-left">
+                  Monitoring & Database
+                </span>
+              )}
               <nav className="space-y-1">
                 {[
-                  { id: 'overview', label: 'Ringkasan Utama (Overview)', icon: LayoutDashboard, badge: 'Live' },
-                  { id: 'candidates', label: 'Data Peserta & Kelulusan', icon: Users, badge: `${candidateListOnly.length} Siswa` },
-                  { id: 'questions', label: 'Bank Soal & Parameter Tes', icon: Database, badge: '1.000+' },
-                  { id: 'interview-ai', label: 'Log AI Voice Interview', icon: Mic, badge: 'Audio STT' },
+                  { id: 'overview', label: 'Ringkasan Utama', icon: LayoutDashboard, badge: 'Live' },
+                  { id: 'candidates', label: 'Data Peserta & Nilai', icon: Users, badge: `${candidateListOnly.length}` },
+                  { id: 'questions', label: 'Bank Soal 1.000+', icon: Database, badge: '1.000+' },
+                  { id: 'interview-ai', label: 'Log AI Interview', icon: Mic, badge: 'Audio' },
                 ].map((item) => {
                   const Icon = item.icon;
                   const isActive = adminTab === item.id;
@@ -226,7 +246,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
                     <button
                       key={item.id}
                       onClick={() => setAdminTab(item.id as any)}
-                      className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all text-left ${
+                      title={isSidebarCollapsed ? `${item.label} (${item.badge})` : undefined}
+                      className={`w-full flex items-center rounded-xl text-xs font-bold transition-all relative ${
+                        isSidebarCollapsed 
+                          ? 'justify-center p-3' 
+                          : 'justify-between px-3 py-2.5 text-left'
+                      } ${
                         isActive
                           ? isDark 
                             ? 'bg-brand-600/20 text-sky-300 border border-brand-500/40 shadow-xs' 
@@ -236,18 +261,25 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
                             : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
                       }`}
                     >
-                      <div className="flex items-center gap-3 text-left">
+                      <div className={`flex items-center gap-2.5 ${isSidebarCollapsed ? 'justify-center' : 'text-left'}`}>
                         <Icon className={`w-4 h-4 shrink-0 ${isActive ? (isDark ? 'text-sky-400' : 'text-brand-600') : 'text-slate-400'}`} />
-                        <span className="truncate">{item.label}</span>
+                        {!isSidebarCollapsed && <span className="truncate">{item.label}</span>}
                       </div>
-                      {item.badge && (
-                        <span className={`text-[9px] font-mono px-1.5 py-0.2 rounded shrink-0 ml-1 ${
+
+                      {/* Mini Compact Badge (Does not overflow) */}
+                      {!isSidebarCollapsed && item.badge && (
+                        <span className={`text-[9px] font-mono font-black px-1.5 py-0.2 rounded-full shrink-0 ml-1.5 border ${
                           isActive 
-                            ? isDark ? 'bg-brand-500 text-slate-950 font-black' : 'bg-brand-600 text-white font-black' 
-                            : isDark ? 'bg-slate-800 text-slate-400' : 'bg-slate-100 text-slate-600 border border-slate-200'
+                            ? isDark ? 'bg-sky-500/20 text-sky-300 border-sky-500/40' : 'bg-brand-600 text-white border-brand-700' 
+                            : isDark ? 'bg-slate-800 text-slate-400 border-slate-700' : 'bg-slate-100 text-slate-600 border-slate-200'
                         }`}>
                           {item.badge}
                         </span>
+                      )}
+
+                      {/* Dot for collapsed mode */}
+                      {isSidebarCollapsed && (
+                        <span className={`absolute top-2 right-2 w-1.5 h-1.5 rounded-full ${isActive ? 'bg-sky-400' : 'bg-slate-600'}`} />
                       )}
                     </button>
                   );
@@ -255,14 +287,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
               </nav>
             </div>
 
+            {/* Group 2: Business & System */}
             <div>
-              <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 px-3 block mb-2 text-left">
-                Bisnis & Server
-              </span>
+              {!isSidebarCollapsed && (
+                <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 px-3 block mb-2 text-left">
+                  Bisnis & Server
+                </span>
+              )}
               <nav className="space-y-1">
                 {[
-                  { id: 'finance', label: 'Transaksi & Token AI', icon: CreditCard, badge: 'QRIS' },
-                  { id: 'system', label: 'AI Latency & Server Health', icon: Activity, badge: '98ms' },
+                  { id: 'finance', label: 'Transaksi & Token', icon: CreditCard, badge: 'QRIS' },
+                  { id: 'system', label: 'Server & Latency', icon: Activity, badge: '98ms' },
                 ].map((item) => {
                   const Icon = item.icon;
                   const isActive = adminTab === item.id;
@@ -271,7 +306,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
                     <button
                       key={item.id}
                       onClick={() => setAdminTab(item.id as any)}
-                      className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all text-left ${
+                      title={isSidebarCollapsed ? `${item.label} (${item.badge})` : undefined}
+                      className={`w-full flex items-center rounded-xl text-xs font-bold transition-all relative ${
+                        isSidebarCollapsed 
+                          ? 'justify-center p-3' 
+                          : 'justify-between px-3 py-2.5 text-left'
+                      } ${
                         isActive
                           ? isDark 
                             ? 'bg-brand-600/20 text-sky-300 border border-brand-500/40' 
@@ -281,16 +321,23 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
                             : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
                       }`}
                     >
-                      <div className="flex items-center gap-3 text-left">
+                      <div className={`flex items-center gap-2.5 ${isSidebarCollapsed ? 'justify-center' : 'text-left'}`}>
                         <Icon className={`w-4 h-4 shrink-0 ${isActive ? (isDark ? 'text-sky-400' : 'text-brand-600') : 'text-slate-400'}`} />
-                        <span className="truncate">{item.label}</span>
+                        {!isSidebarCollapsed && <span className="truncate">{item.label}</span>}
                       </div>
-                      {item.badge && (
-                        <span className={`text-[9px] font-mono px-1.5 py-0.2 rounded shrink-0 ml-1 ${
-                          isDark ? 'bg-slate-800 text-slate-400' : 'bg-slate-100 text-slate-600 border border-slate-200'
+
+                      {/* Mini Compact Badge */}
+                      {!isSidebarCollapsed && item.badge && (
+                        <span className={`text-[9px] font-mono font-black px-1.5 py-0.2 rounded-full shrink-0 ml-1.5 border ${
+                          isDark ? 'bg-slate-800 text-slate-400 border-slate-700' : 'bg-slate-100 text-slate-600 border-slate-200'
                         }`}>
                           {item.badge}
                         </span>
+                      )}
+
+                      {/* Dot for collapsed mode */}
+                      {isSidebarCollapsed && (
+                        <span className={`absolute top-2 right-2 w-1.5 h-1.5 rounded-full ${isActive ? 'bg-sky-400' : 'bg-slate-600'}`} />
                       )}
                     </button>
                   );
@@ -299,24 +346,32 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
             </div>
           </div>
 
-          {/* Quick Info Box */}
-          <div className={`border rounded-2xl p-3.5 space-y-2 text-left transition-colors ${
-            isDark ? 'bg-slate-900/80 border-slate-800' : 'bg-slate-50 border-slate-200'
-          }`}>
-            <div className="flex items-center justify-between text-[11px]">
-              <span className="text-slate-400">Total Terdaftar:</span>
-              <strong className="text-emerald-500 font-mono font-bold">{candidateListOnly.length} Siswa</strong>
+          {/* Quick Info Box / Footer Toggle */}
+          {!isSidebarCollapsed ? (
+            <div className={`border rounded-2xl p-3 space-y-1.5 text-left transition-colors ${
+              isDark ? 'bg-slate-900/80 border-slate-800' : 'bg-slate-50 border-slate-200'
+            }`}>
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="text-slate-400">Terdaftar:</span>
+                <strong className="text-emerald-500 font-mono font-bold">{candidateListOnly.length} Siswa</strong>
+              </div>
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="text-slate-400">Database:</span>
+                <strong className="text-sky-500 font-bold">MySQL Live</strong>
+              </div>
             </div>
-            <div className="flex items-center justify-between text-[11px]">
-              <span className="text-slate-400">Sinkronisasi:</span>
-              <strong className="text-sky-500">Live MySQL</strong>
+          ) : (
+            <div className="text-center">
+              <span className="text-[10px] font-mono font-bold text-emerald-500 bg-emerald-500/10 py-1 px-1.5 rounded-lg block">
+                {candidateListOnly.length}
+              </span>
             </div>
-          </div>
+          )}
 
         </aside>
 
         {/* Right Main Content Area */}
-        <main className="flex-1 overflow-y-auto p-6 sm:p-8 space-y-6">
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-6">
           
           {/* TAB 1: OVERVIEW & REAL-TIME OPS */}
           {adminTab === 'overview' && (
