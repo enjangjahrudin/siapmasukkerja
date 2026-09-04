@@ -28,7 +28,10 @@ import {
   RegisteredUser 
 } from './utils/auth-storage';
 
+import { useTheme } from './utils/theme-context';
+
 export const App: React.FC = () => {
+  const { isDark } = useTheme();
   // Check persisted session on startup
   const [currentUser, setCurrentUser] = useState<RegisteredUser | null>(() => getActiveSession());
   
@@ -162,10 +165,14 @@ export const App: React.FC = () => {
   const userNameString: string = currentUser?.name || 'Peserta SMK';
 
   return (
-    <div className="min-h-screen bg-slate-950 flex justify-center items-center sm:py-4">
+    <div className={`min-h-screen flex justify-center items-center sm:py-4 transition-colors duration-200 ${
+      isDark ? 'bg-slate-950' : 'bg-slate-200'
+    }`}>
       
       {/* Smartphone Frame Container */}
-      <div className="w-full max-w-md h-screen sm:h-[90vh] sm:max-h-[860px] bg-slate-50 sm:rounded-[36px] shadow-2xl overflow-hidden flex flex-col justify-between relative border border-slate-800/20">
+      <div className={`w-full max-w-md h-screen sm:h-[90vh] sm:max-h-[860px] sm:rounded-[36px] shadow-2xl overflow-hidden flex flex-col justify-between relative border transition-colors duration-200 ${
+        isDark ? 'bg-slate-900 border-slate-800' : 'bg-slate-50 border-slate-300'
+      }`}>
         
         {/* Mobile Top Header Bar */}
         <MobileTopBar
@@ -187,7 +194,9 @@ export const App: React.FC = () => {
         />
 
         {/* Scrollable / Flexible Mobile Viewport */}
-        <main className="flex-1 overflow-y-auto relative bg-slate-50 flex flex-col">
+        <main className={`flex-1 overflow-y-auto relative flex flex-col transition-colors duration-200 ${
+          isDark ? 'bg-slate-900 text-white' : 'bg-slate-50 text-slate-900'
+        }`}>
           
           {/* Sub Views (Running tests) */}
           {activeSubView === 'kraepelin' && (
