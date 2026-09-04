@@ -448,7 +448,8 @@ export const loginUser = async (
   // Super Admin Login
   if (cleanInput === 'admin' || cleanInput === '080000000000' || cleanInput === 'admin@buatdigital.id') {
     const adminUser = users.find(u => u.isAdmin) || initialDefaultUsers.find(u => u.isAdmin)!;
-    if (password && password !== 'admin' && password !== 'admin123' && password !== adminUser.password) {
+    const expectedPassword = adminUser.password || 'admin';
+    if (!password || password !== expectedPassword) {
       return { success: false, message: 'Kata sandi Admin salah. Silakan periksa kembali.' };
     }
     setActiveSession(adminUser);

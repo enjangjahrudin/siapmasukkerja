@@ -466,7 +466,8 @@ app.post('/api/login', async (req, res) => {
         is_admin: 1
       };
 
-      if (password && password !== 'admin' && password !== 'admin123' && password !== admin.password) {
+      const expectedPassword = admin.password || 'admin';
+      if (!password || password !== expectedPassword) {
         return res.status(401).json({ success: false, message: 'Kata sandi Admin salah. Silakan periksa kembali.' });
       }
 
