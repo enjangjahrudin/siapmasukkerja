@@ -21,10 +21,15 @@ import {
   Plus,
   Trash2,
   CheckCircle2,
-  AlertTriangle
+  AlertTriangle,
+  Sun,
+  Moon,
+  LogOut
 } from 'lucide-react';
 import { TargetRole } from '../../types';
 import { getStoredUsers, RegisteredUser, saveUser } from '../../utils/auth-storage';
+import { useTheme } from '../../utils/theme-context';
+import { AppLogo } from '../common/AppLogo';
 
 interface AdminDashboardProps {
   onSwitchToMobileApp: () => void;
@@ -32,6 +37,7 @@ interface AdminDashboardProps {
 }
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobileApp, onLogoutAdmin }) => {
+  const { isDark, toggleTheme } = useTheme();
   const [adminTab, setAdminTab] = useState<'overview' | 'candidates' | 'questions' | 'interview-ai' | 'finance' | 'system'>('overview');
   const [searchCandidate, setSearchCandidate] = useState<string>('');
   const [selectedRoleFilter, setSelectedRoleFilter] = useState<string>('all');
@@ -39,14 +45,41 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
 
   // Live database users
   const [candidates, setCandidates] = useState<RegisteredUser[]>(() => getStoredUsers());
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [lastSyncTime, setLastSyncTime] = useState<string>('Baru saja');
+  const [serverConnection, setServerConnection] = useState<'connected' | 'offline'>('connected');
 
-  const refreshCandidates = () => {
-    setCandidates(getStoredUsers());
+  // Fetch live candidates directly from MySQL Backend REST API
+  const fetchLiveCandidates = async () => {
+    setIsLoading(true);
+    try {
+      const res = await fetch('/api/users');
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && Array.isArray(json.data)) {
+          setCandidates(json.data);
+          localStorage.setItem('siapkerja_users_database', JSON.stringify(json.data));
+          setServerConnection('connected');
+          setLastSyncTime(new Date().toLocaleTimeString('id-ID'));
+        }
+      } else {
+        // Fallback to local store
+        setCandidates(getStoredUsers());
+      }
+    } catch (err) {
+      setCandidates(getStoredUsers());
+      setServerConnection('offline');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   useEffect(() => {
-    refreshCandidates();
-  }, [adminTab]);
+    fetchLiveCandidates();
+    // Auto-refresh poll every 8 seconds for live monitoring
+    const interval = setInterval(fetchLiveCandidates, 8000);
+    return () => clearInterval(interval);
+  }, []);
 
   const candidateListOnly = candidates.filter(c => !c.isAdmin);
 
@@ -60,8 +93,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
     return matchRole && matchSearch;
   });
 
-  const handleDeleteCandidate = (id: string) => {
-    if (window.confirm('Apakah Anda yakin ingin menghapus data peserta ini?')) {
+  const handleDeleteCandidate = async (id: string) => {
+    if (window.confirm('Apakah Anda yakin ingin menghapus data peserta ini dari database?')) {
+      try {
+        await fetch(`/api/users/${id}`, { method: 'DELETE' });
+      } catch (e) {}
+
       const updated = candidates.filter(c => c.id !== id);
       localStorage.setItem('siapkerja_users_database', JSON.stringify(updated));
       setCandidates(updated);
@@ -72,84 +109,108 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
   };
 
   return (
-    <div className="min-h-screen bg-[#090d16] text-slate-100 flex flex-col font-sans selection:bg-brand-500 selection:text-white">
+    <div className={`min-h-screen flex flex-col font-sans transition-colors duration-200 ${
+      isDark ? 'bg-[#090d16] text-slate-100' : 'bg-slate-100 text-slate-900'
+    }`}>
       
       {/* Top Admin Global Bar */}
-      <header className="h-16 border-b border-slate-800/90 bg-[#0d1322]/90 backdrop-blur-md px-6 flex items-center justify-between sticky top-0 z-40">
+      <header className={`h-16 border-b px-6 flex items-center justify-between sticky top-0 z-40 backdrop-blur-md transition-colors ${
+        isDark ? 'bg-[#0d1322]/90 border-slate-800/90' : 'bg-white/95 border-slate-200 shadow-xs'
+      }`}>
         
         {/* Left: Brand & Status Indicator */}
         <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-brand-600 via-sky-500 to-teal-400 flex items-center justify-center font-black text-slate-950 text-base shadow-md shadow-brand-500/20">
-              SMK
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="font-extrabold text-base tracking-tight text-white">
-                  SMK — Siap Masuk Kerja
-                </span>
-                <span className="text-[10px] font-black uppercase tracking-wider bg-brand-500/20 text-sky-400 px-2 py-0.5 rounded border border-brand-500/30">
-                  Command Center
-                </span>
-              </div>
-              <span className="text-[10px] text-slate-400 font-mono">
-                Database Terhubung Live • v2.8
-              </span>
-            </div>
-          </div>
+          <AppLogo size="md" isDark={isDark} showText={true} />
 
-          <div className="hidden md:flex items-center gap-2 pl-4 border-l border-slate-800 text-xs">
-            <span className="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            <span className="text-slate-400 font-medium">Server Status: <strong className="text-emerald-400">Terkoneksi Realtime</strong></span>
+          <div className={`hidden md:flex items-center gap-2 pl-4 border-l text-xs ${isDark ? 'border-slate-800' : 'border-slate-200'}`}>
+            <span className={`inline-block w-2.5 h-2.5 rounded-full ${serverConnection === 'connected' ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
+            <span className={isDark ? 'text-slate-400' : 'text-slate-600'}>
+              Database MySQL: <strong className={serverConnection === 'connected' ? 'text-emerald-500 font-bold' : 'text-amber-500'}>
+                {serverConnection === 'connected' ? 'Terkoneksi Realtime' : 'Cache Lokal'}
+              </strong>
+            </span>
+            <span className="text-[10px] text-slate-400 font-mono ml-1">({lastSyncTime})</span>
           </div>
         </div>
 
         {/* Center: Quick Search */}
         <div className="hidden lg:flex items-center relative w-80">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+          <Search className={`w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 ${isDark ? 'text-slate-400' : 'text-slate-500'}`} />
           <input
             type="text"
             value={searchCandidate}
             onChange={(e) => setSearchCandidate(e.target.value)}
             placeholder="Cari nama, SMK, no WA, atau ID peserta..."
-            className="w-full pl-10 pr-4 py-2 bg-slate-900/80 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500 focus:bg-slate-900 focus:border-brand-500 outline-none transition-all font-sans"
+            className={`w-full pl-10 pr-4 py-2 rounded-xl text-xs outline-none transition-colors border font-sans ${
+              isDark 
+                ? 'bg-slate-900/80 border-slate-800 text-white placeholder-slate-500 focus:border-brand-500' 
+                : 'bg-slate-50 border-slate-300 text-slate-900 placeholder-slate-400 focus:border-brand-600 shadow-xs'
+            }`}
           />
         </div>
 
-        {/* Right: Switch to User App & Admin Profile */}
+        {/* Right: Theme Toggle, Switch to User App & Admin Profile */}
         <div className="flex items-center gap-3">
+          
+          {/* Theme Toggle Sun / Moon */}
+          <button
+            onClick={toggleTheme}
+            className={`p-2 rounded-xl border transition-colors flex items-center justify-center ${
+              isDark 
+                ? 'bg-slate-800 border-slate-700 text-amber-300 hover:bg-slate-750' 
+                : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100 shadow-xs'
+            }`}
+            title={isDark ? 'Beralih ke Mode Terang (Light Mode)' : 'Beralih ke Mode Gelap (Dark Mode)'}
+          >
+            {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+          </button>
+
           <button
             onClick={onSwitchToMobileApp}
-            className="px-3.5 py-2 bg-gradient-to-r from-brand-600 to-sky-500 hover:from-brand-500 hover:to-sky-400 text-slate-950 font-extrabold text-xs rounded-xl shadow-md shadow-brand-500/20 flex items-center gap-2 transition-all transform active:scale-95"
+            className="px-3.5 py-2 bg-gradient-to-r from-brand-600 via-sky-500 to-teal-400 hover:from-brand-500 text-slate-950 font-extrabold text-xs rounded-xl shadow-md shadow-brand-500/20 flex items-center gap-2 transition-all transform active:scale-95"
             title="Buka tampilan smartphone aplikasi pengguna"
           >
             <Smartphone className="w-4 h-4" />
-            <span>Lihat Tampilan HP (User View)</span>
+            <span>Lihat Tampilan HP</span>
           </button>
 
-          <div className="flex items-center gap-2.5 pl-3 border-l border-slate-800">
+          <div className={`flex items-center gap-2.5 pl-3 border-l ${isDark ? 'border-slate-800' : 'border-slate-200'}`}>
             <div className="w-8 h-8 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center font-bold text-xs text-amber-400">
               AD
             </div>
             <div className="hidden sm:block text-left">
-              <span className="text-xs font-bold text-slate-200 block leading-tight">Super Admin</span>
+              <span className={`text-xs font-bold block leading-tight ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>Super Admin</span>
               <span className="text-[10px] text-slate-500">Divisi Rekrutmen</span>
             </div>
+
+            {onLogoutAdmin && (
+              <button
+                onClick={onLogoutAdmin}
+                className={`p-1.5 rounded-lg border ml-1 transition-colors ${
+                  isDark ? 'text-red-400 border-red-900/40 hover:bg-red-950/60' : 'text-red-600 border-red-200 hover:bg-red-50'
+                }`}
+                title="Keluar Admin"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
         </div>
 
       </header>
 
-      {/* Main Admin Workspace with Sidebar */}
+      {/* Main Admin Workspace with Left-Aligned Sidebar */}
       <div className="flex-1 flex overflow-hidden">
         
-        {/* Left Sidebar Navigation */}
-        <aside className="w-64 border-r border-slate-800/90 bg-[#0b101d] flex flex-col justify-between p-4 shrink-0 hidden md:flex">
+        {/* Left Sidebar Navigation (Left Aligned Text) */}
+        <aside className={`w-64 border-r flex flex-col justify-between p-4 shrink-0 hidden md:flex transition-colors ${
+          isDark ? 'bg-[#0b101d] border-slate-800/90' : 'bg-white border-slate-200'
+        }`}>
           
           <div className="space-y-6">
             <div>
-              <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 px-3 block mb-2">
-                Monitoring & Database Peserta
+              <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 px-3 block mb-2 text-left">
+                Monitoring & Database
               </span>
               <nav className="space-y-1">
                 {[
@@ -165,19 +226,25 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
                     <button
                       key={item.id}
                       onClick={() => setAdminTab(item.id as any)}
-                      className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${
+                      className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all text-left ${
                         isActive
-                          ? 'bg-brand-600/20 text-sky-300 border border-brand-500/40 shadow-xs'
-                          : 'text-slate-400 hover:text-slate-200 hover:bg-slate-850'
+                          ? isDark 
+                            ? 'bg-brand-600/20 text-sky-300 border border-brand-500/40 shadow-xs' 
+                            : 'bg-brand-50 text-brand-900 border border-brand-300 shadow-xs font-black'
+                          : isDark 
+                            ? 'text-slate-400 hover:text-slate-200 hover:bg-slate-850' 
+                            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
                       }`}
                     >
-                      <div className="flex items-center gap-2.5">
-                        <Icon className={`w-4 h-4 ${isActive ? 'text-sky-400' : 'text-slate-400'}`} />
-                        <span>{item.label}</span>
+                      <div className="flex items-center gap-3 text-left">
+                        <Icon className={`w-4 h-4 shrink-0 ${isActive ? (isDark ? 'text-sky-400' : 'text-brand-600') : 'text-slate-400'}`} />
+                        <span className="truncate">{item.label}</span>
                       </div>
                       {item.badge && (
-                        <span className={`text-[9px] font-mono px-1.5 py-0.2 rounded ${
-                          isActive ? 'bg-brand-500 text-slate-950 font-black' : 'bg-slate-800 text-slate-400'
+                        <span className={`text-[9px] font-mono px-1.5 py-0.2 rounded shrink-0 ml-1 ${
+                          isActive 
+                            ? isDark ? 'bg-brand-500 text-slate-950 font-black' : 'bg-brand-600 text-white font-black' 
+                            : isDark ? 'bg-slate-800 text-slate-400' : 'bg-slate-100 text-slate-600 border border-slate-200'
                         }`}>
                           {item.badge}
                         </span>
@@ -189,8 +256,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
             </div>
 
             <div>
-              <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 px-3 block mb-2">
-                Bisnis & Sistem
+              <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 px-3 block mb-2 text-left">
+                Bisnis & Server
               </span>
               <nav className="space-y-1">
                 {[
@@ -204,18 +271,24 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
                     <button
                       key={item.id}
                       onClick={() => setAdminTab(item.id as any)}
-                      className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${
+                      className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all text-left ${
                         isActive
-                          ? 'bg-brand-600/20 text-sky-300 border border-brand-500/40'
-                          : 'text-slate-400 hover:text-slate-200 hover:bg-slate-850'
+                          ? isDark 
+                            ? 'bg-brand-600/20 text-sky-300 border border-brand-500/40' 
+                            : 'bg-brand-50 text-brand-900 border border-brand-300'
+                          : isDark 
+                            ? 'text-slate-400 hover:text-slate-200 hover:bg-slate-850' 
+                            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
                       }`}
                     >
-                      <div className="flex items-center gap-2.5">
-                        <Icon className={`w-4 h-4 ${isActive ? 'text-sky-400' : 'text-slate-400'}`} />
-                        <span>{item.label}</span>
+                      <div className="flex items-center gap-3 text-left">
+                        <Icon className={`w-4 h-4 shrink-0 ${isActive ? (isDark ? 'text-sky-400' : 'text-brand-600') : 'text-slate-400'}`} />
+                        <span className="truncate">{item.label}</span>
                       </div>
                       {item.badge && (
-                        <span className="text-[9px] font-mono bg-slate-800 text-slate-400 px-1.5 py-0.2 rounded">
+                        <span className={`text-[9px] font-mono px-1.5 py-0.2 rounded shrink-0 ml-1 ${
+                          isDark ? 'bg-slate-800 text-slate-400' : 'bg-slate-100 text-slate-600 border border-slate-200'
+                        }`}>
                           {item.badge}
                         </span>
                       )}
@@ -227,14 +300,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
           </div>
 
           {/* Quick Info Box */}
-          <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-3.5 space-y-2">
+          <div className={`border rounded-2xl p-3.5 space-y-2 text-left transition-colors ${
+            isDark ? 'bg-slate-900/80 border-slate-800' : 'bg-slate-50 border-slate-200'
+          }`}>
             <div className="flex items-center justify-between text-[11px]">
               <span className="text-slate-400">Total Terdaftar:</span>
-              <strong className="text-emerald-400 font-mono">{candidateListOnly.length} Siswa</strong>
+              <strong className="text-emerald-500 font-mono font-bold">{candidateListOnly.length} Siswa</strong>
             </div>
             <div className="flex items-center justify-between text-[11px]">
-              <span className="text-slate-400">Mode Sinkronisasi:</span>
-              <strong className="text-sky-300">Otomatis Live</strong>
+              <span className="text-slate-400">Sinkronisasi:</span>
+              <strong className="text-sky-500">Live MySQL</strong>
             </div>
           </div>
 
@@ -250,22 +325,27 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
               {/* Header Info */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                  <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight">
+                  <h1 className={`text-xl sm:text-2xl font-black tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>
                     Dashboard Operasional & Pemantauan Pengguna
                   </h1>
-                  <p className="text-xs text-slate-400 mt-1">
+                  <p className={`text-xs mt-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
                     Data real-time aktivitas pengerjaan tes, psikotes koran, akurasi QC, dan sesi interview AI kandidat SMK / SMA.
                   </p>
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-slate-400 font-mono">Data Terkoneksi: <strong>Live Database</strong></span>
                   <button 
-                    onClick={refreshCandidates}
-                    className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl transition-colors"
-                    title="Segarkan Data Peserta"
+                    onClick={fetchLiveCandidates}
+                    disabled={isLoading}
+                    className={`px-3 py-2 rounded-xl text-xs font-bold border transition-colors flex items-center gap-1.5 ${
+                      isDark 
+                        ? 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700' 
+                        : 'bg-white hover:bg-slate-100 text-slate-700 border-slate-300 shadow-xs'
+                    }`}
+                    title="Segarkan Data Peserta dari MySQL"
                   >
-                    <RefreshCw className="w-4 h-4" />
+                    <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin text-sky-400' : ''}`} />
+                    <span>{isLoading ? 'Menyinkronkan...' : 'Refresh MySQL'}</span>
                   </button>
                 </div>
               </div>
@@ -274,102 +354,118 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 
                 {/* KPI 1 */}
-                <div className="bg-[#0f172a] border border-slate-800/90 rounded-2xl p-5 shadow-xs">
+                <div className={`border rounded-2xl p-5 shadow-xs transition-colors ${
+                  isDark ? 'bg-[#0f172a] border-slate-800/90' : 'bg-white border-slate-200'
+                }`}>
                   <div className="flex items-center justify-between">
                     <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
                       Peserta Terdaftar
                     </span>
-                    <div className="w-8 h-8 rounded-xl bg-brand-500/10 text-sky-400 flex items-center justify-center">
+                    <div className="w-8 h-8 rounded-xl bg-brand-500/15 text-sky-500 flex items-center justify-center">
                       <Users className="w-4 h-4" />
                     </div>
                   </div>
                   <div className="mt-3 flex items-baseline gap-2">
-                    <span className="text-2xl font-black font-mono text-white">{candidateListOnly.length}</span>
-                    <span className="text-[11px] font-bold text-emerald-400 flex items-center gap-0.5">
+                    <span className={`text-2xl font-black font-mono ${isDark ? 'text-white' : 'text-slate-900'}`}>{candidateListOnly.length}</span>
+                    <span className="text-[11px] font-bold text-emerald-500 flex items-center gap-0.5">
                       <ArrowUpRight className="w-3.5 h-3.5" /> Aktif
                     </span>
                   </div>
-                  <span className="text-[10px] text-slate-500 mt-1 block">Tersinkronisasi dari registrasi pengguna</span>
+                  <span className="text-[10px] text-slate-400 mt-1 block">Tersimpan di MySQL VPS</span>
                 </div>
 
                 {/* KPI 2 */}
-                <div className="bg-[#0f172a] border border-slate-800/90 rounded-2xl p-5 shadow-xs">
+                <div className={`border rounded-2xl p-5 shadow-xs transition-colors ${
+                  isDark ? 'bg-[#0f172a] border-slate-800/90' : 'bg-white border-slate-200'
+                }`}>
                   <div className="flex items-center justify-between">
                     <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
                       Sesi Tes Kraepelin
                     </span>
-                    <div className="w-8 h-8 rounded-xl bg-sky-500/10 text-sky-400 flex items-center justify-center">
+                    <div className="w-8 h-8 rounded-xl bg-sky-500/15 text-sky-500 flex items-center justify-center">
                       <Layers className="w-4 h-4" />
                     </div>
                   </div>
                   <div className="mt-3 flex items-baseline gap-2">
-                    <span className="text-2xl font-black font-mono text-white">
+                    <span className={`text-2xl font-black font-mono ${isDark ? 'text-white' : 'text-slate-900'}`}>
                       {candidateListOnly.reduce((acc, c) => acc + (c.completedTestsCount || 1), 0) * 3}
                     </span>
-                    <span className="text-[11px] font-bold text-emerald-400 flex items-center gap-0.5">
+                    <span className="text-[11px] font-bold text-emerald-500 flex items-center gap-0.5">
                       <ArrowUpRight className="w-3.5 h-3.5" /> +24%
                     </span>
                   </div>
-                  <span className="text-[10px] text-slate-500 mt-1 block">Rata-rata Panker: 16.2 baris/kolom</span>
+                  <span className="text-[10px] text-slate-400 mt-1 block">Rata-rata Panker: 16.2 baris/kolom</span>
                 </div>
 
                 {/* KPI 3 */}
-                <div className="bg-[#0f172a] border border-slate-800/90 rounded-2xl p-5 shadow-xs">
+                <div className={`border rounded-2xl p-5 shadow-xs transition-colors ${
+                  isDark ? 'bg-[#0f172a] border-slate-800/90' : 'bg-white border-slate-200'
+                }`}>
                   <div className="flex items-center justify-between">
                     <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
                       Simulasi AI Interview
                     </span>
-                    <div className="w-8 h-8 rounded-xl bg-purple-500/10 text-purple-400 flex items-center justify-center">
+                    <div className="w-8 h-8 rounded-xl bg-purple-500/15 text-purple-500 flex items-center justify-center">
                       <Mic className="w-4 h-4" />
                     </div>
                   </div>
                   <div className="mt-3 flex items-baseline gap-2">
-                    <span className="text-2xl font-black font-mono text-purple-300">
+                    <span className="text-2xl font-black font-mono text-purple-500">
                       {candidateListOnly.length * 2} Sesi
                     </span>
-                    <span className="text-[11px] font-bold text-emerald-400 flex items-center gap-0.5">
+                    <span className="text-[11px] font-bold text-emerald-500 flex items-center gap-0.5">
                       <ArrowUpRight className="w-3.5 h-3.5" /> +32%
                     </span>
                   </div>
-                  <span className="text-[10px] text-slate-500 mt-1 block">Rata-rata Prediksi Diterima: 86.4%</span>
+                  <span className="text-[10px] text-slate-400 mt-1 block">Rata-rata Prediksi Diterima: 86.4%</span>
                 </div>
 
                 {/* KPI 4 */}
-                <div className="bg-[#0f172a] border border-slate-800/90 rounded-2xl p-5 shadow-xs">
+                <div className={`border rounded-2xl p-5 shadow-xs transition-colors ${
+                  isDark ? 'bg-[#0f172a] border-slate-800/90' : 'bg-white border-slate-200'
+                }`}>
                   <div className="flex items-center justify-between">
                     <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
                       Tingkat Kelulusan Standar
                     </span>
-                    <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center">
+                    <div className="w-8 h-8 rounded-xl bg-emerald-500/15 text-emerald-500 flex items-center justify-center">
                       <ShieldCheck className="w-4 h-4" />
                     </div>
                   </div>
                   <div className="mt-3 flex items-baseline gap-2">
-                    <span className="text-2xl font-black font-mono text-emerald-400">78.5%</span>
-                    <span className="text-[11px] font-bold text-emerald-400 flex items-center gap-0.5">
+                    <span className="text-2xl font-black font-mono text-emerald-500">78.5%</span>
+                    <span className="text-[11px] font-bold text-emerald-500 flex items-center gap-0.5">
                       <ArrowUpRight className="w-3.5 h-3.5" /> +6.1%
                     </span>
                   </div>
-                  <span className="text-[10px] text-slate-500 mt-1 block">Standar Kelulusan PT Astra / Epson</span>
+                  <span className="text-[10px] text-slate-400 mt-1 block">Standar Kelulusan PT Astra / Epson</span>
                 </div>
 
               </div>
 
               {/* Candidates Performance Table */}
-              <div className="bg-[#0f172a] border border-slate-800 rounded-2xl p-5 shadow-xs space-y-4">
+              <div className={`border rounded-2xl p-5 shadow-xs space-y-4 transition-colors ${
+                isDark ? 'bg-[#0f172a] border-slate-800' : 'bg-white border-slate-200'
+              }`}>
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div>
-                    <h3 className="text-sm font-extrabold text-white">
+                    <h3 className={`text-sm font-extrabold ${isDark ? 'text-white' : 'text-slate-900'}`}>
                       Daftar Peserta Terdaftar & Rapor Nilai
                     </h3>
-                    <p className="text-xs text-slate-400">Data terhubung langsung dengan akun siswa yang mendaftar.</p>
+                    <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                      Data terhubung langsung dengan akun siswa di database MySQL VPS.
+                    </p>
                   </div>
 
                   <div className="flex items-center gap-2">
                     <select
                       value={selectedRoleFilter}
                       onChange={(e) => setSelectedRoleFilter(e.target.value)}
-                      className="bg-slate-900 text-xs font-bold text-slate-200 border border-slate-700 rounded-xl px-3 py-1.5 outline-none"
+                      className={`text-xs font-bold rounded-xl px-3 py-1.5 outline-none border transition-colors ${
+                        isDark 
+                          ? 'bg-slate-900 text-slate-200 border-slate-700' 
+                          : 'bg-slate-50 text-slate-800 border-slate-300'
+                      }`}
                     >
                       <option value="all">Semua Posisi</option>
                       <option value="operator">Operator Produksi</option>
@@ -379,11 +475,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
                     </select>
 
                     <button
-                      onClick={refreshCandidates}
-                      className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-xl flex items-center gap-1"
+                      onClick={fetchLiveCandidates}
+                      disabled={isLoading}
+                      className={`px-3 py-1.5 text-xs font-bold rounded-xl border flex items-center gap-1 transition-colors ${
+                        isDark 
+                          ? 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700' 
+                          : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-300'
+                      }`}
                     >
-                      <RefreshCw className="w-3.5 h-3.5" />
-                      <span>Refresh</span>
+                      <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
+                      <span>Sync</span>
                     </button>
                   </div>
                 </div>
@@ -391,7 +492,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-xs">
                     <thead>
-                      <tr className="border-b border-slate-800 text-slate-400 font-bold uppercase text-[10px]">
+                      <tr className={`border-b text-slate-400 font-bold uppercase text-[10px] ${isDark ? 'border-slate-800' : 'border-slate-200'}`}>
                         <th className="pb-3 pl-2">Peserta & Kontak</th>
                         <th className="pb-3">Asal Sekolah & Jurusan</th>
                         <th className="pb-3">Target Posisi</th>
@@ -402,38 +503,38 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
                         <th className="pb-3 pr-2 text-right">Aksi</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-800/60 font-medium">
+                    <tbody className={`divide-y font-medium ${isDark ? 'divide-slate-800/60' : 'divide-slate-100'}`}>
                       {filteredCandidates.map((cand) => (
-                        <tr key={cand.id} className="hover:bg-slate-850/60 transition-colors">
+                        <tr key={cand.id} className={`transition-colors ${isDark ? 'hover:bg-slate-850/60' : 'hover:bg-slate-50'}`}>
                           <td className="py-3.5 pl-2">
-                            <div className="font-bold text-white text-xs">{cand.name}</div>
-                            <div className="text-[10px] text-sky-400 font-mono">{cand.phone || cand.id}</div>
+                            <div className={`font-bold text-xs ${isDark ? 'text-white' : 'text-slate-900'}`}>{cand.name}</div>
+                            <div className="text-[10px] text-sky-500 font-mono">{cand.phone || cand.id}</div>
                           </td>
                           <td className="py-3.5">
-                            <span className="text-slate-200 block">{cand.school}</span>
+                            <span className={`block font-semibold ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>{cand.school}</span>
                             <span className="text-[10px] text-slate-400">{cand.major}</span>
                           </td>
                           <td className="py-3.5">
-                            <span className="capitalize text-slate-300 font-semibold">{cand.targetRole}</span>
-                            <span className="block text-[10px] text-slate-500">{cand.targetCompany}</span>
+                            <span className={`capitalize font-semibold ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>{cand.targetRole}</span>
+                            <span className="block text-[10px] text-slate-400">{cand.targetCompany}</span>
                           </td>
                           <td className="py-3.5 font-mono">
-                            <span className="text-sky-300 font-bold">{cand.kraepelinScore?.panker || '-'}</span>
+                            <span className="text-sky-500 font-bold">{cand.kraepelinScore?.panker || '-'}</span>
                             <span className="text-[10px] text-slate-400 block">{cand.kraepelinScore?.janker ? `${cand.kraepelinScore.janker}% akurat` : 'Belum tes'}</span>
                           </td>
                           <td className="py-3.5 font-mono">
-                            <span className="text-emerald-400 font-bold">{cand.qcAccuracy ? `${cand.qcAccuracy}%` : '-'}</span>
+                            <span className="text-emerald-500 font-bold">{cand.qcAccuracy ? `${cand.qcAccuracy}%` : '-'}</span>
                           </td>
                           <td className="py-3.5 font-mono">
-                            <span className="text-purple-300 font-bold">{cand.interviewScore ? `${cand.interviewScore}%` : '-'}</span>
+                            <span className="text-purple-500 font-bold">{cand.interviewScore ? `${cand.interviewScore}%` : '-'}</span>
                           </td>
                           <td className="py-3.5">
                             <span className={`text-[10px] font-black px-2 py-0.5 rounded-md ${
                               cand.overallStatus === 'Lolos Unggul'
-                                ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                                ? 'bg-emerald-500/20 text-emerald-500 border border-emerald-500/30'
                                 : cand.overallStatus === 'Lolos Standar'
-                                ? 'bg-blue-500/20 text-sky-400 border border-blue-500/30'
-                                : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                                ? 'bg-blue-500/20 text-sky-500 border border-blue-500/30'
+                                : 'bg-amber-500/20 text-amber-500 border border-amber-500/30'
                             }`}>
                               {cand.overallStatus}
                             </span>
@@ -442,14 +543,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
                             <div className="flex items-center justify-end gap-1.5">
                               <button
                                 onClick={() => setSelectedCandidateModal(cand)}
-                                className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors"
+                                className={`p-1.5 rounded-lg border transition-colors ${
+                                  isDark ? 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700' : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200'
+                                }`}
                                 title="Lihat Rapor Lengkap"
                               >
                                 <Eye className="w-3.5 h-3.5" />
                               </button>
                               <button
                                 onClick={() => handleDeleteCandidate(cand.id)}
-                                className="p-1.5 rounded-lg bg-red-950/60 hover:bg-red-900 text-red-400 transition-colors"
+                                className="p-1.5 rounded-lg bg-red-500/20 hover:bg-red-500/40 text-red-500 transition-colors"
                                 title="Hapus Peserta"
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
@@ -471,19 +574,23 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
             <div className="space-y-6">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                  <h1 className="text-xl sm:text-2xl font-black text-white">
+                  <h1 className={`text-xl sm:text-2xl font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>
                     Basis Data Peserta SMK / SMA ({candidateListOnly.length} Siswa)
                   </h1>
-                  <p className="text-xs text-slate-400 mt-1">
-                    Daftar seluruh siswa terdaftar, riwayat tes psikometrik, dan tracking kesiapan interview kerja.
+                  <p className={`text-xs mt-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                    Daftar seluruh siswa terdaftar di MySQL, riwayat tes psikometrik, dan tracking kesiapan interview kerja.
                   </p>
                 </div>
               </div>
 
               {/* Candidate Table Container */}
-              <div className="bg-[#0f172a] border border-slate-800 rounded-2xl overflow-hidden">
+              <div className={`border rounded-2xl overflow-hidden transition-colors ${
+                isDark ? 'bg-[#0f172a] border-slate-800' : 'bg-white border-slate-200 shadow-xs'
+              }`}>
                 <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-900 border-b border-slate-800 text-slate-400 font-bold uppercase text-[10px]">
+                  <thead className={`border-b text-slate-400 font-bold uppercase text-[10px] ${
+                    isDark ? 'bg-slate-900 border-slate-800' : 'bg-slate-50 border-slate-200'
+                  }`}>
                     <tr>
                       <th className="p-4">ID & Nama Peserta</th>
                       <th className="p-4">Asal Sekolah & Jurusan</th>
@@ -493,25 +600,25 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
                       <th className="p-4 text-right">Aksi</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-800/70 font-medium">
+                  <tbody className={`divide-y font-medium ${isDark ? 'divide-slate-800/70' : 'divide-slate-100'}`}>
                     {filteredCandidates.map((c) => (
-                      <tr key={c.id} className="hover:bg-slate-850/50 transition-colors">
+                      <tr key={c.id} className={`transition-colors ${isDark ? 'hover:bg-slate-850/50' : 'hover:bg-slate-50'}`}>
                         <td className="p-4">
-                          <div className="font-mono text-[10px] text-slate-500">{c.id}</div>
-                          <div className="font-extrabold text-white text-xs mt-0.5">{c.name}</div>
+                          <div className="font-mono text-[10px] text-slate-400">{c.id}</div>
+                          <div className={`font-extrabold text-xs mt-0.5 ${isDark ? 'text-white' : 'text-slate-900'}`}>{c.name}</div>
                         </td>
                         <td className="p-4">
-                          <span className="text-slate-200 block">{c.school}</span>
+                          <span className={`block font-semibold ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>{c.school}</span>
                           <span className="text-[10px] text-slate-400">{c.major}</span>
                         </td>
-                        <td className="p-4 font-mono text-sky-300">{c.phone}</td>
+                        <td className="p-4 font-mono text-sky-500 font-bold">{c.phone}</td>
                         <td className="p-4">
-                          <span className="font-bold text-slate-200 capitalize">{c.targetRole}</span>
+                          <span className={`font-bold capitalize ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>{c.targetRole}</span>
                           <span className="block text-[10px] text-slate-400">{c.targetCompany}</span>
                         </td>
                         <td className="p-4">
                           <span className={`text-[10px] font-black px-2 py-0.5 rounded-md ${
-                            c.overallStatus === 'Lolos Unggul' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-blue-500/20 text-sky-300'
+                            c.overallStatus === 'Lolos Unggul' ? 'bg-emerald-500/20 text-emerald-500' : 'bg-blue-500/20 text-sky-500'
                           }`}>
                             {c.overallStatus}
                           </span>
@@ -520,13 +627,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
                           <div className="flex items-center justify-end gap-2">
                             <button
                               onClick={() => setSelectedCandidateModal(c)}
-                              className="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded-lg border border-slate-700 transition-colors"
+                              className={`px-3 py-1 text-xs font-bold rounded-lg border transition-colors ${
+                                isDark ? 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700' : 'bg-slate-100 hover:bg-slate-200 text-slate-800 border-slate-300'
+                              }`}
                             >
                               Lihat Rapor
                             </button>
                             <button
                               onClick={() => handleDeleteCandidate(c.id)}
-                              className="p-1.5 rounded-lg bg-red-950/60 hover:bg-red-900 text-red-400 transition-colors"
+                              className="p-1.5 rounded-lg bg-red-500/20 hover:bg-red-500/40 text-red-500 transition-colors"
                               title="Hapus"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
@@ -545,10 +654,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
           {adminTab === 'questions' && (
             <div className="space-y-6">
               <div>
-                <h1 className="text-xl sm:text-2xl font-black text-white">
+                <h1 className={`text-xl sm:text-2xl font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>
                   Engine Bank Soal Parametrik (1.000+ Soal)
                 </h1>
-                <p className="text-xs text-slate-400 mt-1">
+                <p className={`text-xs mt-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
                   Seluruh modul latihan menggunakan generator dinamis yang mengacak angka dan skenario secara otomatis.
                 </p>
               </div>
@@ -562,16 +671,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
                   { name: 'Ketelitian & Barcode QC', total: '150 Pasang Master Kode', status: 'Active Engine', desc: 'Speed match 45 detik mendeteksi anomali cacat reject (NG).' },
                   { name: 'Mekanika Bennett (SVG)', total: 'Diagram Interaktif Visual', status: 'Active Engine', desc: 'Roda gigi beruntun, katrol majemuk, dan tuas pengungkit.' }
                 ].map((item, i) => (
-                  <div key={i} className="bg-[#0f172a] border border-slate-800 rounded-2xl p-4 flex flex-col justify-between">
+                  <div key={i} className={`border rounded-2xl p-4 flex flex-col justify-between transition-colors ${
+                    isDark ? 'bg-[#0f172a] border-slate-800' : 'bg-white border-slate-200 shadow-xs'
+                  }`}>
                     <div>
                       <div className="flex items-center justify-between mb-2">
-                        <span className="text-[10px] font-black uppercase text-emerald-400 bg-emerald-500/20 px-2 py-0.5 rounded">
+                        <span className="text-[10px] font-black uppercase text-emerald-500 bg-emerald-500/20 px-2 py-0.5 rounded">
                           {item.status}
                         </span>
                       </div>
-                      <h4 className="text-sm font-extrabold text-white">{item.name}</h4>
-                      <span className="text-xs font-mono text-sky-400 block mt-0.5">{item.total}</span>
-                      <p className="text-xs text-slate-400 mt-2 leading-relaxed">{item.desc}</p>
+                      <h4 className={`text-sm font-extrabold ${isDark ? 'text-white' : 'text-slate-900'}`}>{item.name}</h4>
+                      <span className="text-xs font-mono text-sky-500 block mt-0.5 font-bold">{item.total}</span>
+                      <p className={`text-xs mt-2 leading-relaxed ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{item.desc}</p>
                     </div>
                   </div>
                 ))}
@@ -583,35 +694,39 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
           {adminTab === 'interview-ai' && (
             <div className="space-y-6">
               <div>
-                <h1 className="text-xl sm:text-2xl font-black text-white">
+                <h1 className={`text-xl sm:text-2xl font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>
                   Log Evaluasi AI Voice Mock Interview
                 </h1>
-                <p className="text-xs text-slate-400 mt-1">
+                <p className={`text-xs mt-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
                   Transkrip audio, skor metode STAR, deteksi filler words, dan probabilitas diterima kerja.
                 </p>
               </div>
 
               <div className="space-y-3">
                 {candidateListOnly.map((cand, idx) => (
-                  <div key={idx} className="bg-[#0f172a] border border-slate-800 rounded-2xl p-5 space-y-3">
+                  <div key={idx} className={`border rounded-2xl p-5 space-y-3 transition-colors ${
+                    isDark ? 'bg-[#0f172a] border-slate-800' : 'bg-white border-slate-200 shadow-xs'
+                  }`}>
                     <div className="flex items-center justify-between">
                       <div>
-                        <span className="text-xs font-extrabold text-sky-300">{cand.name}</span>
-                        <span className="text-[10px] text-slate-500 ml-2">({cand.school} • {cand.targetRole})</span>
+                        <span className="text-xs font-extrabold text-sky-500">{cand.name}</span>
+                        <span className="text-[10px] text-slate-400 ml-2">({cand.school} • {cand.targetRole})</span>
                       </div>
-                      <span className="text-xs font-mono font-black text-emerald-400 bg-emerald-500/20 px-2.5 py-0.5 rounded border border-emerald-500/30">
+                      <span className="text-xs font-mono font-black text-emerald-500 bg-emerald-500/20 px-2.5 py-0.5 rounded border border-emerald-500/30">
                         Prediksi: {cand.interviewScore || 85}% Lolos
                       </span>
                     </div>
 
-                    <div className="bg-slate-900 p-3 rounded-xl border border-slate-800 text-xs text-slate-400 italic">
+                    <div className={`p-3 rounded-xl border text-xs italic ${
+                      isDark ? 'bg-slate-900 border-slate-800 text-slate-400' : 'bg-slate-50 border-slate-200 text-slate-600'
+                    }`}>
                       Transkrip Wawancara: "Saya siap bekerja sistem shift dan mematuhi SOP keselamatan K3 serta 5S di lingkungan pabrik..."
                     </div>
 
                     <div className="flex items-center gap-4 text-[11px] text-slate-400 pt-1">
-                      <span>Metode STAR: <strong className="text-sky-300">92%</strong></span>
-                      <span>Artikulasi Suara: <strong className="text-emerald-400">96.5%</strong></span>
-                      <span>Target: <strong className="text-amber-300">{cand.targetCompany}</strong></span>
+                      <span>Metode STAR: <strong className="text-sky-500 font-bold">92%</strong></span>
+                      <span>Artikulasi Suara: <strong className="text-emerald-500 font-bold">96.5%</strong></span>
+                      <span>Target: <strong className="text-amber-500 font-bold">{cand.targetCompany}</strong></span>
                     </div>
                   </div>
                 ))}
@@ -623,31 +738,37 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
           {adminTab === 'finance' && (
             <div className="space-y-6">
               <div>
-                <h1 className="text-xl sm:text-2xl font-black text-white">
+                <h1 className={`text-xl sm:text-2xl font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>
                   Pendapatan & Transaksi QRIS
                 </h1>
-                <p className="text-xs text-slate-400 mt-1">
+                <p className={`text-xs mt-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
                   Monitoring konversi pembayaran QRIS/E-Wallet untuk Token AI Voice Interview & Tryout CAT Pro.
                 </p>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="bg-[#0f172a] border border-slate-800 rounded-2xl p-5">
+                <div className={`border rounded-2xl p-5 transition-colors ${
+                  isDark ? 'bg-[#0f172a] border-slate-800' : 'bg-white border-slate-200 shadow-xs'
+                }`}>
                   <span className="text-[11px] uppercase font-bold text-slate-400">Total Transaksi</span>
-                  <div className="text-2xl font-black text-emerald-400 font-mono mt-2">Rp 52.450.000</div>
-                  <span className="text-[10px] text-slate-500 mt-1 block">Dari 1,480 pembayaran sukses</span>
+                  <div className="text-2xl font-black text-emerald-500 font-mono mt-2">Rp 52.450.000</div>
+                  <span className="text-[10px] text-slate-400 mt-1 block">Dari 1,480 pembayaran sukses</span>
                 </div>
 
-                <div className="bg-[#0f172a] border border-slate-800 rounded-2xl p-5">
+                <div className={`border rounded-2xl p-5 transition-colors ${
+                  isDark ? 'bg-[#0f172a] border-slate-800' : 'bg-white border-slate-200 shadow-xs'
+                }`}>
                   <span className="text-[11px] uppercase font-bold text-slate-400">Token AI Terjual</span>
-                  <div className="text-2xl font-black text-purple-300 font-mono mt-2">3,890 Token</div>
-                  <span className="text-[10px] text-slate-500 mt-1 block">Paket Rp 25.000 (3x sesi wawancara)</span>
+                  <div className="text-2xl font-black text-purple-500 font-mono mt-2">3,890 Token</div>
+                  <span className="text-[10px] text-slate-400 mt-1 block">Paket Rp 25.000 (3x sesi wawancara)</span>
                 </div>
 
-                <div className="bg-[#0f172a] border border-slate-800 rounded-2xl p-5">
+                <div className={`border rounded-2xl p-5 transition-colors ${
+                  isDark ? 'bg-[#0f172a] border-slate-800' : 'bg-white border-slate-200 shadow-xs'
+                }`}>
                   <span className="text-[11px] uppercase font-bold text-slate-400">Metode Terfavorit</span>
-                  <div className="text-xl font-black text-white mt-2">QRIS (GoPay/DANA/ShopeePay)</div>
-                  <span className="text-[10px] text-slate-500 mt-1 block">82% dari seluruh volume</span>
+                  <div className={`text-xl font-black mt-2 ${isDark ? 'text-white' : 'text-slate-900'}`}>QRIS (GoPay/DANA/ShopeePay)</div>
+                  <span className="text-[10px] text-slate-400 mt-1 block">82% dari seluruh volume</span>
                 </div>
               </div>
             </div>
@@ -657,47 +778,51 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
           {adminTab === 'system' && (
             <div className="space-y-6">
               <div>
-                <h1 className="text-xl sm:text-2xl font-black text-white">
+                <h1 className={`text-xl sm:text-2xl font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>
                   Kesehatan Sistem & Latensi AI
                 </h1>
-                <p className="text-xs text-slate-400 mt-1">
-                  Status infrastruktur VPS, latensi speech recognition, dan koneksi database.
+                <p className={`text-xs mt-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                  Status infrastruktur VPS, latensi speech recognition, dan koneksi database MySQL.
                 </p>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="bg-[#0f172a] border border-slate-800 rounded-2xl p-5 space-y-3">
-                  <h4 className="text-sm font-extrabold text-white">AI Services Benchmark</h4>
+                <div className={`border rounded-2xl p-5 space-y-3 transition-colors ${
+                  isDark ? 'bg-[#0f172a] border-slate-800' : 'bg-white border-slate-200 shadow-xs'
+                }`}>
+                  <h4 className={`text-sm font-extrabold ${isDark ? 'text-white' : 'text-slate-900'}`}>AI Services Benchmark</h4>
                   <div className="space-y-2 text-xs">
                     <div className="flex justify-between">
                       <span className="text-slate-400">Whisper STT (Indonesian Voice):</span>
-                      <strong className="text-emerald-400 font-mono">115 ms (Optimal)</strong>
+                      <strong className="text-emerald-500 font-mono">115 ms (Optimal)</strong>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-slate-400">Gemini LLM HRD Evaluator:</span>
-                      <strong className="text-sky-400 font-mono">180 ms (Optimal)</strong>
+                      <strong className="text-sky-500 font-mono">180 ms (Optimal)</strong>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-slate-400">Google Neural2 TTS Synthesizer:</span>
-                      <strong className="text-emerald-400 font-mono">82 ms (Ultra Fast)</strong>
+                      <strong className="text-emerald-500 font-mono">82 ms (Ultra Fast)</strong>
                     </div>
                   </div>
                 </div>
 
-                <div className="bg-[#0f172a] border border-slate-800 rounded-2xl p-5 space-y-3">
-                  <h4 className="text-sm font-extrabold text-white">Server aaPanel VPS Status</h4>
+                <div className={`border rounded-2xl p-5 space-y-3 transition-colors ${
+                  isDark ? 'bg-[#0f172a] border-slate-800' : 'bg-white border-slate-200 shadow-xs'
+                }`}>
+                  <h4 className={`text-sm font-extrabold ${isDark ? 'text-white' : 'text-slate-900'}`}>Server aaPanel VPS Status</h4>
                   <div className="space-y-2 text-xs">
                     <div className="flex justify-between">
-                      <span className="text-slate-400">Nginx Web Server:</span>
-                      <strong className="text-emerald-400 font-mono">Running (Pure Static)</strong>
+                      <span className="text-slate-400">Database MySQL:</span>
+                      <strong className="text-emerald-500 font-mono">Connected (Port 3306)</strong>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-slate-400">HTTPS SSL (Let's Encrypt):</span>
-                      <strong className="text-emerald-400 font-mono">Active (TLS 1.3)</strong>
+                      <span className="text-slate-400">Node.js API Service:</span>
+                      <strong className="text-emerald-500 font-mono">Online (Port 5000)</strong>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-slate-400">Memory Usage:</span>
-                      <strong className="text-sky-300 font-mono">245 MB / 2.0 GB (Very Light)</strong>
+                      <strong className="text-sky-500 font-mono">245 MB / 2.0 GB (Very Light)</strong>
                     </div>
                   </div>
                 </div>
@@ -712,20 +837,24 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
       {/* CANDIDATE DETAIL MODAL */}
       {selectedCandidateModal && (
         <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-[#0f172a] border border-slate-800 rounded-3xl max-w-2xl w-full p-6 shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto">
+          <div className={`border rounded-3xl max-w-2xl w-full p-6 shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto ${
+            isDark ? 'bg-[#0f172a] border-slate-800' : 'bg-white border-slate-200'
+          }`}>
             
-            <div className="flex items-center justify-between pb-4 border-b border-slate-800">
+            <div className={`flex items-center justify-between pb-4 border-b ${isDark ? 'border-slate-800' : 'border-slate-200'}`}>
               <div>
-                <span className="text-[10px] font-mono text-sky-400">{selectedCandidateModal.id}</span>
-                <h3 className="text-lg font-black text-white mt-0.5">{selectedCandidateModal.name}</h3>
-                <p className="text-xs text-slate-400">
-                  {selectedCandidateModal.school} • {selectedCandidateModal.major} (No WA: <span className="text-sky-300 font-mono">{selectedCandidateModal.phone}</span>)
+                <span className="text-[10px] font-mono text-sky-500 font-bold">{selectedCandidateModal.id}</span>
+                <h3 className={`text-lg font-black mt-0.5 ${isDark ? 'text-white' : 'text-slate-900'}`}>{selectedCandidateModal.name}</h3>
+                <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                  {selectedCandidateModal.school} • {selectedCandidateModal.major} (No WA: <span className="text-sky-500 font-mono font-bold">{selectedCandidateModal.phone}</span>)
                 </p>
               </div>
 
               <button
                 onClick={() => setSelectedCandidateModal(null)}
-                className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"
+                className={`p-2 rounded-xl transition-colors ${
+                  isDark ? 'bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white' : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
+                }`}
               >
                 ✕
               </button>
@@ -733,44 +862,46 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
 
             {/* Score Grid */}
             <div className="grid grid-cols-3 gap-3 text-center">
-              <div className="bg-slate-900 border border-slate-800 rounded-2xl p-3.5">
+              <div className={`border rounded-2xl p-3.5 ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-slate-50 border-slate-200'}`}>
                 <span className="text-[10px] text-slate-400 uppercase font-bold">Kraepelin Panker</span>
-                <div className="text-xl font-black text-sky-400 mt-1 font-mono">{selectedCandidateModal.kraepelinScore?.panker || '-'}</div>
-                <span className="text-[10px] text-slate-500">{selectedCandidateModal.kraepelinScore?.janker ? `${selectedCandidateModal.kraepelinScore.janker}% Akurasi` : 'Belum tes'}</span>
+                <div className="text-xl font-black text-sky-500 mt-1 font-mono">{selectedCandidateModal.kraepelinScore?.panker || '-'}</div>
+                <span className="text-[10px] text-slate-400">{selectedCandidateModal.kraepelinScore?.janker ? `${selectedCandidateModal.kraepelinScore.janker}% Akurasi` : 'Belum tes'}</span>
               </div>
 
-              <div className="bg-slate-900 border border-slate-800 rounded-2xl p-3.5">
+              <div className={`border rounded-2xl p-3.5 ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-slate-50 border-slate-200'}`}>
                 <span className="text-[10px] text-slate-400 uppercase font-bold">Akurasi Kode QC</span>
-                <div className="text-xl font-black text-emerald-400 mt-1 font-mono">{selectedCandidateModal.qcAccuracy ? `${selectedCandidateModal.qcAccuracy}%` : '-'}</div>
-                <span className="text-[10px] text-slate-500">Speed Match 45s</span>
+                <div className="text-xl font-black text-emerald-500 mt-1 font-mono">{selectedCandidateModal.qcAccuracy ? `${selectedCandidateModal.qcAccuracy}%` : '-'}</div>
+                <span className="text-[10px] text-slate-400">Speed Match 45s</span>
               </div>
 
-              <div className="bg-slate-900 border border-slate-800 rounded-2xl p-3.5">
+              <div className={`border rounded-2xl p-3.5 ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-slate-50 border-slate-200'}`}>
                 <span className="text-[10px] text-slate-400 uppercase font-bold">AI Interview HRD</span>
-                <div className="text-xl font-black text-purple-300 mt-1 font-mono">{selectedCandidateModal.interviewScore ? `${selectedCandidateModal.interviewScore}%` : '-'}</div>
-                <span className="text-[10px] text-slate-500">Peluang Lolos</span>
+                <div className="text-xl font-black text-purple-500 mt-1 font-mono">{selectedCandidateModal.interviewScore ? `${selectedCandidateModal.interviewScore}%` : '-'}</div>
+                <span className="text-[10px] text-slate-400">Peluang Lolos</span>
               </div>
             </div>
 
-            <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 space-y-2 text-xs">
-              <strong className="text-white block font-bold">Target Perusahaan Sasaran:</strong>
-              <div className="text-sky-300 font-semibold">{selectedCandidateModal.targetCompany} (Posisi: <span className="capitalize">{selectedCandidateModal.targetRole}</span>)</div>
-              <p className="text-slate-400 leading-relaxed pt-1 border-t border-slate-800">
-                Terdaftar sejak: {new Date(selectedCandidateModal.createdAt).toLocaleDateString('id-ID', { dateStyle: 'full' })} • Status: <strong className="text-emerald-400">{selectedCandidateModal.overallStatus}</strong>
+            <div className={`border rounded-2xl p-4 space-y-2 text-xs ${isDark ? 'bg-slate-900/80 border-slate-800' : 'bg-slate-50 border-slate-200'}`}>
+              <strong className={`block font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>Target Perusahaan Sasaran:</strong>
+              <div className="text-sky-500 font-semibold">{selectedCandidateModal.targetCompany} (Posisi: <span className="capitalize">{selectedCandidateModal.targetRole}</span>)</div>
+              <p className={`leading-relaxed pt-1 border-t ${isDark ? 'text-slate-400 border-slate-800' : 'text-slate-600 border-slate-200'}`}>
+                Terdaftar sejak: {new Date(selectedCandidateModal.createdAt).toLocaleDateString('id-ID', { dateStyle: 'full' })} • Status: <strong className="text-emerald-500">{selectedCandidateModal.overallStatus}</strong>
               </p>
             </div>
 
             <div className="flex justify-between items-center pt-2">
               <button
                 onClick={() => handleDeleteCandidate(selectedCandidateModal.id)}
-                className="px-4 py-2 bg-red-950 text-red-400 hover:bg-red-900 rounded-xl text-xs font-bold transition-colors"
+                className="px-4 py-2 bg-red-500/20 text-red-500 hover:bg-red-500/30 rounded-xl text-xs font-bold transition-colors"
               >
                 Hapus Data Peserta
               </button>
 
               <button
                 onClick={() => setSelectedCandidateModal(null)}
-                className="px-5 py-2 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs rounded-xl transition-colors"
+                className={`px-5 py-2 font-bold text-xs rounded-xl transition-colors ${
+                  isDark ? 'bg-slate-800 hover:bg-slate-700 text-white' : 'bg-slate-200 hover:bg-slate-300 text-slate-900'
+                }`}
               >
                 Tutup Rapor
               </button>
