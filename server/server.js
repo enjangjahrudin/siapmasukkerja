@@ -87,6 +87,21 @@ try {
       try {
         await pool.query(`ALTER TABLE users ADD COLUMN is_verified BOOLEAN DEFAULT TRUE AFTER is_admin`);
       } catch (e) {}
+      try {
+        await pool.query(`ALTER TABLE users ADD COLUMN gender VARCHAR(20) DEFAULT 'Laki-laki' AFTER major`);
+      } catch (e) {}
+      try {
+        await pool.query(`ALTER TABLE users ADD COLUMN height DECIMAL(5,1) NULL AFTER gender`);
+      } catch (e) {}
+      try {
+        await pool.query(`ALTER TABLE users ADD COLUMN weight DECIMAL(5,1) NULL AFTER height`);
+      } catch (e) {}
+      try {
+        await pool.query(`ALTER TABLE users ADD COLUMN avatar_url LONGTEXT NULL AFTER weight`);
+      } catch (e) {}
+      try {
+        await pool.query(`ALTER TABLE users ADD COLUMN address TEXT NULL AFTER avatar_url`);
+      } catch (e) {}
 
       console.log('[MySQL] Tables & Schemas verified successfully');
     } catch (e) {
@@ -482,6 +497,11 @@ app.post('/api/login', async (req, res) => {
         email: user.email,
         school: user.school,
         major: user.major,
+        gender: user.gender || 'Laki-laki',
+        height: user.height ? parseFloat(user.height) : undefined,
+        weight: user.weight ? parseFloat(user.weight) : undefined,
+        avatarUrl: user.avatar_url,
+        address: user.address,
         targetRole: user.target_role,
         targetCompany: user.target_company,
         overallStatus: user.overall_status,
@@ -508,8 +528,8 @@ app.get('/api/admin/candidates', async (req, res) => {
   try {
     const [users] = await pool.query(`
       SELECT 
-        u.id, u.name, u.phone, u.email, u.school, u.major, u.target_role, u.target_company,
-        u.overall_status, u.is_admin, u.created_at, u.last_active,
+        u.id, u.name, u.phone, u.email, u.school, u.major, u.gender, u.height, u.weight, u.avatar_url, u.address,
+        u.target_role, u.target_company, u.overall_status, u.is_admin, u.created_at, u.last_active,
         COUNT(ts.id) as completed_tests_count
       FROM users u
       LEFT JOIN test_scores ts ON u.id = ts.user_id
@@ -540,6 +560,11 @@ app.get('/api/admin/candidates', async (req, res) => {
         email: u.email,
         school: u.school,
         major: u.major,
+        gender: u.gender || 'Laki-laki',
+        height: u.height ? parseFloat(u.height) : undefined,
+        weight: u.weight ? parseFloat(u.weight) : undefined,
+        avatarUrl: u.avatar_url,
+        address: u.address,
         targetRole: u.target_role,
         targetCompany: u.target_company,
         overallStatus: u.overall_status,
@@ -566,7 +591,107 @@ app.get('/api/admin/candidates', async (req, res) => {
 });
 
 // ----------------------------------------------------------------------------
-// 8. SAVE TEST SCORE RESULTS
+// 8. UPDATE USER PROFILE (School, Height, Weight, Gender, Avatar, Address)
+// ----------------------------------------------------------------------------
+const handleUpdateProfile = async (req, res) => {
+  try {
+    const { userId, name, school, major, gender, height, weight, avatarUrl, address } = req.body;
+
+    if (!userId) {
+      return res.status(400).json({ success: false, message: 'userId wajib disertakan.' });
+    }
+
+    await pool.query(
+      `UPDATE users SET 
+        name = COALESCE(?, name),
+        school = COALESCE(?, school),
+        major = COALESCE(?, major),
+        gender = COALESCE(?, gender),
+        height = COALESCE(?, height),
+        weight = COALESCE(?, weight),
+        avatar_url = COALESCE(?, avatar_url),
+        address = COALESCE(?, address),
+        last_active = NOW()
+       WHERE id = ?`,
+      [name || null, school || null, major || null, gender || null, height || null, weight || null, avatarUrl || null, address || null, userId]
+    );
+
+    const [rows] = await pool.query('SELECT * FROM users WHERE id = ? LIMIT 1', [userId]);
+    if (rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'User tidak ditemukan.' });
+    }
+
+    const u = rows[0];
+    res.json({
+      success: true,
+      message: 'Profil berhasil diperbarui!',
+      user: {
+        id: u.id,
+        name: u.name,
+        phone: u.phone,
+        email: u.email,
+        school: u.school,
+        major: u.major,
+        gender: u.gender || 'Laki-laki',
+        height: u.height ? parseFloat(u.height) : undefined,
+        weight: u.weight ? parseFloat(u.weight) : undefined,
+        avatarUrl: u.avatar_url,
+        address: u.address,
+        targetRole: u.target_role,
+        targetCompany: u.target_company,
+        overallStatus: u.overall_status,
+        createdAt: u.created_at,
+        isAdmin: Boolean(u.is_admin)
+      }
+    });
+  } catch (err) {
+    console.error('[Update Profile Error]', err);
+    res.status(500).json({ success: false, message: 'Gagal memperbarui profil: ' + err.message });
+  }
+};
+
+app.put('/api/user/profile', handleUpdateProfile);
+app.post('/api/user/profile', handleUpdateProfile);
+
+// ----------------------------------------------------------------------------
+// 9. CHANGE PASSWORD (FROM PROFILE TAB)
+// ----------------------------------------------------------------------------
+app.post('/api/user/change-password', async (req, res) => {
+  try {
+    const { userId, currentPassword, newPassword } = req.body;
+
+    if (!userId || !currentPassword || !newPassword) {
+      return res.status(400).json({ success: false, message: 'Data kata sandi tidak lengkap.' });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ success: false, message: 'Kata sandi baru minimal 6 karakter.' });
+    }
+
+    const [rows] = await pool.query('SELECT password FROM users WHERE id = ? LIMIT 1', [userId]);
+    if (rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Pengguna tidak ditemukan.' });
+    }
+
+    if (rows[0].password && rows[0].password !== currentPassword) {
+      return res.status(400).json({ success: false, message: 'Kata sandi saat ini tidak sesuai.' });
+    }
+
+    await pool.query('UPDATE users SET password = ?, last_active = NOW() WHERE id = ?', [newPassword, userId]);
+
+    res.json({
+      success: true,
+      message: 'Kata sandi Anda berhasil diubah! Gunakan kata sandi baru untuk login selanjutnya.'
+    });
+
+  } catch (err) {
+    console.error('[Change Password Error]', err);
+    res.status(500).json({ success: false, message: 'Gagal mengubah kata sandi: ' + err.message });
+  }
+});
+
+// ----------------------------------------------------------------------------
+// 10. SAVE TEST SCORE RESULTS
 // ----------------------------------------------------------------------------
 app.post('/api/scores', async (req, res) => {
   try {

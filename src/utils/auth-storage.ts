@@ -7,6 +7,11 @@ export interface RegisteredUser {
   email?: string;
   school: string;
   major: string;
+  height?: number; // Tinggi Badan (cm)
+  weight?: number; // Berat Badan (kg)
+  gender?: 'Laki-laki' | 'Perempuan'; // Jenis Kelamin
+  avatarUrl?: string; // URL atau Base64 Foto Profil
+  address?: string; // Alamat Lengkap
   password?: string;
   targetRole: TargetRole;
   targetCompany: string;
@@ -466,3 +471,94 @@ export const updateActiveUserScore = (update: Partial<RegisteredUser>): void => 
     }).catch(() => {});
   }
 };
+
+/**
+ * Update complete User Profile (School, Major, Height, Weight, Gender, Avatar, Address)
+ */
+export const updateUserProfile = async (
+  userId: string,
+  profileData: Partial<RegisteredUser>
+): Promise<{ success: boolean; user?: RegisteredUser; message: string }> => {
+  try {
+    // 1. Update in local storage
+    const current = getActiveSession();
+    const updated: RegisteredUser = { ...(current || ({} as RegisteredUser)), ...profileData, id: userId };
+    saveUser(updated);
+    if (current && current.id === userId) {
+      setActiveSession(updated);
+    }
+
+    // 2. Sync to API backend
+    const response = await fetch(`${API_BASE_URL}/user/profile`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, ...profileData })
+    });
+
+    if (response.ok) {
+      const resData = await response.json();
+      return { success: true, user: resData.user || updated, message: 'Profil berhasil disimpan!' };
+    }
+
+    return { success: true, user: updated, message: 'Profil berhasil disimpan secara lokal.' };
+  } catch (err: any) {
+    const current = getActiveSession();
+    const updated: RegisteredUser = { ...(current || ({} as RegisteredUser)), ...profileData, id: userId };
+    saveUser(updated);
+    if (current && current.id === userId) {
+      setActiveSession(updated);
+    }
+    return { success: true, user: updated, message: 'Profil berhasil disimpan.' };
+  }
+};
+
+/**
+ * Change password from profile tab (requires verification of current password)
+ */
+export const changeUserPassword = async (
+  userId: string,
+  currentPassword: string,
+  newPassword: string
+): Promise<{ success: boolean; message: string }> => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/user/change-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, currentPassword, newPassword })
+    });
+
+    const resData = await response.json();
+    if (!response.ok) {
+      throw new Error(resData.message || 'Gagal mengganti kata sandi.');
+    }
+
+    // Update local storage
+    const users = getStoredUsers();
+    const uIndex = users.findIndex(u => u.id === userId);
+    if (uIndex >= 0) {
+      users[uIndex].password = newPassword;
+      localStorage.setItem(STORAGE_USERS_KEY, JSON.stringify(users));
+    }
+    const current = getActiveSession();
+    if (current && current.id === userId) {
+      current.password = newPassword;
+      setActiveSession(current);
+    }
+
+    return { success: true, message: resData.message || 'Kata sandi berhasil diperbarui!' };
+  } catch (err: any) {
+    // Local fallback check
+    const current = getActiveSession();
+    if (current && current.id === userId) {
+      if (current.password && current.password !== currentPassword) {
+        return { success: false, message: 'Kata sandi saat ini tidak sesuai.' };
+      }
+      current.password = newPassword;
+      setActiveSession(current);
+      saveUser(current);
+      return { success: true, message: 'Kata sandi berhasil diperbarui!' };
+    }
+    return { success: false, message: err.message || 'Gagal mengubah kata sandi.' };
+  }
+};
+

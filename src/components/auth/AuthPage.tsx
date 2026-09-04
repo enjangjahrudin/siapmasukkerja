@@ -75,6 +75,19 @@ export const AuthPage: React.FC<AuthPageProps> = ({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
+  // Login remember me state
+  const [rememberMe, setRememberMe] = useState<boolean>(() => {
+    return Boolean(localStorage.getItem('siapkerja_remember_login'));
+  });
+
+  // Autofill remembered login
+  useEffect(() => {
+    const saved = localStorage.getItem('siapkerja_remember_login');
+    if (saved) {
+      setPhone(saved);
+    }
+  }, []);
+
   // Resend OTP countdown effect
   useEffect(() => {
     let timer: any;
@@ -184,6 +197,11 @@ export const AuthPage: React.FC<AuthPageProps> = ({
 
     const result = loginUser(phone, password);
     if (result.success && result.user) {
+      if (rememberMe) {
+        localStorage.setItem('siapkerja_remember_login', phone.trim());
+      } else {
+        localStorage.removeItem('siapkerja_remember_login');
+      }
       sounds.playCorrect();
       onSuccessLogin(result.user);
     } else {
@@ -825,6 +843,19 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
+            </div>
+
+            {/* Fitur Ingat Saya (Remember Me) */}
+            <div className="flex items-center justify-between text-xs py-1">
+              <label className="flex items-center gap-2 cursor-pointer select-none text-slate-700 dark:text-slate-300 font-bold">
+                <input
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                  className="w-4 h-4 rounded text-brand-600 focus:ring-brand-500 border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 accent-brand-600 cursor-pointer"
+                />
+                <span>Ingat Saya di Perangkat Ini</span>
+              </label>
             </div>
 
             <button

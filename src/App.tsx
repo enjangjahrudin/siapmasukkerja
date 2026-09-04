@@ -287,9 +287,8 @@ export const App: React.FC = () => {
                     }
                   }}
                   onLogout={handleLogout}
-                  onOpenAdmin={() => {
-                    sounds.playClick();
-                    setAppScreen('admin');
+                  onUpdateUser={(updatedUser) => {
+                    setCurrentUser(updatedUser);
                   }}
                 />
               )}
