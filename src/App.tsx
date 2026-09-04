@@ -125,8 +125,12 @@ export const App: React.FC = () => {
   // 2. LANDING / SALES PAGE (Strict Entry Point)
   if (appScreen === 'landing') {
     return (
-      <div className="min-h-screen bg-slate-950 flex justify-center">
-        <div className="w-full max-w-md min-h-screen bg-slate-900 shadow-2xl flex flex-col justify-between">
+      <div className={`min-h-screen flex justify-center transition-colors duration-200 ${
+        isDark ? 'bg-slate-950' : 'bg-slate-200'
+      }`}>
+        <div className={`w-full max-w-md min-h-screen shadow-2xl flex flex-col justify-between transition-colors duration-200 ${
+          isDark ? 'bg-slate-900' : 'bg-slate-50'
+        }`}>
           <LandingPage
             onGoToRegister={() => {
               sounds.playClick();
@@ -145,8 +149,12 @@ export const App: React.FC = () => {
   // 3. REGISTRATION & LOGIN SCREENS
   if (appScreen === 'login' || appScreen === 'register') {
     return (
-      <div className="min-h-screen bg-slate-950 flex justify-center">
-        <div className="w-full max-w-md min-h-screen bg-slate-900 shadow-2xl flex flex-col justify-between">
+      <div className={`min-h-screen flex justify-center transition-colors duration-200 ${
+        isDark ? 'bg-slate-950' : 'bg-slate-200'
+      }`}>
+        <div className={`w-full max-w-md min-h-screen shadow-2xl flex flex-col justify-between transition-colors duration-200 ${
+          isDark ? 'bg-slate-900' : 'bg-slate-50'
+        }`}>
           <AuthPage
             initialMode={appScreen}
             onSuccessLogin={handleSuccessAuth}
