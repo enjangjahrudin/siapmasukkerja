@@ -23,7 +23,7 @@ export default {
         }
       },
       fontFamily: {
-        sans: ['Outfit', 'Poppins', 'system-ui', '-apple-system', 'sans-serif'],
+        sans: ['Inter', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial', 'sans-serif'],
         mono: ['JetBrains Mono', 'monospace'],
       }
     },
