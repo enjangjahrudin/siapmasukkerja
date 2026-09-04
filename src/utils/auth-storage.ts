@@ -153,10 +153,10 @@ export const registerNewCandidate = (data: {
 }): RegisteredUser => {
   const users = getStoredUsers();
   const targetCompanies: Record<TargetRole, string> = {
-    operator: 'PT Astra Daihatsu / PT Yamaha Motor',
-    qc: 'PT Epson Indonesia / PT Omron Electronics',
-    maintenance: 'PT Toyota Motor / PT Denso Indonesia',
-    logistics: 'PT Mayora Indah / PT Indofood'
+    operator: 'Manufaktur Otomotif & Assembling (Toyota, Astra Group, Yamaha, Honda)',
+    qc: 'Industri Elektronika & Presisi (Epson, Omron, Panasonic, Denso)',
+    maintenance: 'Teknik Otomasi & Alat Berat (Astra Otoparts, Komatsu, Denso)',
+    logistics: 'Logistik & Pergudangan FMCG (Mayora, Indofood, Unilever)'
   };
 
   const idSuffix = String(users.length + 1).padStart(4, '0');

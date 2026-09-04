@@ -70,10 +70,10 @@ app.post('/api/register', async (req, res) => {
     const userId = `SMK-2026-${idSuffix}`;
 
     const targetCompanies = {
-      operator: 'PT Astra Daihatsu / PT Yamaha Motor',
-      qc: 'PT Epson Indonesia / PT Omron Electronics',
-      maintenance: 'PT Toyota Motor / PT Denso Indonesia',
-      logistics: 'PT Mayora Indah / PT Indofood'
+      operator: 'Manufaktur Otomotif & Assembling (Toyota, Astra Group, Yamaha, Honda)',
+      qc: 'Industri Elektronika & Presisi (Epson, Omron, Panasonic, Denso)',
+      maintenance: 'Teknik Otomasi & Alat Berat (Astra Otoparts, Komatsu, Denso)',
+      logistics: 'Logistik & Pergudangan FMCG (Mayora, Indofood, Unilever)'
     };
 
     const role = targetRole || 'operator';

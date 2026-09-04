@@ -32,12 +32,30 @@ export const MobileHomeDashboard: React.FC<MobileHomeDashboardProps> = ({
   targetRole,
   userName
 }) => {
-  const companyTargets: Record<TargetRole, string> = {
-    operator: 'PT Astra Daihatsu / PT Yamaha Motor',
-    qc: 'PT Epson Indonesia / PT Omron Electronics',
-    maintenance: 'PT Toyota Motor / PT Denso Indonesia',
-    logistics: 'PT Mayora Indah / PT Indofood'
+  const sectorTargets: Record<TargetRole, { sector: string; examples: string; roleLabel: string }> = {
+    operator: {
+      sector: 'Manufaktur Otomotif & Assembling',
+      examples: 'Toyota, Astra Group, Yamaha, Honda & Suzuki',
+      roleLabel: 'Operator Produksi'
+    },
+    qc: {
+      sector: 'Industri Elektronika & Presisi Mutu',
+      examples: 'Epson, Omron, Panasonic, Denso & Sharp',
+      roleLabel: 'Quality Control (QC)'
+    },
+    maintenance: {
+      sector: 'Teknik Otomasi, Mesin & Alat Berat',
+      examples: 'Astra Otoparts, Komatsu, United Tractors & Denso',
+      roleLabel: 'Teknisi Maintenance'
+    },
+    logistics: {
+      sector: 'Logistik, Pergudangan & Distribusi FMCG',
+      examples: 'Mayora, Indofood, Unilever, Kalbe & Wings Group',
+      roleLabel: 'Logistik & Gudang'
+    }
   };
+
+  const currentTarget = sectorTargets[targetRole] || sectorTargets.operator;
 
   return (
     <div className="p-4 space-y-4 pb-20 select-none">
@@ -51,10 +69,13 @@ export const MobileHomeDashboard: React.FC<MobileHomeDashboardProps> = ({
               Target Rekrutmen 2026
             </span>
             <h2 className="text-base font-extrabold text-white leading-tight">
-              {companyTargets[targetRole]}
+              {currentTarget.sector}
             </h2>
-            <p className="text-[11px] text-slate-300">
-              Lulusan SMK • <strong className="text-sky-300 capitalize">{targetRole}</strong>
+            <p className="text-[11px] text-sky-300 font-medium">
+              Contoh: <span className="text-slate-200">{currentTarget.examples}</span>
+            </p>
+            <p className="text-[10px] text-slate-400 pt-0.5">
+              Standar Seleksi SMK/SMA • <strong className="text-sky-300">{currentTarget.roleLabel}</strong>
             </p>
           </div>
 
