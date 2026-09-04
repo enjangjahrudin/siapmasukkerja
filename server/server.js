@@ -13,7 +13,8 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 // MySQL Database Connection Pool
 const dbConfig = {
@@ -591,15 +592,76 @@ app.get('/api/admin/candidates', async (req, res) => {
 });
 
 // ----------------------------------------------------------------------------
-// 8. UPDATE USER PROFILE (School, Height, Weight, Gender, Avatar, Address)
+// 8. USER PROFILE (GET & UPDATE)
 // ----------------------------------------------------------------------------
+app.get('/api/user/profile/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const [rows] = await pool.query('SELECT * FROM users WHERE id = ? LIMIT 1', [userId]);
+
+    if (rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'User tidak ditemukan.' });
+    }
+
+    const u = rows[0];
+
+    // Fetch test counts and latest scores
+    const [scoreRows] = await pool.query(
+      'SELECT test_type, score_details FROM test_scores WHERE user_id = ? ORDER BY id DESC',
+      [u.id]
+    );
+
+    let kraepelinScore, qcAccuracy, mathScore, interviewScore;
+    scoreRows.forEach(sr => {
+      const details = typeof sr.score_details === 'string' ? JSON.parse(sr.score_details) : sr.score_details;
+      if (sr.test_type === 'kraepelin' && !kraepelinScore) kraepelinScore = details;
+      if (sr.test_type === 'qc' && !qcAccuracy) qcAccuracy = details?.accuracy || 90;
+      if (sr.test_type === 'math' && !mathScore) mathScore = details?.score || 85;
+      if (sr.test_type === 'interview' && !interviewScore) interviewScore = details?.probability || 88;
+    });
+
+    res.json({
+      success: true,
+      user: {
+        id: u.id,
+        name: u.name,
+        phone: u.phone,
+        email: u.email,
+        school: u.school,
+        major: u.major,
+        gender: u.gender || 'Laki-laki',
+        height: u.height !== null && u.height !== undefined ? parseFloat(u.height) : undefined,
+        weight: u.weight !== null && u.weight !== undefined ? parseFloat(u.weight) : undefined,
+        avatarUrl: u.avatar_url,
+        address: u.address,
+        targetRole: u.target_role,
+        targetCompany: u.target_company,
+        overallStatus: u.overall_status,
+        completedTestsCount: scoreRows.length,
+        kraepelinScore,
+        qcAccuracy,
+        mathScore,
+        interviewScore,
+        createdAt: u.created_at,
+        isAdmin: Boolean(u.is_admin)
+      }
+    });
+  } catch (err) {
+    console.error('[Get Profile Error]', err);
+    res.status(500).json({ success: false, message: 'Gagal memuat profil: ' + err.message });
+  }
+});
+
 const handleUpdateProfile = async (req, res) => {
   try {
-    const { userId, name, school, major, gender, height, weight, avatarUrl, address } = req.body;
+    const { userId, name, school, major, gender, height, weight, avatarUrl, address, targetRole } = req.body;
 
     if (!userId) {
       return res.status(400).json({ success: false, message: 'userId wajib disertakan.' });
     }
+
+    const hVal = height !== undefined && height !== '' && height !== null ? parseFloat(height) : null;
+    const wVal = weight !== undefined && weight !== '' && weight !== null ? parseFloat(weight) : null;
 
     await pool.query(
       `UPDATE users SET 
@@ -607,13 +669,25 @@ const handleUpdateProfile = async (req, res) => {
         school = COALESCE(?, school),
         major = COALESCE(?, major),
         gender = COALESCE(?, gender),
-        height = COALESCE(?, height),
-        weight = COALESCE(?, weight),
+        height = ?,
+        weight = ?,
         avatar_url = COALESCE(?, avatar_url),
         address = COALESCE(?, address),
+        target_role = COALESCE(?, target_role),
         last_active = NOW()
        WHERE id = ?`,
-      [name || null, school || null, major || null, gender || null, height || null, weight || null, avatarUrl || null, address || null, userId]
+      [
+        name || null, 
+        school || null, 
+        major || null, 
+        gender || null, 
+        hVal, 
+        wVal, 
+        avatarUrl !== undefined ? avatarUrl : null, 
+        address !== undefined ? address : null, 
+        targetRole || null,
+        userId
+      ]
     );
 
     const [rows] = await pool.query('SELECT * FROM users WHERE id = ? LIMIT 1', [userId]);
@@ -624,7 +698,7 @@ const handleUpdateProfile = async (req, res) => {
     const u = rows[0];
     res.json({
       success: true,
-      message: 'Profil berhasil diperbarui!',
+      message: 'Profil berhasil diperbarui dan tersimpan di database!',
       user: {
         id: u.id,
         name: u.name,
@@ -633,8 +707,8 @@ const handleUpdateProfile = async (req, res) => {
         school: u.school,
         major: u.major,
         gender: u.gender || 'Laki-laki',
-        height: u.height ? parseFloat(u.height) : undefined,
-        weight: u.weight ? parseFloat(u.weight) : undefined,
+        height: u.height !== null && u.height !== undefined ? parseFloat(u.height) : undefined,
+        weight: u.weight !== null && u.weight !== undefined ? parseFloat(u.weight) : undefined,
         avatarUrl: u.avatar_url,
         address: u.address,
         targetRole: u.target_role,

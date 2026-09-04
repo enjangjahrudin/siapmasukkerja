@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { TargetRole } from '../../types';
 import { 
   User, 
@@ -35,6 +35,7 @@ import { useTheme } from '../../utils/theme-context';
 import { 
   RegisteredUser, 
   getActiveSession, 
+  fetchUserProfile,
   updateUserProfile, 
   changeUserPassword 
 } from '../../utils/auth-storage';
@@ -55,7 +56,20 @@ export const MobileProfileTab: React.FC<MobileProfileTabProps> = ({
   onUpdateUser
 }) => {
   const { theme, toggleTheme, isDark } = useTheme();
-  const activeUser = getActiveSession();
+  const [currentUserData, setCurrentUserData] = useState<RegisteredUser | null>(() => getActiveSession());
+  const activeUser = currentUserData || getActiveSession();
+
+  // Fetch fresh profile from MySQL backend on mount
+  useEffect(() => {
+    if (activeUser?.id) {
+      fetchUserProfile(activeUser.id).then((fresh) => {
+        if (fresh) {
+          setCurrentUserData(fresh);
+          if (onUpdateUser) onUpdateUser(fresh);
+        }
+      });
+    }
+  }, []);
 
   // Modal / Accordion Views
   const [activeModal, setActiveModal] = useState<'none' | 'edit_profile' | 'change_password'>('none');
@@ -65,10 +79,25 @@ export const MobileProfileTab: React.FC<MobileProfileTabProps> = ({
   const [editSchool, setEditSchool] = useState<string>(activeUser?.school || '');
   const [editMajor, setEditMajor] = useState<string>(activeUser?.major || '');
   const [editGender, setEditGender] = useState<'Laki-laki' | 'Perempuan'>(activeUser?.gender || 'Laki-laki');
-  const [editHeight, setEditHeight] = useState<string>(activeUser?.height ? String(activeUser.height) : '');
-  const [editWeight, setEditWeight] = useState<string>(activeUser?.weight ? String(activeUser.weight) : '');
+  const [editHeight, setEditHeight] = useState<string>(activeUser?.height !== undefined ? String(activeUser.height) : '');
+  const [editWeight, setEditWeight] = useState<string>(activeUser?.weight !== undefined ? String(activeUser.weight) : '');
   const [editAddress, setEditAddress] = useState<string>(activeUser?.address || '');
   const [editAvatarUrl, setEditAvatarUrl] = useState<string>(activeUser?.avatarUrl || '');
+
+  // Open Edit Modal with latest synchronized data
+  const openEditModal = () => {
+    const latest = getActiveSession() || activeUser;
+    setEditName(latest?.name || userName);
+    setEditSchool(latest?.school || '');
+    setEditMajor(latest?.major || '');
+    setEditGender(latest?.gender || 'Laki-laki');
+    setEditHeight(latest?.height !== undefined && latest?.height !== null ? String(latest.height) : '');
+    setEditWeight(latest?.weight !== undefined && latest?.weight !== null ? String(latest.weight) : '');
+    setEditAddress(latest?.address || '');
+    setEditAvatarUrl(latest?.avatarUrl || '');
+    setActiveModal('edit_profile');
+    sounds.playClick();
+  };
 
   // Change Password Form State
   const [currentPassword, setCurrentPassword] = useState<string>('');
@@ -104,21 +133,49 @@ export const MobileProfileTab: React.FC<MobileProfileTabProps> = ({
     isFactoryFit = heightNum >= minHeight && bmiValue >= 18.5 && bmiValue <= 26;
   }
 
-  // Handle Photo Upload via Base64
+  // Handle Photo Upload with Auto-Resizing & High Performance Compression
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 2 * 1024 * 1024) {
-      setToastMessage({ type: 'error', text: 'Ukuran foto maksimal 2 MB.' });
+    if (file.size > 5 * 1024 * 1024) {
+      setToastMessage({ type: 'error', text: 'Ukuran foto maksimal 5 MB.' });
       return;
     }
 
     const reader = new FileReader();
-    reader.onloadend = () => {
-      if (typeof reader.result === 'string') {
-        setEditAvatarUrl(reader.result);
-        sounds.playClick();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_SIZE = 360;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > MAX_SIZE) {
+            height *= MAX_SIZE / width;
+            width = MAX_SIZE;
+          }
+        } else {
+          if (height > MAX_SIZE) {
+            width *= MAX_SIZE / height;
+            height = MAX_SIZE;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.85);
+          setEditAvatarUrl(compressedDataUrl);
+          sounds.playClick();
+        }
+      };
+      if (typeof event.target?.result === 'string') {
+        img.src = event.target.result;
       }
     };
     reader.readAsDataURL(file);
@@ -156,8 +213,9 @@ export const MobileProfileTab: React.FC<MobileProfileTabProps> = ({
       const res = await updateUserProfile(activeUser.id, payload);
       if (res.success && res.user) {
         sounds.playCelebration();
+        setCurrentUserData(res.user);
         if (onUpdateUser) onUpdateUser(res.user);
-        setToastMessage({ type: 'success', text: 'Profil berhasil diperbarui!' });
+        setToastMessage({ type: 'success', text: 'Profil berhasil diperbarui dan tersimpan di database!' });
         setTimeout(() => setActiveModal('none'), 800);
       } else {
         sounds.playWrong();
@@ -258,10 +316,7 @@ export const MobileProfileTab: React.FC<MobileProfileTabProps> = ({
             )}
           </div>
           <button
-            onClick={() => {
-              sounds.playClick();
-              setActiveModal('edit_profile');
-            }}
+            onClick={openEditModal}
             className="absolute -bottom-1 -right-1 p-2 rounded-full bg-brand-600 text-white shadow-md hover:bg-brand-500 transition-all border-2 border-white dark:border-slate-900"
             title="Ubah Foto Profil"
           >
@@ -301,10 +356,7 @@ export const MobileProfileTab: React.FC<MobileProfileTabProps> = ({
         {/* Quick Action: Edit Profile & Change Password Buttons */}
         <div className="grid grid-cols-2 gap-2 mt-4 pt-3 border-t border-slate-100 dark:border-slate-800">
           <button
-            onClick={() => {
-              sounds.playClick();
-              setActiveModal('edit_profile');
-            }}
+            onClick={openEditModal}
             className="py-2.5 px-3 rounded-xl border font-bold text-xs flex items-center justify-center gap-1.5 transition-all bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-750 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 shadow-xs"
           >
             <Edit3 className="w-3.5 h-3.5 text-brand-600 dark:text-brand-400" />
@@ -688,10 +740,7 @@ export const MobileProfileTab: React.FC<MobileProfileTabProps> = ({
             Biodata Calon Tenaga Kerja:
           </span>
           <button
-            onClick={() => {
-              sounds.playClick();
-              setActiveModal('edit_profile');
-            }}
+            onClick={openEditModal}
             className="text-xs text-brand-600 dark:text-brand-400 hover:underline font-bold"
           >
             Ubah

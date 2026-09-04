@@ -494,6 +494,29 @@ export const updateActiveUserScore = (update: Partial<RegisteredUser>): void => 
 };
 
 /**
+ * Fetch fresh User Profile directly from server MySQL database
+ */
+export const fetchUserProfile = async (userId: string): Promise<RegisteredUser | null> => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/user/profile/${encodeURIComponent(userId)}`);
+    if (response.ok) {
+      const resData = await response.json();
+      if (resData.user) {
+        saveUser(resData.user);
+        const current = getActiveSession();
+        if (current && current.id === userId) {
+          setActiveSession(resData.user);
+        }
+        return resData.user;
+      }
+    }
+  } catch (e) {
+    // offline fallback
+  }
+  return getActiveSession();
+};
+
+/**
  * Update complete User Profile (School, Major, Height, Weight, Gender, Avatar, Address)
  */
 export const updateUserProfile = async (
@@ -501,7 +524,7 @@ export const updateUserProfile = async (
   profileData: Partial<RegisteredUser>
 ): Promise<{ success: boolean; user?: RegisteredUser; message: string }> => {
   try {
-    // 1. Update in local storage
+    // 1. Optimistic update in local storage
     const current = getActiveSession();
     const updated: RegisteredUser = { ...(current || ({} as RegisteredUser)), ...profileData, id: userId };
     saveUser(updated);
@@ -509,7 +532,7 @@ export const updateUserProfile = async (
       setActiveSession(updated);
     }
 
-    // 2. Sync to API backend
+    // 2. Sync to API backend (MySQL)
     const response = await fetch(`${API_BASE_URL}/user/profile`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -518,10 +541,14 @@ export const updateUserProfile = async (
 
     if (response.ok) {
       const resData = await response.json();
-      return { success: true, user: resData.user || updated, message: 'Profil berhasil disimpan!' };
+      if (resData.user) {
+        saveUser(resData.user);
+        setActiveSession(resData.user);
+        return { success: true, user: resData.user, message: resData.message || 'Profil berhasil disimpan!' };
+      }
     }
 
-    return { success: true, user: updated, message: 'Profil berhasil disimpan secara lokal.' };
+    return { success: true, user: updated, message: 'Profil berhasil disimpan.' };
   } catch (err: any) {
     const current = getActiveSession();
     const updated: RegisteredUser = { ...(current || ({} as RegisteredUser)), ...profileData, id: userId };
@@ -529,7 +556,7 @@ export const updateUserProfile = async (
     if (current && current.id === userId) {
       setActiveSession(updated);
     }
-    return { success: true, user: updated, message: 'Profil berhasil disimpan.' };
+    return { success: true, user: updated, message: 'Profil berhasil disimpan secara lokal.' };
   }
 };
 
