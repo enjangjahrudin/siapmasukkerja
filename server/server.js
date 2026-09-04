@@ -81,6 +81,26 @@ try {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
       `);
 
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS education_videos (
+          id VARCHAR(64) NOT NULL PRIMARY KEY,
+          title VARCHAR(255) NOT NULL,
+          description TEXT NULL,
+          category VARCHAR(50) NOT NULL DEFAULT 'kraepelin',
+          duration VARCHAR(20) NOT NULL DEFAULT '10:00',
+          youtube_id VARCHAR(50) NOT NULL,
+          thumbnail_url VARCHAR(500) NULL,
+          speaker VARCHAR(150) NOT NULL,
+          speaker_role VARCHAR(150) NULL,
+          views_count VARCHAR(50) DEFAULT '1.2 rb',
+          badge VARCHAR(50) NULL,
+          is_featured BOOLEAN DEFAULT FALSE,
+          key_takeaways JSON NULL,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+      `);
+
       // Add email column to users if table already existed without email
       try {
         await pool.query(`ALTER TABLE users ADD COLUMN email VARCHAR(191) NULL UNIQUE AFTER phone`);
@@ -787,6 +807,98 @@ app.post('/api/scores', async (req, res) => {
   } catch (err) {
     console.error('[Save Score Error]', err);
     res.status(500).json({ success: false, message: 'Gagal menyimpan skor: ' + err.message });
+  }
+});
+
+// ----------------------------------------------------------------------------
+// 11. EDUCATION VIDEOS CRUD (ADMIN CMS & APP SYNC)
+// ----------------------------------------------------------------------------
+app.get('/api/videos', async (req, res) => {
+  try {
+    const [rows] = await pool.query('SELECT * FROM education_videos ORDER BY is_featured DESC, created_at DESC');
+    const formatted = rows.map(r => ({
+      id: r.id,
+      title: r.title,
+      description: r.description || '',
+      category: r.category,
+      duration: r.duration,
+      youtubeId: r.youtube_id,
+      thumbnailUrl: r.thumbnail_url || `https://img.youtube.com/vi/${r.youtube_id}/hqdefault.jpg`,
+      speaker: r.speaker,
+      speakerRole: r.speaker_role || '',
+      viewsCount: r.views_count || '1.2 rb',
+      badge: r.badge || '',
+      isFeatured: Boolean(r.is_featured),
+      keyTakeaways: typeof r.key_takeaways === 'string' ? JSON.parse(r.key_takeaways || '[]') : (r.key_takeaways || [])
+    }));
+    res.json({ success: true, data: formatted });
+  } catch (err) {
+    console.error('[Get Videos Error]', err);
+    res.status(500).json({ success: false, message: 'Gagal memuat video: ' + err.message });
+  }
+});
+
+app.post('/api/videos', async (req, res) => {
+  try {
+    const { id, title, description, category, duration, youtubeId, thumbnailUrl, speaker, speakerRole, viewsCount, badge, isFeatured, keyTakeaways } = req.body;
+    
+    if (!title || !youtubeId || !speaker) {
+      return res.status(400).json({ success: false, message: 'Judul, YouTube ID, dan Pemateri wajib diisi.' });
+    }
+
+    const videoId = id || `vid-${Date.now()}`;
+    const thumb = thumbnailUrl || `https://img.youtube.com/vi/${youtubeId}/hqdefault.jpg`;
+
+    await pool.query(
+      `INSERT INTO education_videos 
+        (id, title, description, category, duration, youtube_id, thumbnail_url, speaker, speaker_role, views_count, badge, is_featured, key_takeaways, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+       ON DUPLICATE KEY UPDATE
+        title = VALUES(title),
+        description = VALUES(description),
+        category = VALUES(category),
+        duration = VALUES(duration),
+        youtube_id = VALUES(youtube_id),
+        thumbnail_url = VALUES(thumbnail_url),
+        speaker = VALUES(speaker),
+        speaker_role = VALUES(speaker_role),
+        views_count = VALUES(views_count),
+        badge = VALUES(badge),
+        is_featured = VALUES(is_featured),
+        key_takeaways = VALUES(key_takeaways),
+        updated_at = NOW()`,
+      [
+        videoId,
+        title,
+        description || '',
+        category || 'kraepelin',
+        duration || '10:00',
+        youtubeId,
+        thumb,
+        speaker,
+        speakerRole || '',
+        viewsCount || 'Baru',
+        badge || '',
+        isFeatured ? 1 : 0,
+        JSON.stringify(keyTakeaways || [])
+      ]
+    );
+
+    res.json({ success: true, message: 'Video edukasi berhasil disimpan ke database.', videoId });
+  } catch (err) {
+    console.error('[Save Video Error]', err);
+    res.status(500).json({ success: false, message: 'Gagal menyimpan video: ' + err.message });
+  }
+});
+
+app.delete('/api/videos/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    await pool.query('DELETE FROM education_videos WHERE id = ?', [id]);
+    res.json({ success: true, message: 'Video berhasil dihapus dari database.' });
+  } catch (err) {
+    console.error('[Delete Video Error]', err);
+    res.status(500).json({ success: false, message: 'Gagal menghapus video: ' + err.message });
   }
 });
 

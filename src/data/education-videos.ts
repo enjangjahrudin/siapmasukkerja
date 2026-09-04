@@ -1,4 +1,4 @@
-﻿export interface EducationVideo {
+export interface EducationVideo {
   id: string;
   title: string;
   description: string;
@@ -124,3 +124,101 @@ export const educationVideosData: EducationVideo[] = [
     ]
   }
 ];
+
+const STORAGE_VIDEOS_KEY = 'siapkerja_education_videos';
+
+export const extractYoutubeId = (urlOrId: string): string => {
+  if (!urlOrId) return '';
+  const trimmed = urlOrId.trim();
+  // If it's already an 11-char ID
+  if (/^[a-zA-Z0-9_-]{11}$/.test(trimmed)) {
+    return trimmed;
+  }
+  // If full youtube URL or youtu.be
+  const match = trimmed.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
+  return match ? match[1] : trimmed;
+};
+
+export const getStoredVideos = (): EducationVideo[] => {
+  try {
+    const data = localStorage.getItem(STORAGE_VIDEOS_KEY);
+    if (!data) {
+      localStorage.setItem(STORAGE_VIDEOS_KEY, JSON.stringify(educationVideosData));
+      return educationVideosData;
+    }
+    const parsed = JSON.parse(data);
+    return Array.isArray(parsed) && parsed.length > 0 ? parsed : educationVideosData;
+  } catch {
+    return educationVideosData;
+  }
+};
+
+export const saveStoredVideos = (videos: EducationVideo[]): void => {
+  localStorage.setItem(STORAGE_VIDEOS_KEY, JSON.stringify(videos));
+  window.dispatchEvent(new CustomEvent('siapkerja_videos_updated', { detail: videos }));
+};
+
+export const fetchLiveVideos = async (): Promise<EducationVideo[]> => {
+  try {
+    const res = await fetch('/api/videos');
+    if (res.ok) {
+      const json = await res.json();
+      if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+        saveStoredVideos(json.data);
+        return json.data;
+      }
+    }
+  } catch (err) {
+    console.warn('[Video Sync] Using cached videos');
+  }
+  return getStoredVideos();
+};
+
+export const addStoredVideo = async (video: EducationVideo): Promise<EducationVideo[]> => {
+  const current = getStoredVideos();
+  const updated = [video, ...current];
+  saveStoredVideos(updated);
+
+  try {
+    await fetch('/api/videos', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(video)
+    });
+  } catch (err) {}
+
+  return updated;
+};
+
+export const updateStoredVideo = async (video: EducationVideo): Promise<EducationVideo[]> => {
+  const current = getStoredVideos();
+  const index = current.findIndex(v => v.id === video.id);
+  if (index >= 0) {
+    current[index] = video;
+  } else {
+    current.unshift(video);
+  }
+  saveStoredVideos(current);
+
+  try {
+    await fetch('/api/videos', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(video)
+    });
+  } catch (err) {}
+
+  return current;
+};
+
+export const deleteStoredVideo = async (id: string): Promise<EducationVideo[]> => {
+  const current = getStoredVideos();
+  const updated = current.filter(v => v.id !== id);
+  saveStoredVideos(updated);
+
+  try {
+    await fetch(`/api/videos/${id}`, { method: 'DELETE' });
+  } catch (err) {}
+
+  return updated;
+};

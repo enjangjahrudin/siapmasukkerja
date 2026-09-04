@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { tipsAndTricksData, TipArticle } from '../../data/tips-and-tricks';
-import { educationVideosData, EducationVideo } from '../../data/education-videos';
+import { educationVideosData, EducationVideo, getStoredVideos, fetchLiveVideos } from '../../data/education-videos';
 import { 
   BookOpen, 
   Search, 
@@ -19,7 +19,8 @@ import {
   Flame,
   Award,
   Layers,
-  Check
+  Check,
+  RefreshCw
 } from 'lucide-react';
 import { useTheme } from '../../utils/theme-context';
 import { sounds } from '../../utils/sound-effects';
@@ -30,6 +31,27 @@ export const TipsHub: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   
+  // Dynamic Videos State
+  const [videoList, setVideoList] = useState<EducationVideo[]>(() => getStoredVideos());
+
+  // Listen to live video updates from Admin CMS
+  useEffect(() => {
+    fetchLiveVideos().then(v => {
+      if (v && v.length > 0) setVideoList(v);
+    });
+
+    const handleUpdate = (e: any) => {
+      if (e.detail) {
+        setVideoList(e.detail);
+      } else {
+        setVideoList(getStoredVideos());
+      }
+    };
+
+    window.addEventListener('siapkerja_videos_updated', handleUpdate);
+    return () => window.removeEventListener('siapkerja_videos_updated', handleUpdate);
+  }, []);
+
   // Active Article Reader State
   const [selectedArticle, setSelectedArticle] = useState<TipArticle | null>(tipsAndTricksData[0]);
 
@@ -62,7 +84,7 @@ export const TipsHub: React.FC = () => {
   });
 
   // Filter Videos
-  const filteredVideos = educationVideosData.filter(vid => {
+  const filteredVideos = videoList.filter(vid => {
     const matchCat = selectedCategory === 'all' || vid.category === selectedCategory;
     const matchSearch = vid.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
                         vid.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -70,8 +92,10 @@ export const TipsHub: React.FC = () => {
     return matchCat && matchSearch;
   });
 
+  const featuredVideo = videoList.find(v => v.isFeatured) || videoList[0];
+
   return (
-    <div className={`max-w-6xl mx-auto px-3 sm:px-4 py-4 sm:py-6 space-y-4 select-none transition-colors ${
+    <div className={`w-full max-w-6xl mx-auto px-1 sm:px-4 py-2 sm:py-4 space-y-3 select-none transition-colors ${
       isDark ? 'text-white' : 'text-slate-900'
     }`}>
       
@@ -127,7 +151,7 @@ export const TipsHub: React.FC = () => {
             }`}
           >
             <Video className="w-4 h-4" />
-            <span>🎬 Video Edukasi ({educationVideosData.length})</span>
+            <span>🎬 Video Edukasi ({videoList.length})</span>
           </button>
 
           <button
@@ -147,7 +171,7 @@ export const TipsHub: React.FC = () => {
         </div>
 
         {/* Category Tabs */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pt-3 mt-3 border-t border-slate-100 dark:border-slate-800 no-scrollbar">
+        <div className="flex items-center gap-1.5 overflow-x-auto pt-3 mt-3 border-t border-slate-100 dark:border-slate-800 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
           {[
             { id: 'all', label: 'Semua Materi' },
             { id: 'kraepelin', label: 'Tes Koran (Kraepelin)' },
@@ -183,11 +207,11 @@ export const TipsHub: React.FC = () => {
         <div className="space-y-4">
           
           {/* Featured Video Banner (If available) */}
-          {selectedCategory === 'all' && !searchQuery && (
+          {selectedCategory === 'all' && !searchQuery && featuredVideo && (
             <div 
               onClick={() => {
                 sounds.playClick();
-                setActivePlayingVideo(educationVideosData[0]);
+                setActivePlayingVideo(featuredVideo);
               }}
               className={`border rounded-3xl p-4 sm:p-5 cursor-pointer relative overflow-hidden group shadow-sm transition-all hover:scale-[1.01] ${
                 isDark 
@@ -198,8 +222,8 @@ export const TipsHub: React.FC = () => {
               <div className="flex flex-col sm:flex-row items-center gap-4">
                 <div className="relative w-full sm:w-64 h-36 rounded-2xl overflow-hidden shrink-0 shadow-md">
                   <img 
-                    src={educationVideosData[0].thumbnailUrl} 
-                    alt={educationVideosData[0].title}
+                    src={featuredVideo.thumbnailUrl} 
+                    alt={featuredVideo.title}
                     className="w-full h-full object-cover group-hover:scale-105 transition-all duration-300"
                   />
                   <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
@@ -208,7 +232,7 @@ export const TipsHub: React.FC = () => {
                     </div>
                   </div>
                   <div className="absolute bottom-2 right-2 px-2 py-0.5 bg-black/80 text-white text-[10px] font-mono font-bold rounded">
-                    {educationVideosData[0].duration}
+                    {featuredVideo.duration}
                   </div>
                 </div>
 
@@ -218,18 +242,18 @@ export const TipsHub: React.FC = () => {
                       ★ Video Unggulan
                     </span>
                     <span className="text-xs opacity-80">
-                      {educationVideosData[0].viewsCount} ditonton
+                      {featuredVideo.viewsCount} ditonton
                     </span>
                   </div>
                   <h2 className="text-base sm:text-lg font-black leading-tight">
-                    {educationVideosData[0].title}
+                    {featuredVideo.title}
                   </h2>
                   <p className="text-xs opacity-90 line-clamp-2 leading-relaxed">
-                    {educationVideosData[0].description}
+                    {featuredVideo.description}
                   </p>
                   <div className="flex items-center gap-2 text-xs font-bold pt-1">
                     <User className="w-3.5 h-3.5" />
-                    <span>{educationVideosData[0].speaker} ({educationVideosData[0].speakerRole})</span>
+                    <span>{featuredVideo.speaker} ({featuredVideo.speakerRole})</span>
                   </div>
                 </div>
               </div>

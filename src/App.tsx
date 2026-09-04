@@ -271,7 +271,7 @@ export const App: React.FC = () => {
               )}
 
               {activeNavTab === 'tips' && (
-                <div className="p-4 pb-20">
+                <div className="px-1 sm:px-3 pt-1 pb-24 w-full">
                   <TipsHub />
                 </div>
               )}
