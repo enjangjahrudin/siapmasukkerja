@@ -101,21 +101,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
     }
   };
 
-  const handleQuickDemoCandidate = () => {
-    const result = loginUser('081234567891', 'password123');
-    if (result.success && result.user) {
-      sounds.playCorrect();
-      onSuccessLogin(result.user);
-    }
-  };
 
-  const handleQuickAdminLogin = () => {
-    const result = loginUser('admin', 'admin123');
-    if (result.success && result.user) {
-      sounds.playCelebration();
-      onSuccessLogin(result.user);
-    }
-  };
 
   return (
     <div className={`min-h-screen flex flex-col justify-between select-none transition-colors duration-200 ${
@@ -435,35 +421,6 @@ export const AuthPage: React.FC<AuthPageProps> = ({
             </button>
           </form>
         )}
-
-        {/* Quick Demo Access */}
-        <div className={`pt-3 border-t space-y-2 text-center ${isDark ? 'border-slate-800' : 'border-slate-200'}`}>
-          <span className="text-[10px] uppercase font-bold text-slate-500 block">
-            Akses Cepat Pengujian:
-          </span>
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={handleQuickDemoCandidate}
-              className={`p-2 rounded-xl border text-[11px] font-semibold flex items-center justify-center gap-1 transition-colors ${
-                isDark ? 'bg-slate-800 hover:bg-slate-750 border-slate-700 text-slate-300' : 'bg-white hover:bg-slate-100 border-slate-200 text-slate-700'
-              }`}
-            >
-              <User className="w-3.5 h-3.5 text-sky-400" />
-              <span>Demo Siswa (Ahmad)</span>
-            </button>
-            <button
-              type="button"
-              onClick={handleQuickAdminLogin}
-              className={`p-2 rounded-xl border text-[11px] font-semibold flex items-center justify-center gap-1 transition-colors ${
-                isDark ? 'bg-slate-800 hover:bg-slate-750 border-slate-700 text-amber-300' : 'bg-amber-50 hover:bg-amber-100 border-amber-200 text-amber-900'
-              }`}
-            >
-              <ShieldCheck className="w-3.5 h-3.5 text-amber-500" />
-              <span>Login Super Admin</span>
-            </button>
-          </div>
-        </div>
 
       </div>
 

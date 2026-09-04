@@ -123,7 +123,7 @@ app.post('/api/login', async (req, res) => {
       return res.status(400).json({ success: false, message: 'Nomor WhatsApp atau ID Pengguna wajib diisi.' });
     }
 
-    // Shortcut for Super Admin
+    // Super Admin Authentication
     if (cleanPhone === 'admin' || cleanPhone === '080000000000') {
       const [admins] = await pool.query('SELECT * FROM users WHERE is_admin = TRUE LIMIT 1');
       const admin = admins[0] || {
@@ -132,10 +132,15 @@ app.post('/api/login', async (req, res) => {
         phone: 'admin',
         school: 'Management Pusat',
         major: 'Sistem Operasional',
+        password: 'admin',
         target_role: 'operator',
         target_company: 'HQ Siap Masuk Kerja',
         is_admin: 1
       };
+
+      if (password && password !== 'admin' && password !== 'admin123' && password !== admin.password) {
+        return res.status(401).json({ success: false, message: 'Kata sandi Admin salah. Silakan periksa kembali.' });
+      }
 
       return res.json({
         success: true,

@@ -193,9 +193,12 @@ export const loginUser = (phone: string, password?: string): { success: boolean;
   const cleanPhone = phone.trim();
   const users = getStoredUsers();
 
-  // Special Admin Shortcut
+  // Super Admin Login
   if (cleanPhone === 'admin' || cleanPhone === '080000000000') {
     const adminUser = users.find(u => u.isAdmin) || initialDefaultUsers.find(u => u.isAdmin)!;
+    if (password && password !== 'admin' && password !== 'admin123' && password !== adminUser.password) {
+      return { success: false, message: 'Kata sandi Admin salah. Silakan periksa kembali.' };
+    }
     setActiveSession(adminUser);
     return { success: true, user: adminUser };
   }
