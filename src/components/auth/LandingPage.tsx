@@ -19,6 +19,7 @@ import {
   Moon
 } from 'lucide-react';
 import { useTheme } from '../../utils/theme-context';
+import { AppLogo } from '../common/AppLogo';
 
 interface LandingPageProps {
   onGoToRegister: () => void;
@@ -33,30 +34,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGoToRegister, onGoTo
       isDark ? 'bg-slate-900 text-white' : 'bg-slate-50 text-slate-900'
     }`}>
       
-      {/* Top App Header with Logo, Theme Toggle, and Login Button */}
+      {/* Top App Header with Iconic Logo, Theme Toggle, and Login Button (Clean & Ringkas) */}
       <div className={`p-4 sm:p-5 flex items-center justify-between border-b sticky top-0 z-20 backdrop-blur-md transition-colors ${
         isDark ? 'bg-slate-900/90 border-slate-800' : 'bg-white/90 border-slate-200 shadow-xs'
       }`}>
-        <div className="flex items-center gap-2.5">
-          <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-brand-600 via-sky-500 to-teal-400 flex items-center justify-center font-black text-slate-950 text-base shadow-md shadow-brand-500/30">
-            SMK
-          </div>
-          <div>
-            <div className="flex items-center gap-1.5">
-              <span className={`font-black text-base tracking-tight block leading-none ${isDark ? 'text-white' : 'text-slate-900'}`}>
-                SMK
-              </span>
-              <span className={`text-[10px] font-extrabold px-1.5 py-0.2 rounded ${
-                isDark ? 'bg-sky-950 text-sky-400 border border-sky-800' : 'bg-sky-100 text-sky-800 border border-sky-200'
-              }`}>
-                Siap Masuk Kerja
-              </span>
-            </div>
-            <span className={`text-[10px] font-semibold tracking-tight ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-              Simulasikan Seleksi. Tingkatkan Kesiapan.
-            </span>
-          </div>
-        </div>
+        
+        {/* Iconic Logo without tagline subtext for minimal clean look */}
+        <AppLogo size="md" isDark={isDark} showText={true} />
 
         <div className="flex items-center gap-2">
           {/* Theme Toggle Sun / Moon Button */}
@@ -192,7 +176,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGoToRegister, onGoTo
 
       </div>
 
-      {/* Sticky Bottom Action Buttons: DIRECTS TO REGISTER / LOGIN */}
+      {/* Sticky Bottom Action Buttons */}
       <div className={`p-4 border-t backdrop-blur-md sticky bottom-0 z-20 space-y-2 transition-colors ${
         isDark ? 'bg-slate-900/95 border-slate-800' : 'bg-white/95 border-slate-200'
       }`}>

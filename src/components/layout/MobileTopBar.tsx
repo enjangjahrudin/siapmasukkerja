@@ -12,6 +12,8 @@ import {
 } from 'lucide-react';
 import { useTheme } from '../../utils/theme-context';
 
+import { AppLogo } from '../common/AppLogo';
+
 interface MobileTopBarProps {
   title?: string;
   showBack?: boolean;
@@ -84,11 +86,9 @@ export const MobileTopBar: React.FC<MobileTopBarProps> = ({
     }`}>
       <div className="flex items-center justify-between">
         
-        {/* User Info & Role Dropdown */}
+        {/* User Info with AppLogo & Role Dropdown */}
         <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-2xl bg-gradient-to-tr from-brand-600 via-sky-500 to-teal-400 text-slate-950 font-black text-xs flex items-center justify-center shadow-md shadow-brand-500/20">
-            SMK
-          </div>
+          <AppLogo size="md" isDark={isDark} showText={false} />
           <div>
             <div className="flex items-center gap-1">
               <span className={`text-xs font-black leading-none ${isDark ? 'text-white' : 'text-slate-900'}`}>
