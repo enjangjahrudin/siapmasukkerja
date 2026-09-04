@@ -486,7 +486,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
                 {serverConnection === 'connected' ? 'Live Realtime' : 'Cache'}
               </strong>
             </span>
-            <span className="text-[10px] text-slate-400 font-mono ml-0.5">({lastSyncTime})</span>
+            <span className="text-[10px] text-slate-400 font-semibold ml-0.5">({lastSyncTime})</span>
           </div>
         </div>
 
@@ -628,7 +628,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
 
                       {/* Mini Compact Badge (Does not overflow) */}
                       {!isSidebarCollapsed && item.badge && (
-                        <span className={`text-[9px] font-mono font-black px-1.5 py-0.2 rounded-full shrink-0 ml-1.5 border ${
+                        <span className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded-full shrink-0 ml-1.5 border ${
                           isActive 
                             ? isDark ? 'bg-sky-500/20 text-sky-300 border-sky-500/40' : 'bg-brand-600 text-white border-brand-700' 
                             : isDark ? 'bg-slate-800 text-slate-400 border-slate-700' : 'bg-slate-100 text-slate-600 border-slate-200'
@@ -686,7 +686,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
                       </div>
 
                       {!isSidebarCollapsed && item.badge && (
-                        <span className={`text-[9px] font-mono font-black px-1.5 py-0.2 rounded-full shrink-0 ml-1.5 border ${
+                        <span className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded-full shrink-0 ml-1.5 border ${
                           isActive 
                             ? isDark ? 'bg-amber-500/20 text-amber-300 border-amber-500/40' : 'bg-amber-600 text-white border-amber-700' 
                             : isDark ? 'bg-slate-800 text-slate-400 border-slate-700' : 'bg-slate-100 text-slate-600 border-slate-200'
@@ -745,7 +745,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
 
                       {/* Mini Compact Badge */}
                       {!isSidebarCollapsed && item.badge && (
-                        <span className={`text-[9px] font-mono font-black px-1.5 py-0.2 rounded-full shrink-0 ml-1.5 border ${
+                        <span className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded-full shrink-0 ml-1.5 border ${
                           isDark ? 'bg-slate-800 text-slate-400 border-slate-700' : 'bg-slate-100 text-slate-600 border-slate-200'
                         }`}>
                           {item.badge}
@@ -770,7 +770,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
             }`}>
               <div className="flex items-center justify-between text-[11px]">
                 <span className="text-slate-400">Terdaftar:</span>
-                <strong className="text-emerald-500 font-mono font-bold">{candidateListOnly.length} Siswa</strong>
+                <strong className="text-emerald-500 font-bold">{candidateListOnly.length} Siswa</strong>
               </div>
               <div className="flex items-center justify-between text-[11px]">
                 <span className="text-slate-400">Video Edukasi:</span>
@@ -783,7 +783,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
             </div>
           ) : (
             <div className="text-center">
-              <span className="text-[10px] font-mono font-bold text-emerald-500 bg-emerald-500/10 py-1 px-1.5 rounded-lg block">
+              <span className="text-[10px] font-bold text-emerald-500 bg-emerald-500/10 py-1 px-1.5 rounded-lg block">
                 {candidateListOnly.length}
               </span>
             </div>
@@ -874,7 +874,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
                     </div>
                   </div>
                   <div className="mt-3 flex items-baseline gap-2">
-                    <span className={`text-2xl font-black font-mono ${isDark ? 'text-white' : 'text-slate-900'}`}>{candidateListOnly.length}</span>
+                    <span className={`text-2xl font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>{candidateListOnly.length}</span>
                     <span className="text-[11px] font-bold text-emerald-500 flex items-center gap-0.5">
                       <ArrowUpRight className="w-3.5 h-3.5" /> Aktif
                     </span>
@@ -895,7 +895,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
                     </div>
                   </div>
                   <div className="mt-3 flex items-baseline gap-2">
-                    <span className={`text-2xl font-black font-mono ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                    <span className={`text-2xl font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>
                       {candidateListOnly.reduce((acc, c) => acc + (c.completedTestsCount || 1), 0) * 3}
                     </span>
                     <span className="text-[11px] font-bold text-emerald-500 flex items-center gap-0.5">
@@ -918,7 +918,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
                     </div>
                   </div>
                   <div className="mt-3 flex items-baseline gap-2">
-                    <span className="text-2xl font-black font-mono text-purple-500">
+                    <span className="text-2xl font-black text-purple-500">
                       {candidateListOnly.length * 2} Sesi
                     </span>
                     <span className="text-[11px] font-bold text-emerald-500 flex items-center gap-0.5">
@@ -941,7 +941,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
                     </div>
                   </div>
                   <div className="mt-3 flex items-baseline gap-2">
-                    <span className="text-2xl font-black font-mono text-emerald-500">78.5%</span>
+                    <span className="text-2xl font-black text-emerald-500">78.5%</span>
                     <span className="text-[11px] font-bold text-emerald-500 flex items-center gap-0.5">
                       <ArrowUpRight className="w-3.5 h-3.5" /> +6.1%
                     </span>
@@ -1016,7 +1016,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
                         <tr key={cand.id} className={`transition-colors ${isDark ? 'hover:bg-slate-850/60' : 'hover:bg-slate-50'}`}>
                           <td className="py-3.5 pl-2">
                             <div className={`font-bold text-xs ${isDark ? 'text-white' : 'text-slate-900'}`}>{cand.name}</div>
-                            <div className="text-[10px] text-sky-500 font-mono">{cand.phone || cand.id}</div>
+                            <div className="text-[10px] text-sky-500 font-semibold">{cand.phone || cand.id}</div>
                           </td>
                           <td className="py-3.5">
                             <span className={`block font-semibold ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>{cand.school}</span>
@@ -1026,14 +1026,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
                             <span className={`capitalize font-semibold ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>{cand.targetRole}</span>
                             <span className="block text-[10px] text-slate-400">{cand.targetCompany}</span>
                           </td>
-                          <td className="py-3.5 font-mono">
+                          <td className="py-3.5">
                             <span className="text-sky-500 font-bold">{cand.kraepelinScore?.panker || '-'}</span>
                             <span className="text-[10px] text-slate-400 block">{cand.kraepelinScore?.janker ? `${cand.kraepelinScore.janker}% akurat` : 'Belum tes'}</span>
                           </td>
-                          <td className="py-3.5 font-mono">
+                          <td className="py-3.5">
                             <span className="text-emerald-500 font-bold">{cand.qcAccuracy ? `${cand.qcAccuracy}%` : '-'}</span>
                           </td>
-                          <td className="py-3.5 font-mono">
+                          <td className="py-3.5">
                             <span className="text-purple-500 font-bold">{cand.interviewScore ? `${cand.interviewScore}%` : '-'}</span>
                           </td>
                           <td className="py-3.5">
@@ -1112,14 +1112,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
                     {filteredCandidates.map((c) => (
                       <tr key={c.id} className={`transition-colors ${isDark ? 'hover:bg-slate-850/50' : 'hover:bg-slate-50'}`}>
                         <td className="p-4">
-                          <div className="font-mono text-[10px] text-slate-400">{c.id}</div>
+                          <div className="text-[10px] text-slate-400 font-semibold">{c.id}</div>
                           <div className={`font-extrabold text-xs mt-0.5 ${isDark ? 'text-white' : 'text-slate-900'}`}>{c.name}</div>
                         </td>
                         <td className="p-4">
                           <span className={`block font-semibold ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>{c.school}</span>
                           <span className="text-[10px] text-slate-400">{c.major}</span>
                         </td>
-                        <td className="p-4 font-mono text-sky-500 font-bold">{c.phone}</td>
+                        <td className="p-4 text-sky-500 font-bold">{c.phone}</td>
                         <td className="p-4">
                           <span className={`font-bold capitalize ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>{c.targetRole}</span>
                           <span className="block text-[10px] text-slate-400">{c.targetCompany}</span>
@@ -1189,7 +1189,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
                         </span>
                       </div>
                       <h4 className={`text-sm font-extrabold ${isDark ? 'text-white' : 'text-slate-900'}`}>{item.name}</h4>
-                      <span className="text-xs font-mono text-sky-500 block mt-0.5 font-bold">{item.total}</span>
+                      <span className="text-xs text-sky-500 block mt-0.5 font-bold">{item.total}</span>
                       <p className={`text-xs mt-2 leading-relaxed ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{item.desc}</p>
                     </div>
                   </div>
@@ -1220,7 +1220,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
                         <span className="text-xs font-extrabold text-sky-500">{cand.name}</span>
                         <span className="text-[10px] text-slate-400 ml-2">({cand.school} • {cand.targetRole})</span>
                       </div>
-                      <span className="text-xs font-mono font-black text-emerald-500 bg-emerald-500/20 px-2.5 py-0.5 rounded border border-emerald-500/30">
+                      <span className="text-xs font-black text-emerald-500 bg-emerald-500/20 px-2.5 py-0.5 rounded border border-emerald-500/30">
                         Prediksi: {cand.interviewScore || 85}% Lolos
                       </span>
                     </div>
@@ -1290,7 +1290,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
                   isDark ? 'bg-[#0f172a] border-slate-800' : 'bg-white border-slate-200 shadow-xs'
                 }`}>
                   <span className="text-[10px] sm:text-[11px] uppercase font-bold text-slate-400">Total Video</span>
-                  <div className="text-xl sm:text-2xl font-black text-amber-500 font-mono mt-1">{videoList.length} Video</div>
+                  <div className="text-xl sm:text-2xl font-black text-amber-500 mt-1">{videoList.length} Video</div>
                   <span className="text-[10px] text-slate-400 mt-0.5 block">Aktif di aplikasi</span>
                 </div>
 
@@ -1298,7 +1298,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
                   isDark ? 'bg-[#0f172a] border-slate-800' : 'bg-white border-slate-200 shadow-xs'
                 }`}>
                   <span className="text-[10px] sm:text-[11px] uppercase font-bold text-slate-400">Video Unggulan</span>
-                  <div className="text-xl sm:text-2xl font-black text-amber-400 font-mono mt-1">
+                  <div className="text-xl sm:text-2xl font-black text-amber-400 mt-1">
                     {videoList.filter(v => v.isFeatured).length} Video
                   </div>
                   <span className="text-[10px] text-slate-400 mt-0.5 block">Banner Beranda</span>
@@ -1308,7 +1308,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
                   isDark ? 'bg-[#0f172a] border-slate-800' : 'bg-white border-slate-200 shadow-xs'
                 }`}>
                   <span className="text-[10px] sm:text-[11px] uppercase font-bold text-slate-400">Kategori Materi</span>
-                  <div className="text-xl sm:text-2xl font-black text-sky-500 font-mono mt-1">5 Modul</div>
+                  <div className="text-xl sm:text-2xl font-black text-sky-500 mt-1">5 Modul</div>
                   <span className="text-[10px] text-slate-400 mt-0.5 block">Kraepelin, Psikotes, dll</span>
                 </div>
 
@@ -1316,7 +1316,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
                   isDark ? 'bg-[#0f172a] border-slate-800' : 'bg-white border-slate-200 shadow-xs'
                 }`}>
                   <span className="text-[10px] sm:text-[11px] uppercase font-bold text-slate-400">Total Penonton</span>
-                  <div className="text-xl sm:text-2xl font-black text-emerald-500 font-mono mt-1">190+ rb</div>
+                  <div className="text-xl sm:text-2xl font-black text-emerald-500 mt-1">190+ rb</div>
                   <span className="text-[10px] text-slate-400 mt-0.5 block">Akumulasi tayangan</span>
                 </div>
               </div>
@@ -1413,12 +1413,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
                         {/* Top Badges */}
                         <div className="absolute top-2.5 left-2.5 flex flex-wrap items-center gap-1.5 max-w-[80%]">
                           {video.sourceType === 'upload' ? (
-                            <span className="bg-sky-600 text-white font-mono text-[9px] font-bold px-2 py-0.5 rounded shadow-xs flex items-center gap-1">
+                            <span className="bg-sky-600 text-white text-[9px] font-bold px-2 py-0.5 rounded shadow-xs flex items-center gap-1">
                               <Upload className="w-2.5 h-2.5" />
                               <span>File Upload</span>
                             </span>
                           ) : (
-                            <span className="bg-slate-900/90 backdrop-blur-xs text-amber-400 font-mono text-[9px] font-bold px-2 py-0.5 rounded border border-slate-700">
+                            <span className="bg-slate-900/90 backdrop-blur-xs text-amber-400 text-[9px] font-bold px-2 py-0.5 rounded border border-slate-700">
                               YT: {video.youtubeId}
                             </span>
                           )}
@@ -1456,7 +1456,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
                         </button>
 
                         {/* Duration */}
-                        <div className="absolute bottom-2 right-2 px-2 py-0.5 bg-black/80 text-white text-[10px] font-mono font-bold rounded">
+                        <div className="absolute bottom-2 right-2 px-2 py-0.5 bg-black/80 text-white text-[10px] font-bold rounded">
                           {video.duration}
                         </div>
                       </div>
@@ -1602,7 +1602,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
                   isDark ? 'bg-[#0f172a] border-slate-800' : 'bg-white border-slate-200 shadow-xs'
                 }`}>
                   <span className="text-[11px] uppercase font-bold text-slate-400">Total Transaksi</span>
-                  <div className="text-2xl font-black text-emerald-500 font-mono mt-2">Rp 52.450.000</div>
+                  <div className="text-2xl font-black text-emerald-500 mt-2">Rp 52.450.000</div>
                   <span className="text-[10px] text-slate-400 mt-1 block">Dari 1,480 pembayaran sukses</span>
                 </div>
 
@@ -1610,7 +1610,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
                   isDark ? 'bg-[#0f172a] border-slate-800' : 'bg-white border-slate-200 shadow-xs'
                 }`}>
                   <span className="text-[11px] uppercase font-bold text-slate-400">Token AI Terjual</span>
-                  <div className="text-2xl font-black text-purple-500 font-mono mt-2">3,890 Token</div>
+                  <div className="text-2xl font-black text-purple-500 mt-2">3,890 Token</div>
                   <span className="text-[10px] text-slate-400 mt-1 block">Paket Rp 25.000 (3x sesi wawancara)</span>
                 </div>
 
@@ -1645,15 +1645,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
                   <div className="space-y-2 text-xs">
                     <div className="flex justify-between">
                       <span className="text-slate-400">Whisper STT (Indonesian Voice):</span>
-                      <strong className="text-emerald-500 font-mono">115 ms (Optimal)</strong>
+                      <strong className="text-emerald-500 font-bold">115 ms (Optimal)</strong>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-slate-400">Gemini LLM HRD Evaluator:</span>
-                      <strong className="text-sky-500 font-mono">180 ms (Optimal)</strong>
+                      <strong className="text-sky-500 font-bold">180 ms (Optimal)</strong>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-slate-400">Google Neural2 TTS Synthesizer:</span>
-                      <strong className="text-emerald-500 font-mono">82 ms (Ultra Fast)</strong>
+                      <strong className="text-emerald-500 font-bold">82 ms (Ultra Fast)</strong>
                     </div>
                   </div>
                 </div>
@@ -1665,15 +1665,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
                   <div className="space-y-2 text-xs">
                     <div className="flex justify-between">
                       <span className="text-slate-400">Database MySQL:</span>
-                      <strong className="text-emerald-500 font-mono">Connected (Port 3306)</strong>
+                      <strong className="text-emerald-500 font-bold">Connected (Port 3306)</strong>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-slate-400">Node.js API Service:</span>
-                      <strong className="text-emerald-500 font-mono">Online (Port 5000)</strong>
+                      <strong className="text-emerald-500 font-bold">Online (Port 5000)</strong>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-slate-400">Memory Usage:</span>
-                      <strong className="text-sky-500 font-mono">245 MB / 2.0 GB (Very Light)</strong>
+                      <strong className="text-sky-500 font-bold">245 MB / 2.0 GB (Very Light)</strong>
                     </div>
                   </div>
                 </div>
@@ -1694,10 +1694,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
             
             <div className={`flex items-center justify-between pb-4 border-b ${isDark ? 'border-slate-800' : 'border-slate-200'}`}>
               <div>
-                <span className="text-[10px] font-mono text-sky-500 font-bold">{selectedCandidateModal.id}</span>
+                <span className="text-[10px] text-sky-500 font-bold">{selectedCandidateModal.id}</span>
                 <h3 className={`text-lg font-black mt-0.5 ${isDark ? 'text-white' : 'text-slate-900'}`}>{selectedCandidateModal.name}</h3>
                 <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-                  {selectedCandidateModal.school} • {selectedCandidateModal.major} (No WA: <span className="text-sky-500 font-mono font-bold">{selectedCandidateModal.phone}</span>)
+                  {selectedCandidateModal.school} • {selectedCandidateModal.major} (No WA: <span className="text-sky-500 font-bold">{selectedCandidateModal.phone}</span>)
                 </p>
               </div>
 
@@ -1715,19 +1715,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
             <div className="grid grid-cols-3 gap-3 text-center">
               <div className={`border rounded-2xl p-3.5 ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-slate-50 border-slate-200'}`}>
                 <span className="text-[10px] text-slate-400 uppercase font-bold">Kraepelin Panker</span>
-                <div className="text-xl font-black text-sky-500 mt-1 font-mono">{selectedCandidateModal.kraepelinScore?.panker || '-'}</div>
+                <div className="text-xl font-black text-sky-500 mt-1">{selectedCandidateModal.kraepelinScore?.panker || '-'}</div>
                 <span className="text-[10px] text-slate-400">{selectedCandidateModal.kraepelinScore?.janker ? `${selectedCandidateModal.kraepelinScore.janker}% Akurasi` : 'Belum tes'}</span>
               </div>
 
               <div className={`border rounded-2xl p-3.5 ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-slate-50 border-slate-200'}`}>
                 <span className="text-[10px] text-slate-400 uppercase font-bold">Akurasi Kode QC</span>
-                <div className="text-xl font-black text-emerald-500 mt-1 font-mono">{selectedCandidateModal.qcAccuracy ? `${selectedCandidateModal.qcAccuracy}%` : '-'}</div>
+                <div className="text-xl font-black text-emerald-500 mt-1">{selectedCandidateModal.qcAccuracy ? `${selectedCandidateModal.qcAccuracy}%` : '-'}</div>
                 <span className="text-[10px] text-slate-400">Speed Match 45s</span>
               </div>
 
               <div className={`border rounded-2xl p-3.5 ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-slate-50 border-slate-200'}`}>
                 <span className="text-[10px] text-slate-400 uppercase font-bold">AI Interview HRD</span>
-                <div className="text-xl font-black text-purple-500 mt-1 font-mono">{selectedCandidateModal.interviewScore ? `${selectedCandidateModal.interviewScore}%` : '-'}</div>
+                <div className="text-xl font-black text-purple-500 mt-1">{selectedCandidateModal.interviewScore ? `${selectedCandidateModal.interviewScore}%` : '-'}</div>
                 <span className="text-[10px] text-slate-400">Peluang Lolos</span>
               </div>
             </div>
@@ -1864,12 +1864,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
                       value={videoForm.youtubeInput}
                       onChange={e => setVideoForm({ ...videoForm, youtubeInput: e.target.value })}
                       placeholder="https://youtu.be/qj8B35CqQ5Y atau qj8B35CqQ5Y"
-                      className={`w-full p-2.5 rounded-xl border outline-none font-mono text-xs ${
+                      className={`w-full p-2.5 rounded-xl border outline-none font-bold text-xs ${
                         isDark ? 'bg-slate-900 border-slate-700 text-amber-400 focus:border-amber-500' : 'bg-slate-50 border-slate-200 text-amber-700 focus:border-amber-500'
                       }`}
                     />
                     <span className="text-[10px] text-slate-400 mt-1 block">
-                      ID YouTube Terdeteksi: <strong className="text-amber-500 font-mono">{extractYoutubeId(videoForm.youtubeInput) || '-'}</strong>
+                      ID YouTube Terdeteksi: <strong className="text-amber-500 font-bold">{extractYoutubeId(videoForm.youtubeInput) || '-'}</strong>
                     </span>
                   </div>
 
@@ -1945,7 +1945,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
                           <CheckCircle2 className="w-3.5 h-3.5" />
                           <span>File Video Siap Diputar</span>
                         </span>
-                        <span className="text-[10px] font-mono text-slate-400 truncate max-w-[200px]">
+                        <span className="text-[10px] font-semibold text-slate-400 truncate max-w-[200px]">
                           {videoForm.videoUrl}
                         </span>
                       </div>
@@ -2117,7 +2117,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
                     value={videoForm.duration}
                     onChange={e => setVideoForm({ ...videoForm, duration: e.target.value })}
                     placeholder="Contoh: 12:45"
-                    className={`w-full p-2.5 rounded-xl border outline-none font-mono ${
+                    className={`w-full p-2.5 rounded-xl border outline-none font-bold ${
                       isDark ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
                     }`}
                   />
@@ -2273,7 +2273,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
             <div className="p-4 space-y-2 text-xs overflow-y-auto">
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-extrabold line-clamp-1">{previewPlayingVideo.title}</h3>
-                <span className="text-amber-500 font-mono font-bold">{previewPlayingVideo.duration}</span>
+                <span className="text-amber-500 font-bold">{previewPlayingVideo.duration}</span>
               </div>
               <p className="text-slate-400 leading-relaxed line-clamp-2">{previewPlayingVideo.description}</p>
               <div className="text-[11px] text-slate-400 pt-1">
