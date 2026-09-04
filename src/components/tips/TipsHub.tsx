@@ -27,7 +27,9 @@ import {
   Award, 
   Layers, 
   Check, 
-  RefreshCw 
+  RefreshCw,
+  Smartphone,
+  Upload 
 } from 'lucide-react';
 import { useTheme } from '../../utils/theme-context';
 import { sounds } from '../../utils/sound-effects';
@@ -295,12 +297,23 @@ export const TipsHub: React.FC = () => {
                   }`}
                 >
                   {/* Thumbnail & Badges */}
-                  <div className="relative aspect-video w-full overflow-hidden bg-slate-800">
-                    <img 
-                      src={video.thumbnailUrl} 
-                      alt={video.title} 
-                      className="w-full h-full object-cover group-hover:scale-105 transition-all duration-300"
-                    />
+                  <div className={`relative w-full overflow-hidden bg-slate-900 ${video.orientation === 'portrait' ? 'aspect-[4/5] sm:aspect-video' : 'aspect-video'}`}>
+                    {video.sourceType === 'upload' && video.videoUrl ? (
+                      <div className="w-full h-full bg-slate-950 flex items-center justify-center relative">
+                        <video
+                          src={video.videoUrl}
+                          preload="metadata"
+                          className="w-full h-full object-cover group-hover:scale-105 transition-all duration-300 pointer-events-none"
+                        />
+                        <div className="absolute inset-0 bg-black/20" />
+                      </div>
+                    ) : (
+                      <img 
+                        src={video.thumbnailUrl || `https://img.youtube.com/vi/${video.youtubeId}/hqdefault.jpg`} 
+                        alt={video.title} 
+                        className="w-full h-full object-cover group-hover:scale-105 transition-all duration-300"
+                      />
+                    )}
                     
                     {/* Dark gradient overlay & Play Button */}
                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent flex items-center justify-center">
@@ -310,7 +323,19 @@ export const TipsHub: React.FC = () => {
                     </div>
 
                     {/* Top Badges */}
-                    <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5">
+                    <div className="absolute top-2.5 left-2.5 flex flex-wrap items-center gap-1.5 max-w-[80%]">
+                      {video.orientation === 'portrait' && (
+                        <span className="bg-purple-600 text-white font-black text-[9px] uppercase px-2 py-0.5 rounded-full flex items-center gap-0.5 shadow-xs">
+                          <Smartphone className="w-2.5 h-2.5" />
+                          <span>Vertikal</span>
+                        </span>
+                      )}
+                      {video.sourceType === 'upload' && (
+                        <span className="bg-sky-600 text-white font-bold text-[9px] px-2 py-0.5 rounded-full flex items-center gap-0.5 shadow-xs">
+                          <Upload className="w-2.5 h-2.5" />
+                          <span>File</span>
+                        </span>
+                      )}
                       {video.badge && (
                         <span className="bg-amber-500 text-white font-black text-[9px] uppercase px-2 py-0.5 rounded-full shadow-xs">
                           {video.badge}
@@ -472,8 +497,11 @@ export const TipsHub: React.FC = () => {
 
               </div>
             ) : (
-              <div className="border border-slate-200 dark:border-slate-800 rounded-3xl p-10 text-center text-slate-400">
-                Pilih salah satu artikel di sebelah kiri untuk membaca.
+              <div className={`border rounded-3xl p-12 text-center space-y-2 ${
+                isDark ? 'bg-slate-900 border-slate-800 text-slate-400' : 'bg-white border-slate-200 text-slate-500'
+              }`}>
+                <BookOpen className="w-8 h-8 mx-auto text-amber-500 opacity-60" />
+                <p className="text-xs">Pilih salah satu artikel di sebelah kiri untuk membaca materi selengkapnya.</p>
               </div>
             )}
           </div>
@@ -485,8 +513,10 @@ export const TipsHub: React.FC = () => {
       {/* IN-APP EMBEDDED VIDEO PLAYER MODAL (ZERO-TAB SWITCHING)             */}
       {/* =================================================================== */}
       {activePlayingVideo && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 animate-in fade-in">
-          <div className={`w-full max-w-2xl max-h-[92vh] overflow-y-auto rounded-3xl border shadow-2xl flex flex-col justify-between relative ${
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 animate-in fade-in overflow-y-auto">
+          <div className={`w-full rounded-3xl border shadow-2xl flex flex-col justify-between relative my-auto transition-all ${
+            activePlayingVideo.orientation === 'portrait' ? 'max-w-md max-h-[92vh]' : 'max-w-3xl max-h-[92vh]'
+          } ${
             isDark ? 'bg-slate-900 border-slate-700 text-white' : 'bg-white border-slate-200 text-slate-900'
           }`}>
             
@@ -495,7 +525,7 @@ export const TipsHub: React.FC = () => {
               <div className="flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" />
                 <span className="text-xs font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">
-                  Pemutar Video Edukasi
+                  Pemutar Video ({activePlayingVideo.orientation === 'portrait' ? '📱 Vertikal' : '🖥️ Landscape'})
                 </span>
               </div>
               <button
@@ -509,19 +539,31 @@ export const TipsHub: React.FC = () => {
               </button>
             </div>
 
-            {/* Embedded Iframe Player */}
-            <div className="relative aspect-video w-full bg-black">
-              <iframe
-                src={`https://www.youtube-nocookie.com/embed/${activePlayingVideo.youtubeId}?autoplay=1&playsinline=1&rel=0&modestbranding=1`}
-                title={activePlayingVideo.title}
-                className="w-full h-full border-0"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                allowFullScreen
-              />
+            {/* Video Player Display */}
+            <div className={`relative w-full bg-black flex items-center justify-center overflow-hidden ${
+              activePlayingVideo.orientation === 'portrait' ? 'aspect-[9/16] max-h-[62vh]' : 'aspect-video'
+            }`}>
+              {activePlayingVideo.sourceType === 'upload' && activePlayingVideo.videoUrl ? (
+                <video
+                  src={activePlayingVideo.videoUrl}
+                  controls
+                  autoPlay
+                  playsInline
+                  className="w-full h-full object-contain bg-black"
+                />
+              ) : (
+                <iframe
+                  src={`https://www.youtube-nocookie.com/embed/${activePlayingVideo.youtubeId}?autoplay=1&playsinline=1&rel=0&modestbranding=1`}
+                  title={activePlayingVideo.title}
+                  className="w-full h-full border-0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  allowFullScreen
+                />
+              )}
             </div>
 
             {/* Video Details & Action Buttons */}
-            <div className="p-5 space-y-4">
+            <div className="p-5 space-y-4 overflow-y-auto">
               <div className="space-y-1.5">
                 <div className="flex flex-wrap items-center gap-2">
                   {activePlayingVideo.badge && (
@@ -602,4 +644,3 @@ export const TipsHub: React.FC = () => {
     </div>
   );
 };
-

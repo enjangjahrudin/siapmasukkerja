@@ -38,7 +38,11 @@ import {
   X,
   KeyRound,
   Lock,
-  Tag
+  Tag,
+  Upload,
+  Monitor,
+  Loader2,
+  FileVideo
 } from 'lucide-react';
 import { TargetRole } from '../../types';
 import { getStoredUsers, RegisteredUser, saveUser, changeUserPassword } from '../../utils/auth-storage';
@@ -55,7 +59,8 @@ import {
   updateStoredVideo, 
   deleteStoredVideo, 
   extractYoutubeId,
-  fetchLiveVideos
+  fetchLiveVideos,
+  uploadVideoFile
 } from '../../data/education-videos';
 import { useTheme } from '../../utils/theme-context';
 import { AppLogo } from '../common/AppLogo';
@@ -103,7 +108,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
     description: string;
     category: string;
     duration: string;
+    sourceType: 'youtube' | 'upload';
     youtubeInput: string;
+    videoUrl: string;
+    orientation: 'landscape' | 'portrait';
     speaker: string;
     speakerRole: string;
     viewsCount: string;
@@ -116,7 +124,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
     description: '',
     category: 'kraepelin',
     duration: '10:00',
+    sourceType: 'youtube',
     youtubeInput: '',
+    videoUrl: '',
+    orientation: 'landscape',
     speaker: '',
     speakerRole: '',
     viewsCount: '1.5 rb',
@@ -124,6 +135,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
     isFeatured: false,
     keyTakeawaysText: ''
   });
+  const [isUploadingVideo, setIsUploadingVideo] = useState<boolean>(false);
+  const [uploadVideoError, setUploadVideoError] = useState<string>('');
 
   // Fetch live videos and listen to category changes
   const refreshVideos = async () => {
@@ -146,13 +159,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
     setEditingVideo(null);
     setIsCustomCategory(false);
     setCustomCategoryName('');
+    setIsUploadingVideo(false);
+    setUploadVideoError('');
     setVideoForm({
       id: `vid-${Date.now()}`,
       title: '',
       description: '',
       category: categoryList[0]?.id || 'kraepelin',
       duration: '10:00',
+      sourceType: 'youtube',
       youtubeInput: '',
+      videoUrl: '',
+      orientation: 'landscape',
       speaker: '',
       speakerRole: 'Praktisi Rekrutmen',
       viewsCount: '1.2 rb',
@@ -173,13 +191,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
     }
     setIsCustomCategory(false);
     setCustomCategoryName('');
+    setIsUploadingVideo(false);
+    setUploadVideoError('');
     setVideoForm({
       id: video.id,
       title: video.title,
       description: video.description,
       category: video.category,
       duration: video.duration,
-      youtubeInput: video.youtubeId,
+      sourceType: video.sourceType || (video.videoUrl ? 'upload' : 'youtube'),
+      youtubeInput: video.youtubeId || '',
+      videoUrl: video.videoUrl || '',
+      orientation: video.orientation || 'landscape',
       speaker: video.speaker,
       speakerRole: video.speakerRole,
       viewsCount: video.viewsCount,
@@ -190,12 +213,79 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
     setIsAddEditModalOpen(true);
   };
 
+  const handleVideoFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('video/')) {
+      setUploadVideoError('Format file tidak didukung. Silakan pilih file video (MP4, WebM, MOV, dll).');
+      return;
+    }
+
+    if (file.size > 100 * 1024 * 1024) {
+      setUploadVideoError('Ukuran video terlalu besar (maksimal 100 MB).');
+      return;
+    }
+
+    setIsUploadingVideo(true);
+    setUploadVideoError('');
+
+    // Pre-detect orientation and duration
+    try {
+      const tempVideo = document.createElement('video');
+      tempVideo.preload = 'metadata';
+      tempVideo.src = URL.createObjectURL(file);
+      tempVideo.onloadedmetadata = () => {
+        window.URL.revokeObjectURL(tempVideo.src);
+        const w = tempVideo.videoWidth;
+        const h = tempVideo.videoHeight;
+        const isPortrait = h > w;
+        const autoOrientation = isPortrait ? 'portrait' : 'landscape';
+        
+        const totalSecs = Math.round(tempVideo.duration || 0);
+        const mins = Math.floor(totalSecs / 60);
+        const secs = totalSecs % 60;
+        const autoDuration = `${mins < 10 ? '0' : ''}${mins}:${secs < 10 ? '0' : ''}${secs}`;
+
+        setVideoForm(prev => ({
+          ...prev,
+          orientation: autoOrientation,
+          duration: autoDuration !== '00:00' ? autoDuration : prev.duration
+        }));
+      };
+    } catch (err) {
+      console.warn('Video metadata detection failed', err);
+    }
+
+    const result = await uploadVideoFile(file);
+    setIsUploadingVideo(false);
+
+    if (result.success && result.videoUrl) {
+      setVideoForm(prev => ({
+        ...prev,
+        videoUrl: result.videoUrl || '',
+        title: prev.title || file.name.replace(/\.[^/.]+$/, "").replace(/[-_]/g, ' ')
+      }));
+    } else {
+      setUploadVideoError(result.message || 'Gagal mengunggah file video.');
+    }
+  };
+
   const handleSaveVideo = async (e: React.FormEvent) => {
     e.preventDefault();
-    const ytId = extractYoutubeId(videoForm.youtubeInput);
-    if (!ytId) {
-      alert('Silakan masukkan link YouTube atau Video ID yang valid.');
-      return;
+    
+    let ytId = '';
+    if (videoForm.sourceType === 'youtube') {
+      ytId = extractYoutubeId(videoForm.youtubeInput);
+      if (!ytId) {
+        alert('Silakan masukkan link YouTube atau Video ID yang valid.');
+        return;
+      }
+    } else {
+      if (!videoForm.videoUrl) {
+        alert('Silakan pilih dan tunggu hingga file video selesai diunggah.');
+        return;
+      }
     }
 
     let finalCategory = videoForm.category;
@@ -220,8 +310,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
       description: videoForm.description,
       category: finalCategory,
       duration: videoForm.duration || '10:00',
-      youtubeId: ytId,
-      thumbnailUrl: `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`,
+      sourceType: videoForm.sourceType,
+      youtubeId: videoForm.sourceType === 'youtube' ? ytId : undefined,
+      videoUrl: videoForm.sourceType === 'upload' ? videoForm.videoUrl : undefined,
+      orientation: videoForm.orientation,
+      thumbnailUrl: videoForm.sourceType === 'youtube'
+        ? `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`
+        : 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=600&auto=format&fit=crop&q=80',
       speaker: videoForm.speaker,
       speakerRole: videoForm.speakerRole,
       viewsCount: videoForm.viewsCount || '1.0 rb',
@@ -1287,12 +1382,23 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
                       }`}
                     >
                       {/* Thumbnail & Badges */}
-                      <div className="relative aspect-video w-full bg-slate-900 overflow-hidden group">
-                        <img
-                          src={video.thumbnailUrl || `https://img.youtube.com/vi/${video.youtubeId}/hqdefault.jpg`}
-                          alt={video.title}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-all duration-300"
-                        />
+                      <div className={`relative w-full bg-slate-900 overflow-hidden group ${video.orientation === 'portrait' ? 'aspect-[4/5] sm:aspect-video' : 'aspect-video'}`}>
+                        {video.sourceType === 'upload' && video.videoUrl ? (
+                          <div className="w-full h-full bg-slate-950 flex items-center justify-center relative">
+                            <video
+                              src={video.videoUrl}
+                              preload="metadata"
+                              className="w-full h-full object-cover group-hover:scale-105 transition-all duration-300 pointer-events-none"
+                            />
+                            <div className="absolute inset-0 bg-black/20" />
+                          </div>
+                        ) : (
+                          <img
+                            src={video.thumbnailUrl || `https://img.youtube.com/vi/${video.youtubeId}/hqdefault.jpg`}
+                            alt={video.title}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-all duration-300"
+                          />
+                        )}
 
                         <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                           <button
@@ -1305,10 +1411,30 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
                         </div>
 
                         {/* Top Badges */}
-                        <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5">
-                          <span className="bg-slate-900/90 backdrop-blur-xs text-amber-400 font-mono text-[9px] font-bold px-2 py-0.5 rounded border border-slate-700">
-                            ID: {video.youtubeId}
-                          </span>
+                        <div className="absolute top-2.5 left-2.5 flex flex-wrap items-center gap-1.5 max-w-[80%]">
+                          {video.sourceType === 'upload' ? (
+                            <span className="bg-sky-600 text-white font-mono text-[9px] font-bold px-2 py-0.5 rounded shadow-xs flex items-center gap-1">
+                              <Upload className="w-2.5 h-2.5" />
+                              <span>File Upload</span>
+                            </span>
+                          ) : (
+                            <span className="bg-slate-900/90 backdrop-blur-xs text-amber-400 font-mono text-[9px] font-bold px-2 py-0.5 rounded border border-slate-700">
+                              YT: {video.youtubeId}
+                            </span>
+                          )}
+
+                          {video.orientation === 'portrait' ? (
+                            <span className="bg-purple-600 text-white font-black text-[9px] uppercase px-2 py-0.5 rounded shadow-xs flex items-center gap-0.5">
+                              <Smartphone className="w-2.5 h-2.5" />
+                              <span>Vertikal 9:16</span>
+                            </span>
+                          ) : (
+                            <span className="bg-slate-800/80 text-slate-300 font-bold text-[9px] px-1.5 py-0.5 rounded hidden sm:inline-flex items-center gap-0.5">
+                              <Monitor className="w-2.5 h-2.5" />
+                              <span>16:9</span>
+                            </span>
+                          )}
+
                           {video.badge && (
                             <span className="bg-amber-500 text-white font-black text-[9px] uppercase px-2 py-0.5 rounded shadow-xs">
                               {video.badge}
@@ -1375,17 +1501,31 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
                               <span className="text-[11px]">Tonton</span>
                             </button>
 
-                            <a
-                              href={`https://www.youtube.com/watch?v=/${video.youtubeId}`}
-                              target="_blank"
-                              rel="noreferrer"
-                              className={`p-1.5 rounded-lg border text-xs transition-colors flex items-center justify-center ${
-                                isDark ? 'bg-slate-800 border-slate-700 text-slate-400 hover:text-white' : 'bg-slate-100 border-slate-200 text-slate-600 hover:text-slate-900'
-                              }`}
-                              title="Buka di YouTube Web"
-                            >
-                              <ExternalLink className="w-3.5 h-3.5" />
-                            </a>
+                            {video.sourceType === 'youtube' && video.youtubeId ? (
+                              <a
+                                href={`https://www.youtube.com/watch?v=${video.youtubeId}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className={`p-1.5 rounded-lg border text-xs transition-colors flex items-center justify-center ${
+                                  isDark ? 'bg-slate-800 border-slate-700 text-slate-400 hover:text-white' : 'bg-slate-100 border-slate-200 text-slate-600 hover:text-slate-900'
+                                }`}
+                                title="Buka di YouTube Web"
+                              >
+                                <ExternalLink className="w-3.5 h-3.5" />
+                              </a>
+                            ) : video.videoUrl ? (
+                              <a
+                                href={video.videoUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className={`p-1.5 rounded-lg border text-xs transition-colors flex items-center justify-center ${
+                                  isDark ? 'bg-slate-800 border-slate-700 text-sky-400 hover:text-white' : 'bg-slate-100 border-slate-200 text-sky-600 hover:text-slate-900'
+                                }`}
+                                title="Buka File Video Langsung"
+                              >
+                                <ExternalLink className="w-3.5 h-3.5" />
+                              </a>
+                            ) : null}
                           </div>
 
                           <div className="flex items-center gap-1.5">
@@ -1630,8 +1770,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
           }`}>
             
             <div className={`flex items-center justify-between pb-3 border-b ${isDark ? 'border-slate-800' : 'border-slate-200'}`}>
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-500 flex items-center justify-center">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-500 flex items-center justify-center font-bold">
                   <Video className="w-4 h-4" />
                 </div>
                 <div>
@@ -1639,7 +1779,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
                     {editingVideo ? 'Edit Video Edukasi' : 'Tambah Video Edukasi Baru'}
                   </h3>
                   <p className="text-[11px] text-slate-400">
-                    Masukkan tautan YouTube dan informasi materi untuk siswa SMK.
+                    Mendukung tautan YouTube atau file video langsung dari perangkat (Landscape & Vertikal).
                   </p>
                 </div>
               </div>
@@ -1656,6 +1796,44 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
 
             <form onSubmit={handleSaveVideo} className="space-y-4 text-xs">
               
+              {/* Sumber Video Switcher (YouTube vs Upload File) */}
+              <div>
+                <label className="block font-bold mb-1.5 text-slate-400">
+                  Pilih Sumber Video <span className="text-red-500">*</span>
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setVideoForm({ ...videoForm, sourceType: 'youtube' })}
+                    className={`p-3 rounded-2xl border font-bold flex items-center justify-center gap-2 transition-all ${
+                      videoForm.sourceType === 'youtube'
+                        ? 'bg-amber-500 text-white border-amber-500 shadow-md shadow-amber-500/20'
+                        : isDark
+                          ? 'bg-slate-900 border-slate-700 text-slate-400 hover:text-white'
+                          : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                    }`}
+                  >
+                    <Video className="w-4 h-4" />
+                    <span>📺 Tautan / ID YouTube</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setVideoForm({ ...videoForm, sourceType: 'upload' })}
+                    className={`p-3 rounded-2xl border font-bold flex items-center justify-center gap-2 transition-all ${
+                      videoForm.sourceType === 'upload'
+                        ? 'bg-amber-500 text-white border-amber-500 shadow-md shadow-amber-500/20'
+                        : isDark
+                          ? 'bg-slate-900 border-slate-700 text-slate-400 hover:text-white'
+                          : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                    }`}
+                  >
+                    <Upload className="w-4 h-4" />
+                    <span>📁 Upload File Video</span>
+                  </button>
+                </div>
+              </div>
+
               {/* Judul Video */}
               <div>
                 <label className="block font-bold mb-1 text-slate-400">
@@ -1673,114 +1851,235 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
                 />
               </div>
 
-              {/* YouTube Link / ID & Preview */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-start">
-                <div>
-                  <label className="block font-bold mb-1 text-slate-400">
-                    Link YouTube atau Video ID <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={videoForm.youtubeInput}
-                    onChange={e => setVideoForm({ ...videoForm, youtubeInput: e.target.value })}
-                    placeholder="https://youtu.be/qj8B35CqQ5Y atau qj8B35CqQ5Y"
-                    className={`w-full p-2.5 rounded-xl border outline-none font-mono text-xs ${
-                      isDark ? 'bg-slate-900 border-slate-700 text-amber-400 focus:border-amber-500' : 'bg-slate-50 border-slate-200 text-amber-700 focus:border-amber-500'
-                    }`}
-                  />
-                  <span className="text-[10px] text-slate-400 mt-1 block">
-                    ID YouTube Terdeteksi: <strong className="text-amber-500 font-mono">{extractYoutubeId(videoForm.youtubeInput) || '-'}</strong>
-                  </span>
-                </div>
-
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="block font-bold text-slate-400">
-                      Kategori Modul <span className="text-red-500">*</span>
+              {/* Conditional Input: YouTube Link VS Upload File */}
+              {videoForm.sourceType === 'youtube' ? (
+                <div className="space-y-3">
+                  <div>
+                    <label className="block font-bold mb-1 text-slate-400">
+                      Link YouTube atau Video ID <span className="text-red-500">*</span>
                     </label>
-                    {!isCustomCategory ? (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsCustomCategory(true);
-                          setCustomCategoryName('');
-                        }}
-                        className="text-[11px] font-bold text-amber-500 hover:text-amber-400 hover:underline flex items-center gap-1"
-                      >
-                        <Plus className="w-3 h-3" />
-                        <span>Kategori Baru</span>
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsCustomCategory(false);
-                          setVideoForm({ ...videoForm, category: categoryList[0]?.id || 'kraepelin' });
-                        }}
-                        className="text-[11px] font-bold text-slate-400 hover:text-slate-300 flex items-center gap-1"
-                      >
-                        <X className="w-3 h-3" />
-                        <span>Pilih dari Daftar</span>
-                      </button>
-                    )}
+                    <input
+                      type="text"
+                      required
+                      value={videoForm.youtubeInput}
+                      onChange={e => setVideoForm({ ...videoForm, youtubeInput: e.target.value })}
+                      placeholder="https://youtu.be/qj8B35CqQ5Y atau qj8B35CqQ5Y"
+                      className={`w-full p-2.5 rounded-xl border outline-none font-mono text-xs ${
+                        isDark ? 'bg-slate-900 border-slate-700 text-amber-400 focus:border-amber-500' : 'bg-slate-50 border-slate-200 text-amber-700 focus:border-amber-500'
+                      }`}
+                    />
+                    <span className="text-[10px] text-slate-400 mt-1 block">
+                      ID YouTube Terdeteksi: <strong className="text-amber-500 font-mono">{extractYoutubeId(videoForm.youtubeInput) || '-'}</strong>
+                    </span>
                   </div>
 
-                  {!isCustomCategory ? (
-                    <select
-                      value={videoForm.category}
-                      onChange={e => {
-                        if (e.target.value === '__new__') {
-                          setIsCustomCategory(true);
-                          setCustomCategoryName('');
-                        } else {
-                          setVideoForm({ ...videoForm, category: e.target.value });
-                        }
-                      }}
-                      className={`w-full p-2.5 rounded-xl border outline-none font-bold ${
-                        isDark ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
-                      }`}
-                    >
-                      {categoryList.map(cat => (
-                        <option key={cat.id} value={cat.id}>{cat.label}</option>
-                      ))}
-                      <option value="__new__" className="text-amber-500 font-bold">+ Tambah Kategori Baru...</option>
-                    </select>
-                  ) : (
-                    <div className="space-y-1">
-                      <input
-                        type="text"
-                        required
-                        autoFocus
-                        value={customCategoryName}
-                        onChange={e => setCustomCategoryName(e.target.value)}
-                        placeholder="Ketik nama kategori baru (contoh: Tes Buta Warna Ishihara)"
-                        className={`w-full p-2.5 rounded-xl border outline-none font-bold ${
-                          isDark ? 'bg-slate-900 border-amber-500 text-amber-400 focus:ring-1 focus:ring-amber-500' : 'bg-amber-50 border-amber-400 text-amber-900 focus:ring-1 focus:ring-amber-400'
-                        }`}
+                  {extractYoutubeId(videoForm.youtubeInput) && (
+                    <div className={`p-3 rounded-2xl border flex items-center gap-3 ${
+                      isDark ? 'bg-slate-900/60 border-slate-800' : 'bg-slate-50 border-slate-200'
+                    }`}>
+                      <img
+                        src={`https://img.youtube.com/vi/${extractYoutubeId(videoForm.youtubeInput)}/hqdefault.jpg`}
+                        alt="Thumbnail Preview"
+                        className="w-24 h-14 object-cover rounded-lg shrink-0 border"
                       />
-                      <span className="text-[10px] text-slate-400 block">Kategori baru akan otomatis ditambahkan ke daftar filter aplikasi.</span>
+                      <div className="space-y-0.5">
+                        <span className="text-[10px] text-emerald-500 font-bold uppercase">Thumbnail YouTube Valid</span>
+                        <p className="text-[11px] text-slate-400">Video siap diputar di dalam aplikasi (in-app embedded player).</p>
+                      </div>
                     </div>
                   )}
                 </div>
-              </div>
+              ) : (
+                <div className="space-y-3">
+                  <label className="block font-bold mb-1 text-slate-400">
+                    File Video dari Perangkat (MP4, WebM, MOV, dll) <span className="text-red-500">*</span>
+                  </label>
 
-              {/* YouTube Thumbnail Preview */}
-              {extractYoutubeId(videoForm.youtubeInput) && (
-                <div className={`p-3 rounded-2xl border flex items-center gap-3 ${
-                  isDark ? 'bg-slate-900/60 border-slate-800' : 'bg-slate-50 border-slate-200'
-                }`}>
-                  <img
-                    src={`https://img.youtube.com/vi/${extractYoutubeId(videoForm.youtubeInput)}/hqdefault.jpg`}
-                    alt="Thumbnail Preview"
-                    className="w-24 h-14 object-cover rounded-lg shrink-0 border"
-                  />
-                  <div className="space-y-0.5">
-                    <span className="text-[10px] text-emerald-500 font-bold uppercase">Thumbnail YouTube Valid</span>
-                    <p className="text-[11px] text-slate-400">Video siap diputar di dalam aplikasi (in-app embedded player).</p>
+                  <div className={`border-2 border-dashed rounded-2xl p-4 text-center transition-all ${
+                    isDark ? 'border-slate-700 bg-slate-900/40 hover:border-amber-500/50' : 'border-slate-300 bg-slate-50/50 hover:border-amber-400'
+                  }`}>
+                    <input
+                      type="file"
+                      id="video-file-upload"
+                      accept="video/mp4,video/webm,video/ogg,video/quicktime"
+                      onChange={handleVideoFileSelected}
+                      className="hidden"
+                    />
+
+                    {isUploadingVideo ? (
+                      <div className="py-4 space-y-2 flex flex-col items-center justify-center">
+                        <Loader2 className="w-8 h-8 text-amber-500 animate-spin" />
+                        <span className="font-bold text-amber-500 text-xs">Sedang Mengunggah & Menganalisis Video...</span>
+                        <p className="text-[10px] text-slate-400">Mendeteksi dimensi, orientasi (landscape/vertikal) dan durasi otomatis.</p>
+                      </div>
+                    ) : (
+                      <label htmlFor="video-file-upload" className="cursor-pointer block space-y-2">
+                        <div className="w-10 h-10 rounded-2xl bg-amber-500/20 text-amber-500 flex items-center justify-center mx-auto">
+                          <Upload className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <span className="font-extrabold text-amber-500 hover:underline">
+                            Klik di sini untuk memilih file video
+                          </span>
+                          <span className="text-slate-400 block text-[11px] mt-0.5">
+                            Maksimal ukuran 100 MB. Mendukung video Landscape maupun Vertikal (Shorts / Reels).
+                          </span>
+                        </div>
+                      </label>
+                    )}
                   </div>
+
+                  {uploadVideoError && (
+                    <div className="p-2.5 rounded-xl bg-red-500/10 border border-red-500/30 text-red-500 text-xs flex items-center gap-2">
+                      <AlertTriangle className="w-4 h-4 shrink-0" />
+                      <span>{uploadVideoError}</span>
+                    </div>
+                  )}
+
+                  {videoForm.videoUrl && (
+                    <div className={`p-3 rounded-2xl border space-y-2 ${
+                      isDark ? 'bg-slate-900/80 border-slate-800' : 'bg-emerald-50/60 border-emerald-200'
+                    }`}>
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold uppercase flex items-center gap-1">
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          <span>File Video Siap Diputar</span>
+                        </span>
+                        <span className="text-[10px] font-mono text-slate-400 truncate max-w-[200px]">
+                          {videoForm.videoUrl}
+                        </span>
+                      </div>
+
+                      <div className="relative rounded-xl overflow-hidden bg-black max-h-48 flex items-center justify-center">
+                        <video
+                          src={videoForm.videoUrl}
+                          controls
+                          className="max-h-48 w-auto mx-auto"
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
+
+              {/* Orientasi Video Selector (Landscape VS Portrait) */}
+              <div>
+                <label className="block font-bold mb-1.5 text-slate-400">
+                  Orientasi Tampilan Video <span className="text-red-500">*</span>
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setVideoForm({ ...videoForm, orientation: 'landscape' })}
+                    className={`p-2.5 rounded-xl border text-left flex items-center gap-2.5 transition-all ${
+                      videoForm.orientation === 'landscape'
+                        ? 'bg-amber-500/15 border-amber-500 text-amber-500 ring-1 ring-amber-500'
+                        : isDark
+                          ? 'bg-slate-900 border-slate-700 text-slate-400 hover:text-white'
+                          : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    <div className={`p-2 rounded-lg ${videoForm.orientation === 'landscape' ? 'bg-amber-500 text-white' : 'bg-slate-800 text-slate-400'}`}>
+                      <Monitor className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <strong className="block text-xs font-bold leading-none">🖥️ Landscape (16:9)</strong>
+                      <span className="text-[10px] text-slate-400 mt-0.5 block">Format standar horizontal</span>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setVideoForm({ ...videoForm, orientation: 'portrait' })}
+                    className={`p-2.5 rounded-xl border text-left flex items-center gap-2.5 transition-all ${
+                      videoForm.orientation === 'portrait'
+                        ? 'bg-purple-500/15 border-purple-500 text-purple-500 ring-1 ring-purple-500'
+                        : isDark
+                          ? 'bg-slate-900 border-slate-700 text-slate-400 hover:text-white'
+                          : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    <div className={`p-2 rounded-lg ${videoForm.orientation === 'portrait' ? 'bg-purple-500 text-white' : 'bg-slate-800 text-slate-400'}`}>
+                      <Smartphone className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <strong className="block text-xs font-bold leading-none">📱 Portrait (9:16)</strong>
+                      <span className="text-[10px] text-slate-400 mt-0.5 block">Format vertikal / Shorts / TikTok</span>
+                    </div>
+                  </button>
+                </div>
+              </div>
+
+              {/* Kategori Modul */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block font-bold text-slate-400">
+                    Kategori Modul <span className="text-red-500">*</span>
+                  </label>
+                  {!isCustomCategory ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsCustomCategory(true);
+                        setCustomCategoryName('');
+                      }}
+                      className="text-[11px] font-bold text-amber-500 hover:text-amber-400 hover:underline flex items-center gap-1"
+                    >
+                      <Plus className="w-3 h-3" />
+                      <span>Kategori Baru</span>
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsCustomCategory(false);
+                        setVideoForm({ ...videoForm, category: categoryList[0]?.id || 'kraepelin' });
+                      }}
+                      className="text-[11px] font-bold text-slate-400 hover:text-slate-300 flex items-center gap-1"
+                    >
+                      <X className="w-3 h-3" />
+                      <span>Pilih dari Daftar</span>
+                    </button>
+                  )}
+                </div>
+
+                {!isCustomCategory ? (
+                  <select
+                    value={videoForm.category}
+                    onChange={e => {
+                      if (e.target.value === '__new__') {
+                        setIsCustomCategory(true);
+                        setCustomCategoryName('');
+                      } else {
+                        setVideoForm({ ...videoForm, category: e.target.value });
+                      }
+                    }}
+                    className={`w-full p-2.5 rounded-xl border outline-none font-bold ${
+                      isDark ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
+                    }`}
+                  >
+                    {categoryList.map(cat => (
+                      <option key={cat.id} value={cat.id}>{cat.label}</option>
+                    ))}
+                    <option value="__new__" className="text-amber-500 font-bold">+ Tambah Kategori Baru...</option>
+                  </select>
+                ) : (
+                  <div className="space-y-1">
+                    <input
+                      type="text"
+                      required
+                      autoFocus
+                      value={customCategoryName}
+                      onChange={e => setCustomCategoryName(e.target.value)}
+                      placeholder="Ketik nama kategori baru (contoh: Tes Buta Warna Ishihara)"
+                      className={`w-full p-2.5 rounded-xl border outline-none font-bold ${
+                        isDark ? 'bg-slate-900 border-amber-500 text-amber-400 focus:ring-1 focus:ring-amber-500' : 'bg-amber-50 border-amber-400 text-amber-900 focus:ring-1 focus:ring-amber-400'
+                      }`}
+                    />
+                    <span className="text-[10px] text-slate-400 block">Kategori baru akan otomatis ditambahkan ke daftar filter aplikasi.</span>
+                  </div>
+                )}
+              </div>
 
               {/* Speaker & Durasi Grid */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -1861,7 +2160,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
                       onChange={e => setVideoForm({ ...videoForm, isFeatured: e.target.checked })}
                       className="w-4 h-4 rounded text-amber-500 focus:ring-amber-400"
                     />
-                    <span className="font-bold text-xs text-amber-500">★ Video Unggulan (Banner Utama)</span>
+                    <span className="font-bold text-xs text-amber-500">★ Video Unggulan (Banner)</span>
                   </label>
                 </div>
               </div>
@@ -1910,9 +2209,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
 
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-extrabold rounded-xl shadow-md shadow-amber-500/20 transition-all transform active:scale-95"
+                  disabled={isUploadingVideo}
+                  className="px-5 py-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 disabled:opacity-50 text-white font-extrabold rounded-xl shadow-md shadow-amber-500/20 transition-all transform active:scale-95 flex items-center gap-1.5"
                 >
-                  {editingVideo ? 'Simpan Perubahan' : 'Terbitkan Video'}
+                  {isUploadingVideo && <Loader2 className="w-4 h-4 animate-spin" />}
+                  <span>{editingVideo ? 'Simpan Perubahan' : 'Terbitkan Video'}</span>
                 </button>
               </div>
 
@@ -1924,8 +2225,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
 
       {/* MODAL 2: IN-APP ADMIN VIDEO PLAYER PREVIEW */}
       {previewPlayingVideo && (
-        <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 animate-in fade-in">
-          <div className={`w-full max-w-3xl rounded-3xl border shadow-2xl overflow-hidden flex flex-col justify-between ${
+        <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 animate-in fade-in overflow-y-auto">
+          <div className={`w-full rounded-3xl border shadow-2xl overflow-hidden flex flex-col justify-between my-auto transition-all ${
+            previewPlayingVideo.orientation === 'portrait' ? 'max-w-md max-h-[92vh]' : 'max-w-3xl max-h-[92vh]'
+          } ${
             isDark ? 'bg-slate-900 border-slate-700 text-white' : 'bg-white border-slate-200 text-slate-900'
           }`}>
             
@@ -1933,7 +2236,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
               <div className="flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" />
                 <span className="text-xs font-bold uppercase tracking-wider text-amber-500">
-                  Pratinjau Video Admin ({previewPlayingVideo.category})
+                  Pratinjau Video ({previewPlayingVideo.orientation === 'portrait' ? '📱 Vertikal' : '🖥️ Landscape'})
                 </span>
               </div>
               <button
@@ -1944,22 +2247,35 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
               </button>
             </div>
 
-            <div className="relative aspect-video w-full bg-black">
-              <iframe
-                src={`https://www.youtube-nocookie.com/embed/${previewPlayingVideo.youtubeId}?autoplay=1&playsinline=1&rel=0&modestbranding=1`}
-                title={previewPlayingVideo.title}
-                className="w-full h-full border-0"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-              />
+            {/* Video Player Display */}
+            <div className={`relative w-full bg-black flex items-center justify-center overflow-hidden ${
+              previewPlayingVideo.orientation === 'portrait' ? 'aspect-[9/16] max-h-[62vh]' : 'aspect-video'
+            }`}>
+              {previewPlayingVideo.sourceType === 'upload' && previewPlayingVideo.videoUrl ? (
+                <video
+                  src={previewPlayingVideo.videoUrl}
+                  controls
+                  autoPlay
+                  playsInline
+                  className="w-full h-full object-contain bg-black"
+                />
+              ) : (
+                <iframe
+                  src={`https://www.youtube-nocookie.com/embed/${previewPlayingVideo.youtubeId}?autoplay=1&playsinline=1&rel=0&modestbranding=1`}
+                  title={previewPlayingVideo.title}
+                  className="w-full h-full border-0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+              )}
             </div>
 
-            <div className="p-4 space-y-2 text-xs">
+            <div className="p-4 space-y-2 text-xs overflow-y-auto">
               <div className="flex items-center justify-between">
-                <h3 className="text-sm font-extrabold">{previewPlayingVideo.title}</h3>
+                <h3 className="text-sm font-extrabold line-clamp-1">{previewPlayingVideo.title}</h3>
                 <span className="text-amber-500 font-mono font-bold">{previewPlayingVideo.duration}</span>
               </div>
-              <p className="text-slate-400 leading-relaxed">{previewPlayingVideo.description}</p>
+              <p className="text-slate-400 leading-relaxed line-clamp-2">{previewPlayingVideo.description}</p>
               <div className="text-[11px] text-slate-400 pt-1">
                 Narasumber: <strong className="text-slate-200">{previewPlayingVideo.speaker}</strong> ({previewPlayingVideo.speakerRole})
               </div>

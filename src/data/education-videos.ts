@@ -17,7 +17,10 @@ export interface EducationVideo {
   description: string;
   category: string;
   duration: string;
-  youtubeId: string;
+  sourceType?: 'youtube' | 'upload';
+  youtubeId?: string;
+  videoUrl?: string; // Local / uploaded video URL
+  orientation?: 'landscape' | 'portrait';
   thumbnailUrl: string;
   speaker: string;
   speakerRole: string;
@@ -26,6 +29,41 @@ export interface EducationVideo {
   isFeatured?: boolean;
   keyTakeaways: string[];
 }
+
+export const uploadVideoFile = async (file: File): Promise<{ success: boolean; videoUrl?: string; message?: string }> => {
+  try {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const base64Data = e.target?.result as string;
+        try {
+          const res = await fetch('/api/upload/video', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              fileData: base64Data,
+              fileName: file.name
+            })
+          });
+          const json = await res.json();
+          if (res.ok && json.success) {
+            resolve({ success: true, videoUrl: json.videoUrl });
+          } else {
+            // Local blob fallback for offline
+            const localBlobUrl = URL.createObjectURL(file);
+            resolve({ success: true, videoUrl: localBlobUrl, message: 'Tersimpan lokal' });
+          }
+        } catch (err: any) {
+          const localBlobUrl = URL.createObjectURL(file);
+          resolve({ success: true, videoUrl: localBlobUrl, message: 'Tersimpan lokal' });
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+  } catch (err: any) {
+    return { success: false, message: err.message || 'Gagal membaca file video.' };
+  }
+};
 
 export const educationVideosData: EducationVideo[] = [
   {

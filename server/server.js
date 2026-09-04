@@ -8,13 +8,22 @@ const {
   sendPasswordResetOtpEmail, 
   sendWelcomeEmail 
 } = require('./mailer');
+const path = require('path');
+const fs = require('fs');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
 app.use(cors());
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ limit: '50mb', extended: true }));
+app.use(express.json({ limit: '100mb' }));
+app.use(express.urlencoded({ limit: '100mb', extended: true }));
+
+// Serve static uploads directory
+const uploadsVideoDir = path.join(__dirname, 'uploads', 'videos');
+if (!fs.existsSync(uploadsVideoDir)) {
+  fs.mkdirSync(uploadsVideoDir, { recursive: true });
+}
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // MySQL Database Connection Pool
 const dbConfig = {
@@ -122,6 +131,20 @@ try {
       } catch (e) {}
       try {
         await pool.query(`ALTER TABLE users ADD COLUMN address TEXT NULL AFTER avatar_url`);
+      } catch (e) {}
+
+      // Migrations for education_videos (upload & orientation support)
+      try {
+        await pool.query(`ALTER TABLE education_videos ADD COLUMN video_source VARCHAR(50) DEFAULT 'youtube' AFTER duration`);
+      } catch (e) {}
+      try {
+        await pool.query(`ALTER TABLE education_videos ADD COLUMN video_url TEXT NULL AFTER video_source`);
+      } catch (e) {}
+      try {
+        await pool.query(`ALTER TABLE education_videos ADD COLUMN orientation VARCHAR(20) DEFAULT 'landscape' AFTER video_url`);
+      } catch (e) {}
+      try {
+        await pool.query(`ALTER TABLE education_videos MODIFY COLUMN youtube_id VARCHAR(100) NULL`);
       } catch (e) {}
 
       // Auto-seed default Super Admin if not present
@@ -829,8 +852,37 @@ app.post('/api/scores', async (req, res) => {
 });
 
 // ----------------------------------------------------------------------------
-// 11. EDUCATION VIDEOS CRUD (ADMIN CMS & APP SYNC)
+// 11. EDUCATION VIDEOS CRUD & FILE UPLOADS (ADMIN CMS & APP SYNC)
 // ----------------------------------------------------------------------------
+app.post('/api/upload/video', async (req, res) => {
+  try {
+    const { fileData, fileName } = req.body;
+    if (!fileData) {
+      return res.status(400).json({ success: false, message: 'Tidak ada data file video yang dikirim.' });
+    }
+
+    const base64Data = fileData.replace(/^data:video\/\w+;base64,/, '').replace(/^data:application\/octet-stream;base64,/, '');
+    const buffer = Buffer.from(base64Data, 'base64');
+
+    const ext = fileName ? path.extname(fileName) : '.mp4';
+    const uniqueName = `vid-${Date.now()}-${Math.random().toString(36).substring(2, 7)}${ext || '.mp4'}`;
+    const filePath = path.join(uploadsVideoDir, uniqueName);
+
+    fs.writeFileSync(filePath, buffer);
+    const videoUrl = `/uploads/videos/${uniqueName}`;
+
+    res.json({
+      success: true,
+      message: 'Video berhasil diupload ke server!',
+      videoUrl,
+      fileName: uniqueName
+    });
+  } catch (err) {
+    console.error('[Upload Video Error]', err);
+    res.status(500).json({ success: false, message: 'Gagal mengunggah video: ' + err.message });
+  }
+});
+
 app.get('/api/videos', async (req, res) => {
   try {
     const [rows] = await pool.query('SELECT * FROM education_videos ORDER BY is_featured DESC, created_at DESC');
@@ -840,8 +892,11 @@ app.get('/api/videos', async (req, res) => {
       description: r.description || '',
       category: r.category,
       duration: r.duration,
-      youtubeId: r.youtube_id,
-      thumbnailUrl: r.thumbnail_url || `https://img.youtube.com/vi/${r.youtube_id}/hqdefault.jpg`,
+      sourceType: r.video_source || (r.youtube_id ? 'youtube' : 'upload'),
+      youtubeId: r.youtube_id || '',
+      videoUrl: r.video_url || '',
+      orientation: r.orientation || 'landscape',
+      thumbnailUrl: r.thumbnail_url || (r.youtube_id ? `https://img.youtube.com/vi/${r.youtube_id}/hqdefault.jpg` : 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=600&auto=format&fit=crop&q=80'),
       speaker: r.speaker,
       speakerRole: r.speaker_role || '',
       viewsCount: r.views_count || '1.2 rb',
@@ -858,24 +913,53 @@ app.get('/api/videos', async (req, res) => {
 
 app.post('/api/videos', async (req, res) => {
   try {
-    const { id, title, description, category, duration, youtubeId, thumbnailUrl, speaker, speakerRole, viewsCount, badge, isFeatured, keyTakeaways } = req.body;
+    const { 
+      id, 
+      title, 
+      description, 
+      category, 
+      duration, 
+      sourceType, 
+      youtubeId, 
+      videoUrl, 
+      orientation, 
+      thumbnailUrl, 
+      speaker, 
+      speakerRole, 
+      viewsCount, 
+      badge, 
+      isFeatured, 
+      keyTakeaways 
+    } = req.body;
     
-    if (!title || !youtubeId || !speaker) {
-      return res.status(400).json({ success: false, message: 'Judul, YouTube ID, dan Pemateri wajib diisi.' });
+    if (!title || !speaker) {
+      return res.status(400).json({ success: false, message: 'Judul dan Pemateri wajib diisi.' });
+    }
+
+    const src = sourceType || (videoUrl ? 'upload' : 'youtube');
+    if (src === 'youtube' && !youtubeId) {
+      return res.status(400).json({ success: false, message: 'Link YouTube atau Video ID wajib diisi.' });
+    }
+    if (src === 'upload' && !videoUrl) {
+      return res.status(400).json({ success: false, message: 'File video belum dipilih atau diunggah.' });
     }
 
     const videoId = id || `vid-${Date.now()}`;
-    const thumb = thumbnailUrl || `https://img.youtube.com/vi/${youtubeId}/hqdefault.jpg`;
+    const orient = orientation === 'portrait' ? 'portrait' : 'landscape';
+    const thumb = thumbnailUrl || (youtubeId ? `https://img.youtube.com/vi/${youtubeId}/hqdefault.jpg` : 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=600&auto=format&fit=crop&q=80');
 
     await pool.query(
       `INSERT INTO education_videos 
-        (id, title, description, category, duration, youtube_id, thumbnail_url, speaker, speaker_role, views_count, badge, is_featured, key_takeaways, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+        (id, title, description, category, duration, video_source, video_url, orientation, youtube_id, thumbnail_url, speaker, speaker_role, views_count, badge, is_featured, key_takeaways, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
        ON DUPLICATE KEY UPDATE
         title = VALUES(title),
         description = VALUES(description),
         category = VALUES(category),
         duration = VALUES(duration),
+        video_source = VALUES(video_source),
+        video_url = VALUES(video_url),
+        orientation = VALUES(orientation),
         youtube_id = VALUES(youtube_id),
         thumbnail_url = VALUES(thumbnail_url),
         speaker = VALUES(speaker),
@@ -891,7 +975,10 @@ app.post('/api/videos', async (req, res) => {
         description || '',
         category || 'kraepelin',
         duration || '10:00',
-        youtubeId,
+        src,
+        videoUrl || null,
+        orient,
+        youtubeId || null,
         thumb,
         speaker,
         speakerRole || '',
