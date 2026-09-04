@@ -320,7 +320,7 @@ export const KraepelinSimulator: React.FC<KraepelinSimulatorProps> = ({ onFinish
           <div className="bg-brand-50/80 border border-brand-200 rounded-2xl p-3.5 text-xs text-brand-950 space-y-1">
             <strong className="text-brand-900 block font-bold">💡 Aturan Penjumlahan:</strong>
             <p className="text-[11px] leading-relaxed">
-              Jika hasil jumlah $\ge 10$, ketuk <strong>angka satuannya saja</strong> (contoh: $8 + 7 = 15 \rightarrow$ tekan angka <strong>5</strong>).
+              Jika hasil jumlah ≥ 10 (dua digit), ketuk <strong>angka satuannya saja</strong> (contoh: 8 + 7 = 15 → tekan angka <strong>5</strong>).
             </p>
           </div>
 
