@@ -1,8 +1,21 @@
+export interface VideoCategory {
+  id: string;
+  label: string;
+}
+
+export const defaultVideoCategories: VideoCategory[] = [
+  { id: 'kraepelin', label: 'Tes Koran (Kraepelin & Pauli)' },
+  { id: 'psikotes', label: 'Psikotes, Wartegg & Gambar' },
+  { id: 'interview', label: 'Interview HRD & User' },
+  { id: 'math', label: 'Logika & Angka Matematika' },
+  { id: 'culture-physical', label: 'Budaya 5S, Fisik & MCU' }
+];
+
 export interface EducationVideo {
   id: string;
   title: string;
   description: string;
-  category: 'kraepelin' | 'psikotes' | 'interview' | 'math' | 'culture-physical';
+  category: string;
   duration: string;
   youtubeId: string;
   thumbnailUrl: string;
@@ -126,6 +139,35 @@ export const educationVideosData: EducationVideo[] = [
 ];
 
 const STORAGE_VIDEOS_KEY = 'siapkerja_education_videos';
+const STORAGE_CATEGORIES_KEY = 'siapkerja_video_categories';
+
+export const getStoredCategories = (): VideoCategory[] => {
+  try {
+    const data = localStorage.getItem(STORAGE_CATEGORIES_KEY);
+    if (!data) {
+      localStorage.setItem(STORAGE_CATEGORIES_KEY, JSON.stringify(defaultVideoCategories));
+      return defaultVideoCategories;
+    }
+    const parsed = JSON.parse(data);
+    return Array.isArray(parsed) && parsed.length > 0 ? parsed : defaultVideoCategories;
+  } catch {
+    return defaultVideoCategories;
+  }
+};
+
+export const saveStoredCategories = (categories: VideoCategory[]): void => {
+  localStorage.setItem(STORAGE_CATEGORIES_KEY, JSON.stringify(categories));
+  window.dispatchEvent(new CustomEvent('siapkerja_categories_updated', { detail: categories }));
+};
+
+export const addStoredCategory = (category: VideoCategory): VideoCategory[] => {
+  const current = getStoredCategories();
+  const exists = current.find(c => c.id === category.id);
+  if (exists) return current;
+  const updated = [...current, category];
+  saveStoredCategories(updated);
+  return updated;
+};
 
 export const extractYoutubeId = (urlOrId: string): string => {
   if (!urlOrId) return '';

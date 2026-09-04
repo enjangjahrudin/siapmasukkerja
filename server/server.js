@@ -124,6 +124,16 @@ try {
         await pool.query(`ALTER TABLE users ADD COLUMN address TEXT NULL AFTER avatar_url`);
       } catch (e) {}
 
+      // Auto-seed default Super Admin if not present
+      try {
+        await pool.query(`
+          INSERT IGNORE INTO users 
+            (id, name, phone, email, school, major, password, target_role, target_company, is_admin, is_verified, created_at, last_active)
+          VALUES 
+            ('SMK-ADMIN-001', 'Super Administrator', 'admin', 'admin@buatdigital.id', 'Management Pusat', 'Sistem Operasional', 'admin', 'operator', 'HQ Siap Masuk Kerja', TRUE, TRUE, NOW(), NOW())
+        `);
+      } catch (e) {}
+
       console.log('[MySQL] Tables & Schemas verified successfully');
     } catch (e) {
       console.warn('[MySQL Schema Warning]:', e.message);
@@ -762,20 +772,27 @@ app.post('/api/user/change-password', async (req, res) => {
       return res.status(400).json({ success: false, message: 'Kata sandi baru minimal 6 karakter.' });
     }
 
-    const [rows] = await pool.query('SELECT password FROM users WHERE id = ? LIMIT 1', [userId]);
+    let [rows] = await pool.query('SELECT id, password, is_admin FROM users WHERE id = ? LIMIT 1', [userId]);
+    
+    // If not found by ID and userId is admin
+    if (rows.length === 0 && (userId === 'SMK-ADMIN-001' || userId === 'admin')) {
+      [rows] = await pool.query('SELECT id, password, is_admin FROM users WHERE is_admin = TRUE OR phone = "admin" LIMIT 1');
+    }
+
     if (rows.length === 0) {
       return res.status(404).json({ success: false, message: 'Pengguna tidak ditemukan.' });
     }
 
-    if (rows[0].password && rows[0].password !== currentPassword) {
+    const targetUser = rows[0];
+    if (targetUser.password && targetUser.password !== currentPassword) {
       return res.status(400).json({ success: false, message: 'Kata sandi saat ini tidak sesuai.' });
     }
 
-    await pool.query('UPDATE users SET password = ?, last_active = NOW() WHERE id = ?', [newPassword, userId]);
+    await pool.query('UPDATE users SET password = ?, last_active = NOW() WHERE id = ?', [newPassword, targetUser.id]);
 
     res.json({
       success: true,
-      message: 'Kata sandi Anda berhasil diubah! Gunakan kata sandi baru untuk login selanjutnya.'
+      message: 'Kata sandi berhasil diubah! Gunakan kata sandi baru untuk login selanjutnya.'
     });
 
   } catch (err) {

@@ -18,6 +18,7 @@ import {
   ShieldCheck, 
   Database,
   Eye,
+  EyeOff,
   Plus,
   Trash2,
   CheckCircle2,
@@ -34,12 +35,20 @@ import {
   ExternalLink,
   Film,
   Check,
-  X
+  X,
+  KeyRound,
+  Lock,
+  Tag
 } from 'lucide-react';
 import { TargetRole } from '../../types';
-import { getStoredUsers, RegisteredUser, saveUser } from '../../utils/auth-storage';
+import { getStoredUsers, RegisteredUser, saveUser, changeUserPassword } from '../../utils/auth-storage';
 import { 
   EducationVideo, 
+  VideoCategory,
+  defaultVideoCategories,
+  getStoredCategories,
+  saveStoredCategories,
+  addStoredCategory,
   getStoredVideos, 
   saveStoredVideos, 
   addStoredVideo, 
@@ -66,18 +75,33 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
 
   // Video CMS State
   const [videoList, setVideoList] = useState<EducationVideo[]>(() => getStoredVideos());
+  const [categoryList, setCategoryList] = useState<VideoCategory[]>(() => getStoredCategories());
   const [videoSearch, setVideoSearch] = useState<string>('');
   const [videoCatFilter, setVideoCatFilter] = useState<string>('all');
   const [isAddEditModalOpen, setIsAddEditModalOpen] = useState<boolean>(false);
   const [editingVideo, setEditingVideo] = useState<EducationVideo | null>(null);
   const [previewPlayingVideo, setPreviewPlayingVideo] = useState<EducationVideo | null>(null);
 
+  // Custom Category State in Form
+  const [isCustomCategory, setIsCustomCategory] = useState<boolean>(false);
+  const [customCategoryName, setCustomCategoryName] = useState<string>('');
+
+  // Super Admin Change Password State
+  const [isAdminPasswordModalOpen, setIsAdminPasswordModalOpen] = useState<boolean>(false);
+  const [adminOldPassword, setAdminOldPassword] = useState<string>('');
+  const [adminNewPassword, setAdminNewPassword] = useState<string>('');
+  const [adminConfirmPassword, setAdminConfirmPassword] = useState<string>('');
+  const [showOldPass, setShowOldPass] = useState<boolean>(false);
+  const [showNewPass, setShowNewPass] = useState<boolean>(false);
+  const [showConfirmPass, setShowConfirmPass] = useState<boolean>(false);
+  const [adminPassStatus, setAdminPassStatus] = useState<{ type: 'idle' | 'loading' | 'success' | 'error'; message: string }>({ type: 'idle', message: '' });
+
   // Video Form State
   const [videoForm, setVideoForm] = useState<{
     id: string;
     title: string;
     description: string;
-    category: 'kraepelin' | 'psikotes' | 'interview' | 'math' | 'culture-physical';
+    category: string;
     duration: string;
     youtubeInput: string;
     speaker: string;
@@ -101,23 +125,32 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
     keyTakeawaysText: ''
   });
 
-  // Fetch live videos from backend
+  // Fetch live videos and listen to category changes
   const refreshVideos = async () => {
     const list = await fetchLiveVideos();
     if (list && list.length > 0) setVideoList(list);
+    setCategoryList(getStoredCategories());
   };
 
   useEffect(() => {
     refreshVideos();
+    const handleCatUpdate = (e: any) => {
+      if (e.detail) setCategoryList(e.detail);
+      else setCategoryList(getStoredCategories());
+    };
+    window.addEventListener('siapkerja_categories_updated', handleCatUpdate);
+    return () => window.removeEventListener('siapkerja_categories_updated', handleCatUpdate);
   }, []);
 
   const openAddVideoModal = () => {
     setEditingVideo(null);
+    setIsCustomCategory(false);
+    setCustomCategoryName('');
     setVideoForm({
       id: `vid-${Date.now()}`,
       title: '',
       description: '',
-      category: 'kraepelin',
+      category: categoryList[0]?.id || 'kraepelin',
       duration: '10:00',
       youtubeInput: '',
       speaker: '',
@@ -132,6 +165,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
 
   const openEditVideoModal = (video: EducationVideo) => {
     setEditingVideo(video);
+    const isExistingCat = categoryList.some(c => c.id === video.category);
+    if (!isExistingCat && video.category) {
+      // Add it to category list
+      const label = video.category.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+      addStoredCategory({ id: video.category, label });
+    }
+    setIsCustomCategory(false);
+    setCustomCategoryName('');
     setVideoForm({
       id: video.id,
       title: video.title,
@@ -157,6 +198,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
       return;
     }
 
+    let finalCategory = videoForm.category;
+
+    // If custom category was entered
+    if (isCustomCategory && customCategoryName.trim()) {
+      const cleanLabel = customCategoryName.trim();
+      const slugId = cleanLabel.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+      finalCategory = slugId || `cat-${Date.now()}`;
+      const updatedCats = addStoredCategory({ id: finalCategory, label: cleanLabel });
+      setCategoryList(updatedCats);
+    }
+
     const takeaways = videoForm.keyTakeawaysText
       .split('\n')
       .map(t => t.trim())
@@ -166,7 +218,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
       id: videoForm.id || `vid-${Date.now()}`,
       title: videoForm.title,
       description: videoForm.description,
-      category: videoForm.category,
+      category: finalCategory,
       duration: videoForm.duration || '10:00',
       youtubeId: ytId,
       thumbnailUrl: `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`,
@@ -187,6 +239,39 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
     }
 
     setIsAddEditModalOpen(false);
+  };
+
+  // Handle Admin Password Change
+  const handleChangeAdminPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!adminOldPassword) {
+      setAdminPassStatus({ type: 'error', message: 'Masukkan kata sandi lama/saat ini.' });
+      return;
+    }
+    if (adminNewPassword.length < 6) {
+      setAdminPassStatus({ type: 'error', message: 'Kata sandi baru minimal 6 karakter.' });
+      return;
+    }
+    if (adminNewPassword !== adminConfirmPassword) {
+      setAdminPassStatus({ type: 'error', message: 'Konfirmasi kata sandi baru tidak cocok.' });
+      return;
+    }
+
+    setAdminPassStatus({ type: 'loading', message: 'Menyimpan kata sandi baru ke MySQL...' });
+    const result = await changeUserPassword('SMK-ADMIN-001', adminOldPassword, adminNewPassword);
+    
+    if (result.success) {
+      setAdminPassStatus({ type: 'success', message: 'Kata sandi Super Admin berhasil diperbarui!' });
+      setTimeout(() => {
+        setIsAdminPasswordModalOpen(false);
+        setAdminOldPassword('');
+        setAdminNewPassword('');
+        setAdminConfirmPassword('');
+        setAdminPassStatus({ type: 'idle', message: '' });
+      }, 1500);
+    } else {
+      setAdminPassStatus({ type: 'error', message: result.message || 'Gagal mengubah kata sandi.' });
+    }
   };
 
   const handleDeleteVideo = async (id: string, title: string) => {
@@ -359,6 +444,25 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
               <span className={`text-xs font-bold block leading-tight ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>Super Admin</span>
               <span className="text-[10px] text-slate-500">Divisi Rekrutmen</span>
             </div>
+
+            <button
+              onClick={() => {
+                setAdminOldPassword('');
+                setAdminNewPassword('');
+                setAdminConfirmPassword('');
+                setAdminPassStatus({ type: 'idle', message: '' });
+                setIsAdminPasswordModalOpen(true);
+              }}
+              className={`p-1.5 px-2 rounded-xl border text-xs font-bold transition-all flex items-center gap-1.5 ${
+                isDark 
+                  ? 'bg-amber-500/15 border-amber-500/30 text-amber-300 hover:bg-amber-500/25' 
+                  : 'bg-amber-50 border-amber-300 text-amber-800 hover:bg-amber-100 shadow-xs'
+              }`}
+              title="Ganti Kata Sandi Super Admin"
+            >
+              <KeyRound className="w-3.5 h-3.5 text-amber-500" />
+              <span className="hidden md:inline text-[11px]">Ganti Sandi</span>
+            </button>
 
             {onLogoutAdmin && (
               <button
@@ -1129,11 +1233,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
                 <div className="flex items-center gap-1.5 overflow-x-auto pb-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
                   {[
                     { id: 'all', label: 'Semua Video' },
-                    { id: 'kraepelin', label: 'Tes Koran' },
-                    { id: 'psikotes', label: 'Psikotes' },
-                    { id: 'interview', label: 'Interview HRD' },
-                    { id: 'math', label: 'Logika & Angka' },
-                    { id: 'culture-physical', label: '5S & Fisik' }
+                    ...categoryList.map(c => ({ id: c.id, label: c.label }))
                   ].map(tab => (
                     <button
                       key={tab.id}
@@ -1595,22 +1695,73 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
                 </div>
 
                 <div>
-                  <label className="block font-bold mb-1 text-slate-400">
-                    Kategori Modul <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    value={videoForm.category}
-                    onChange={e => setVideoForm({ ...videoForm, category: e.target.value as any })}
-                    className={`w-full p-2.5 rounded-xl border outline-none font-bold ${
-                      isDark ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
-                    }`}
-                  >
-                    <option value="kraepelin">Tes Koran (Kraepelin & Pauli)</option>
-                    <option value="psikotes">Psikotes, Wartegg & Gambar</option>
-                    <option value="interview">Interview HRD & User</option>
-                    <option value="math">Logika & Angka Matematika</option>
-                    <option value="culture-physical">Budaya 5S, Fisik & MCU</option>
-                  </select>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block font-bold text-slate-400">
+                      Kategori Modul <span className="text-red-500">*</span>
+                    </label>
+                    {!isCustomCategory ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsCustomCategory(true);
+                          setCustomCategoryName('');
+                        }}
+                        className="text-[11px] font-bold text-amber-500 hover:text-amber-400 hover:underline flex items-center gap-1"
+                      >
+                        <Plus className="w-3 h-3" />
+                        <span>Kategori Baru</span>
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsCustomCategory(false);
+                          setVideoForm({ ...videoForm, category: categoryList[0]?.id || 'kraepelin' });
+                        }}
+                        className="text-[11px] font-bold text-slate-400 hover:text-slate-300 flex items-center gap-1"
+                      >
+                        <X className="w-3 h-3" />
+                        <span>Pilih dari Daftar</span>
+                      </button>
+                    )}
+                  </div>
+
+                  {!isCustomCategory ? (
+                    <select
+                      value={videoForm.category}
+                      onChange={e => {
+                        if (e.target.value === '__new__') {
+                          setIsCustomCategory(true);
+                          setCustomCategoryName('');
+                        } else {
+                          setVideoForm({ ...videoForm, category: e.target.value });
+                        }
+                      }}
+                      className={`w-full p-2.5 rounded-xl border outline-none font-bold ${
+                        isDark ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
+                      }`}
+                    >
+                      {categoryList.map(cat => (
+                        <option key={cat.id} value={cat.id}>{cat.label}</option>
+                      ))}
+                      <option value="__new__" className="text-amber-500 font-bold">+ Tambah Kategori Baru...</option>
+                    </select>
+                  ) : (
+                    <div className="space-y-1">
+                      <input
+                        type="text"
+                        required
+                        autoFocus
+                        value={customCategoryName}
+                        onChange={e => setCustomCategoryName(e.target.value)}
+                        placeholder="Ketik nama kategori baru (contoh: Tes Buta Warna Ishihara)"
+                        className={`w-full p-2.5 rounded-xl border outline-none font-bold ${
+                          isDark ? 'bg-slate-900 border-amber-500 text-amber-400 focus:ring-1 focus:ring-amber-500' : 'bg-amber-50 border-amber-400 text-amber-900 focus:ring-1 focus:ring-amber-400'
+                        }`}
+                      />
+                      <span className="text-[10px] text-slate-400 block">Kategori baru akan otomatis ditambahkan ke daftar filter aplikasi.</span>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -1813,6 +1964,159 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
                 Narasumber: <strong className="text-slate-200">{previewPlayingVideo.speaker}</strong> ({previewPlayingVideo.speakerRole})
               </div>
             </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 3: SUPER ADMIN CHANGE PASSWORD MODAL */}
+      {isAdminPasswordModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className={`border rounded-3xl max-w-md w-full p-5 sm:p-6 shadow-2xl space-y-5 my-8 relative ${
+            isDark ? 'bg-[#0f172a] border-slate-800 text-white' : 'bg-white border-slate-200 text-slate-900'
+          }`}>
+            
+            <div className={`flex items-center justify-between pb-3 border-b ${isDark ? 'border-slate-800' : 'border-slate-200'}`}>
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-500 flex items-center justify-center font-bold">
+                  <KeyRound className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-base font-extrabold leading-tight">Ganti Kata Sandi Admin</h3>
+                  <p className="text-[11px] text-slate-400">Akun Super Administrator</p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setIsAdminPasswordModalOpen(false)}
+                className={`p-1.5 rounded-xl transition-colors ${
+                  isDark ? 'bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white' : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
+                }`}
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Status Alert */}
+            {adminPassStatus.type !== 'idle' && (
+              <div className={`p-3 rounded-xl text-xs font-bold flex items-center gap-2 border ${
+                adminPassStatus.type === 'success'
+                  ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-400'
+                  : adminPassStatus.type === 'error'
+                    ? 'bg-red-500/15 border-red-500/30 text-red-400'
+                    : 'bg-amber-500/15 border-amber-500/30 text-amber-400'
+              }`}>
+                {adminPassStatus.type === 'success' && <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />}
+                {adminPassStatus.type === 'error' && <AlertTriangle className="w-4 h-4 text-red-500 shrink-0" />}
+                {adminPassStatus.type === 'loading' && <RefreshCw className="w-4 h-4 text-amber-500 shrink-0 animate-spin" />}
+                <span>{adminPassStatus.message}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleChangeAdminPassword} className="space-y-3.5 text-xs">
+              
+              {/* Kata Sandi Saat Ini */}
+              <div>
+                <label className="block font-bold mb-1 text-slate-400">
+                  Kata Sandi Saat Ini <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <input
+                    type={showOldPass ? 'text' : 'password'}
+                    required
+                    value={adminOldPassword}
+                    onChange={e => setAdminOldPassword(e.target.value)}
+                    placeholder="Masukkan kata sandi lama Anda"
+                    className={`w-full pl-3 pr-10 py-2.5 rounded-xl border outline-none font-sans text-xs ${
+                      isDark ? 'bg-slate-900 border-slate-700 text-white focus:border-amber-500' : 'bg-slate-50 border-slate-200 text-slate-900 focus:border-amber-500'
+                    }`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowOldPass(!showOldPass)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200"
+                  >
+                    {showOldPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              {/* Kata Sandi Baru */}
+              <div>
+                <label className="block font-bold mb-1 text-slate-400">
+                  Kata Sandi Baru <span className="text-red-500">*</span> (Minimal 6 karakter)
+                </label>
+                <div className="relative">
+                  <input
+                    type={showNewPass ? 'text' : 'password'}
+                    required
+                    minLength={6}
+                    value={adminNewPassword}
+                    onChange={e => setAdminNewPassword(e.target.value)}
+                    placeholder="Masukkan kata sandi baru"
+                    className={`w-full pl-3 pr-10 py-2.5 rounded-xl border outline-none font-sans text-xs ${
+                      isDark ? 'bg-slate-900 border-slate-700 text-white focus:border-amber-500' : 'bg-slate-50 border-slate-200 text-slate-900 focus:border-amber-500'
+                    }`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowNewPass(!showNewPass)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200"
+                  >
+                    {showNewPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              {/* Konfirmasi Kata Sandi Baru */}
+              <div>
+                <label className="block font-bold mb-1 text-slate-400">
+                  Konfirmasi Kata Sandi Baru <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <input
+                    type={showConfirmPass ? 'text' : 'password'}
+                    required
+                    minLength={6}
+                    value={adminConfirmPassword}
+                    onChange={e => setAdminConfirmPassword(e.target.value)}
+                    placeholder="Ketik ulang kata sandi baru"
+                    className={`w-full pl-3 pr-10 py-2.5 rounded-xl border outline-none font-sans text-xs ${
+                      isDark ? 'bg-slate-900 border-slate-700 text-white focus:border-amber-500' : 'bg-slate-50 border-slate-200 text-slate-900 focus:border-amber-500'
+                    }`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPass(!showConfirmPass)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200"
+                  >
+                    {showConfirmPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              {/* Footer Buttons */}
+              <div className="flex justify-end items-center gap-2 pt-3 border-t border-slate-200 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setIsAdminPasswordModalOpen(false)}
+                  className={`px-4 py-2 font-bold rounded-xl transition-colors ${
+                    isDark ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                  }`}
+                >
+                  Batal
+                </button>
+
+                <button
+                  type="submit"
+                  disabled={adminPassStatus.type === 'loading'}
+                  className="px-5 py-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-extrabold rounded-xl shadow-md shadow-amber-500/20 transition-all transform active:scale-95 disabled:opacity-50"
+                >
+                  {adminPassStatus.type === 'loading' ? 'Menyimpan...' : 'Simpan Kata Sandi'}
+                </button>
+              </div>
+
+            </form>
 
           </div>
         </div>

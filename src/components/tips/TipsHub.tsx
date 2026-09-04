@@ -1,6 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { tipsAndTricksData, TipArticle } from '../../data/tips-and-tricks';
-import { educationVideosData, EducationVideo, getStoredVideos, fetchLiveVideos } from '../../data/education-videos';
+import { 
+  educationVideosData, 
+  EducationVideo, 
+  VideoCategory,
+  getStoredCategories,
+  getStoredVideos, 
+  fetchLiveVideos 
+} from '../../data/education-videos';
 import { 
   BookOpen, 
   Search, 
@@ -8,19 +15,19 @@ import {
   Clock, 
   ChevronRight, 
   CheckCircle2, 
-  Bookmark,
-  Share2,
-  Play,
-  PlayCircle,
-  Video,
-  Eye,
-  User,
-  X,
-  Flame,
-  Award,
-  Layers,
-  Check,
-  RefreshCw
+  Bookmark, 
+  Share2, 
+  Play, 
+  PlayCircle, 
+  Video, 
+  Eye, 
+  User, 
+  X, 
+  Flame, 
+  Award, 
+  Layers, 
+  Check, 
+  RefreshCw 
 } from 'lucide-react';
 import { useTheme } from '../../utils/theme-context';
 import { sounds } from '../../utils/sound-effects';
@@ -31,10 +38,11 @@ export const TipsHub: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   
-  // Dynamic Videos State
+  // Dynamic Videos and Categories State
   const [videoList, setVideoList] = useState<EducationVideo[]>(() => getStoredVideos());
+  const [categoryList, setCategoryList] = useState<VideoCategory[]>(() => getStoredCategories());
 
-  // Listen to live video updates from Admin CMS
+  // Listen to live video and category updates from Admin CMS
   useEffect(() => {
     fetchLiveVideos().then(v => {
       if (v && v.length > 0) setVideoList(v);
@@ -48,8 +56,20 @@ export const TipsHub: React.FC = () => {
       }
     };
 
+    const handleCatUpdate = (e: any) => {
+      if (e.detail) {
+        setCategoryList(e.detail);
+      } else {
+        setCategoryList(getStoredCategories());
+      }
+    };
+
     window.addEventListener('siapkerja_videos_updated', handleUpdate);
-    return () => window.removeEventListener('siapkerja_videos_updated', handleUpdate);
+    window.addEventListener('siapkerja_categories_updated', handleCatUpdate);
+    return () => {
+      window.removeEventListener('siapkerja_videos_updated', handleUpdate);
+      window.removeEventListener('siapkerja_categories_updated', handleCatUpdate);
+    };
   }, []);
 
   // Active Article Reader State
@@ -174,11 +194,7 @@ export const TipsHub: React.FC = () => {
         <div className="flex items-center gap-1.5 overflow-x-auto pt-3 mt-3 border-t border-slate-100 dark:border-slate-800 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
           {[
             { id: 'all', label: 'Semua Materi' },
-            { id: 'kraepelin', label: 'Tes Koran (Kraepelin)' },
-            { id: 'psikotes', label: 'Psikotes & Gambar' },
-            { id: 'interview', label: 'Interview HRD & User' },
-            { id: 'math', label: 'Logika & Angka' },
-            { id: 'culture-physical', label: '5S, Fisik & MCU' }
+            ...categoryList.map(c => ({ id: c.id, label: c.label }))
           ].map(tab => (
             <button
               key={tab.id}
