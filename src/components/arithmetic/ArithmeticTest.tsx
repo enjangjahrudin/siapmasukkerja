@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { arithmeticQuestions } from '../../data/questions-arithmetic';
+import { getRandomArithmeticSet } from '../../data/questions-arithmetic';
+import { BaseQuestion } from '../../types';
 import { sounds } from '../../utils/sound-effects';
 import { 
   Calculator, 
@@ -9,18 +10,20 @@ import {
   XCircle, 
   Lightbulb, 
   Award,
-  Clock,
-  Sparkles
+  Sparkles,
+  Shuffle,
+  Layers
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
 export const ArithmeticTest: React.FC = () => {
+  const [questions, setQuestions] = useState<BaseQuestion[]>(() => getRandomArithmeticSet(10));
   const [currentIndex, setCurrentIndex] = useState<number>(0);
   const [selectedAnswers, setSelectedAnswers] = useState<Record<number, number>>({});
   const [showExplanation, setShowExplanation] = useState<boolean>(false);
   const [isFinished, setIsFinished] = useState<boolean>(false);
 
-  const currentQ = arithmeticQuestions[currentIndex];
+  const currentQ = questions[currentIndex] || questions[0];
   const selectedOpt = selectedAnswers[currentIndex];
   const hasAnswered = selectedOpt !== undefined;
 
@@ -39,7 +42,7 @@ export const ArithmeticTest: React.FC = () => {
   };
 
   const handleNext = () => {
-    if (currentIndex + 1 < arithmeticQuestions.length) {
+    if (currentIndex + 1 < questions.length) {
       setCurrentIndex(prev => prev + 1);
       setShowExplanation(selectedAnswers[currentIndex + 1] !== undefined);
     } else {
@@ -56,7 +59,10 @@ export const ArithmeticTest: React.FC = () => {
     }
   };
 
-  const handleReset = () => {
+  const handleReset = (newBatch: boolean = true) => {
+    if (newBatch) {
+      setQuestions(getRandomArithmeticSet(10));
+    }
     setSelectedAnswers({});
     setCurrentIndex(0);
     setShowExplanation(false);
@@ -64,80 +70,81 @@ export const ArithmeticTest: React.FC = () => {
   };
 
   const correctCount = Object.entries(selectedAnswers).filter(
-    ([idx, ans]) => arithmeticQuestions[Number(idx)].correctAnswer === ans
+    ([idx, ans]) => questions[Number(idx)]?.correctAnswer === ans
   ).length;
-  const scorePercent = Math.round((correctCount / arithmeticQuestions.length) * 100);
+  const scorePercent = questions.length > 0 ? Math.round((correctCount / questions.length) * 100) : 0;
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-6">
+    <div className="w-full h-full flex flex-col justify-between p-3.5 pb-12 select-none overflow-y-auto">
       
-      {/* Header */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs mb-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
+      {!isFinished ? (
+        <div className="space-y-3">
+          
+          {/* Header Card */}
+          <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-2.5 shadow-xs flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <span className="bg-blue-100 text-blue-700 text-xs font-bold px-2.5 py-0.5 rounded-full border border-blue-200">
-                Aritmatika & Deret Angka
+              <span className="text-[11px] font-extrabold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/60 px-2 py-0.5 rounded-lg border border-blue-200 dark:border-blue-800">
+                Soal {currentIndex + 1}/{questions.length}
               </span>
-              <span className="text-xs font-semibold text-slate-500">
-                Hitung Cepat & Logika Pola Angka
+              <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-bold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-700/60 px-2 py-0.5 rounded-lg">
+                <Layers className="w-3 h-3 text-blue-600" />
+                Bank Soal 1.000+
               </span>
             </div>
-            <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 mt-1">
-              Tes Matematika Dasar & Logika Deret Pabrik
-            </h1>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Latihan perhitungan perbandingan pekerja pabrik, kapasitas produksi, persen defect, dan deret bertingkat.
-            </p>
+
+            <div className="flex items-center gap-2">
+              <div className="w-24 sm:w-32 bg-slate-100 dark:bg-slate-700 rounded-full h-1.5 overflow-hidden">
+                <div 
+                  className="bg-blue-600 h-1.5 rounded-full transition-all duration-300"
+                  style={{ width: `${((currentIndex + 1) / questions.length) * 100}%` }}
+                />
+              </div>
+
+              <button
+                onClick={() => handleReset(true)}
+                title="Acak 10 Soal Baru dari Bank Soal"
+                className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-slate-600 dark:text-slate-300 hover:text-blue-600 transition-all flex items-center gap-1 text-[10px] font-bold"
+              >
+                <Shuffle className="w-3.5 h-3.5" />
+                <span className="hidden md:inline">Acak Soal</span>
+              </button>
+            </div>
           </div>
 
-          <button
-            onClick={handleReset}
-            className="self-end sm:self-auto flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-3.5 py-2 rounded-xl transition-colors"
-          >
-            <RotateCcw className="w-3.5 h-3.5" />
-            Reset Soal
-          </button>
-        </div>
-      </div>
+          {/* SubCategory Tag */}
+          {currentQ.subCategory && (
+            <div className="flex items-center justify-between px-1">
+              <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+                Topik: {currentQ.subCategory}
+              </span>
+              <span className="text-[10px] text-slate-400 font-mono">
+                ID: {currentQ.id}
+              </span>
+            </div>
+          )}
 
-      {!isFinished ? (
-        <div className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-8 shadow-sm">
-          
-          <div className="flex items-center justify-between text-xs font-bold text-slate-500 mb-3">
-            <span>Soal {currentIndex + 1} dari {arithmeticQuestions.length}</span>
-            <span>Terjawab: {Object.keys(selectedAnswers).length}/{arithmeticQuestions.length}</span>
-          </div>
-          <div className="w-full bg-slate-100 rounded-full h-2 mb-6 overflow-hidden">
-            <div 
-              className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-              style={{ width: `${((currentIndex + 1) / arithmeticQuestions.length) * 100}%` }}
-            />
-          </div>
-
-          <div className="bg-slate-900 text-white rounded-2xl p-6 shadow-md mb-6">
-            <span className="text-xs font-bold text-sky-400 uppercase tracking-wider block mb-2">
-              Pertanyaan Hitung Cepat:
-            </span>
-            <h2 className="text-base sm:text-lg font-bold leading-relaxed text-white font-mono">
+          {/* Question Text Box */}
+          <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 shadow-xs">
+            <h2 className="text-xs sm:text-sm font-extrabold text-slate-900 dark:text-white leading-relaxed">
               {currentQ.question}
             </h2>
           </div>
 
-          {/* Options */}
-          <div className="space-y-3 mb-6">
+          {/* Options List */}
+          <div className="space-y-2">
             {currentQ.options.map((opt, optIdx) => {
               const isSelected = selectedOpt === optIdx;
               const isCorrect = optIdx === currentQ.correctAnswer;
 
-              let optionStyle = 'bg-white hover:bg-slate-50 border-slate-200 text-slate-800';
+              let optionStyle = 'bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/60 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200';
               if (hasAnswered) {
                 if (isCorrect) {
-                  optionStyle = 'bg-emerald-50 border-emerald-400 text-emerald-950 font-bold shadow-xs';
+                  optionStyle = 'bg-emerald-50 dark:bg-emerald-950/50 border-emerald-400 dark:border-emerald-600 text-emerald-950 dark:text-emerald-200 font-bold shadow-xs';
                 } else if (isSelected) {
-                  optionStyle = 'bg-red-50 border-red-400 text-red-950 font-semibold';
+                  optionStyle = 'bg-red-50 dark:bg-red-950/50 border-red-400 dark:border-red-600 text-red-950 dark:text-red-200 font-semibold';
                 } else {
-                  optionStyle = 'bg-slate-50 border-slate-200 text-slate-400 opacity-60';
+                  optionStyle = 'bg-slate-50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700 text-slate-400 dark:text-slate-500 opacity-60';
                 }
               }
 
@@ -146,11 +153,11 @@ export const ArithmeticTest: React.FC = () => {
                   key={optIdx}
                   disabled={hasAnswered}
                   onClick={() => handleSelectOption(optIdx)}
-                  className={`w-full text-left p-4 rounded-xl border text-xs sm:text-sm font-semibold transition-all flex items-center justify-between ${optionStyle}`}
+                  className={`w-full text-left p-3.5 rounded-xl border text-xs transition-all flex items-center justify-between ${optionStyle}`}
                 >
-                  <span>{opt}</span>
-                  {hasAnswered && isCorrect && <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />}
-                  {hasAnswered && isSelected && !isCorrect && <XCircle className="w-5 h-5 text-red-600 shrink-0" />}
+                  <span className="leading-snug pr-2 font-medium">{opt}</span>
+                  {hasAnswered && isCorrect && <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />}
+                  {hasAnswered && isSelected && !isCorrect && <XCircle className="w-4 h-4 text-red-600 dark:text-red-400 shrink-0" />}
                 </button>
               );
             })}
@@ -158,13 +165,11 @@ export const ArithmeticTest: React.FC = () => {
 
           {/* Explanation */}
           {showExplanation && (
-            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 sm:p-5 text-xs space-y-3 mb-6 animate-fadeIn">
-              <div>
-                <strong className="text-blue-900 font-bold block mb-1 text-sm">📖 Langkah Penyelesaian Rumus Cepat:</strong>
-                <p className="text-blue-950 leading-relaxed">{currentQ.explanation}</p>
-              </div>
+            <div className="bg-blue-50/90 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 rounded-2xl p-3 text-xs space-y-1.5 text-blue-950 dark:text-blue-100">
+              <strong className="text-blue-900 dark:text-blue-300 font-bold block text-[11px]">📖 Cara Pengerjaan:</strong>
+              <p className="text-[11px] leading-relaxed">{currentQ.explanation}</p>
               {currentQ.quickTrick && (
-                <div className="bg-white/90 p-3 rounded-lg border border-blue-200 text-blue-900 font-semibold shadow-xs">
+                <div className="bg-white/90 dark:bg-slate-800/90 p-2 rounded-lg border border-blue-200 dark:border-blue-700 text-blue-900 dark:text-blue-200 font-semibold text-[10px]">
                   {currentQ.quickTrick}
                 </div>
               )}
@@ -172,57 +177,64 @@ export const ArithmeticTest: React.FC = () => {
           )}
 
           {/* Navigation Controls */}
-          <div className="flex items-center justify-between pt-4 border-t border-slate-200">
+          <div className="flex items-center justify-between pt-2">
             <button
               onClick={handlePrev}
               disabled={currentIndex === 0}
-              className="px-4 py-2 text-xs font-bold text-slate-600 hover:text-slate-900 disabled:opacity-30 disabled:cursor-not-allowed"
+              className="px-3 py-2 text-xs font-bold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white disabled:opacity-30"
             >
-              ← Soal Sebelumnya
+              ← Sebelum
             </button>
 
             <button
               onClick={handleNext}
               disabled={!hasAnswered}
-              className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold text-xs rounded-xl shadow-xs transition-colors flex items-center gap-1.5"
+              className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white font-extrabold text-xs rounded-xl shadow-xs transition-all flex items-center gap-1"
             >
-              <span>{currentIndex + 1 === arithmeticQuestions.length ? 'Selesai & Lihat Skor' : 'Soal Selanjutnya'}</span>
+              <span>{currentIndex + 1 === questions.length ? 'Selesai & Skor' : 'Lanjut'}</span>
               <ChevronRight className="w-4 h-4" />
             </button>
           </div>
 
         </div>
       ) : (
-        <div className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-8 text-center shadow-sm">
-          <div className="w-16 h-16 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center mx-auto mb-3">
+        /* Result Summary Screen */
+        <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-3xl p-6 shadow-xs text-center space-y-5">
+          <div className="w-14 h-14 rounded-2xl bg-blue-100 dark:bg-blue-900/60 text-blue-600 dark:text-blue-400 flex items-center justify-center mx-auto shadow-inner">
             <Award className="w-8 h-8" />
           </div>
-          <h2 className="text-2xl font-extrabold text-slate-900">
-            Hasil Tes Aritmatika & Deret Angka
-          </h2>
-
-          <div className="grid grid-cols-2 gap-4 max-w-sm mx-auto my-6">
-            <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
-              <span className="text-[11px] font-bold text-slate-500 uppercase">Jawaban Benar</span>
-              <div className="text-2xl font-black text-emerald-600 mt-1">
-                {correctCount} / {arithmeticQuestions.length}
-              </div>
-            </div>
-            <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
-              <span className="text-[11px] font-bold text-slate-500 uppercase">Skor Akhir</span>
-              <div className="text-2xl font-black text-blue-600 mt-1">
-                {scorePercent}%
-              </div>
-            </div>
+          <div>
+            <h2 className="text-lg font-extrabold text-slate-900 dark:text-white">Hasil Tes Aritmatika & Deret</h2>
+            <div className="text-3xl font-black text-blue-600 dark:text-blue-400 font-mono mt-1">{scorePercent}%</div>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 font-medium">
+              {correctCount} dari {questions.length} Soal Benar
+            </p>
           </div>
 
-          <button
-            onClick={handleReset}
-            className="px-6 py-3 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl shadow-xs transition-colors flex items-center justify-center gap-2 mx-auto"
-          >
-            <RotateCcw className="w-4 h-4" />
-            Latihan Ulang Soal Aritmatika
-          </button>
+          <div className="p-3 bg-slate-50 dark:bg-slate-750 border border-slate-100 dark:border-slate-700 rounded-2xl text-left space-y-1">
+            <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Tingkat Kemampuan Berhitung:</span>
+            <p className="text-xs font-bold text-slate-800 dark:text-slate-200">
+              {scorePercent >= 80 ? '🎯 Sangat Cepat & Akurat (Kualifikasi Lolos Standar Astra/Toyota/PLN)' : scorePercent >= 60 ? '👍 Cukup Baik (Perbanyak Latihan Pola Deret Bertingkat)' : '⚠️ Perlu Melatih Kecepatan Pola Angka'}
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <button
+              onClick={() => handleReset(true)}
+              className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs rounded-2xl shadow-md transition-all flex items-center justify-center gap-2"
+            >
+              <Shuffle className="w-4 h-4" />
+              Latihan Lagi (10 Soal Acak Baru)
+            </button>
+
+            <button
+              onClick={() => handleReset(false)}
+              className="w-full py-2.5 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 font-bold text-xs rounded-2xl transition-all flex items-center justify-center gap-1.5"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              Ulangi 10 Soal yang Sama
+            </button>
+          </div>
         </div>
       )}
 

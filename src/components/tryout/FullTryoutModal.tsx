@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { mechanicalQuestions } from '../../data/questions-mechanical';
-import { arithmeticQuestions } from '../../data/questions-arithmetic';
-import { qcMultipleChoiceQuestions } from '../../data/questions-qc';
-import { spatialQuestions } from '../../data/questions-spatial';
+import { getRandomMechanicalSet } from '../../data/questions-mechanical';
+import { getRandomArithmeticSet } from '../../data/questions-arithmetic';
+import { getRandomQcMcSet } from '../../data/questions-qc';
+import { getRandomSpatialSet } from '../../data/questions-spatial';
 import { BaseQuestion } from '../../types';
 import { sounds } from '../../utils/sound-effects';
 import { 
@@ -33,12 +33,12 @@ export const FullTryoutModal: React.FC<FullTryoutModalProps> = ({ isOpen, onClos
 
   useEffect(() => {
     if (isOpen) {
-      // Assemble mixed question set
+      // Assemble mixed randomized question set
       const combined = [
-        ...mechanicalQuestions.slice(0, 3),
-        ...arithmeticQuestions.slice(0, 3),
-        ...qcMultipleChoiceQuestions.slice(0, 2),
-        ...spatialQuestions.slice(0, 2)
+        ...getRandomMechanicalSet(3),
+        ...getRandomArithmeticSet(3),
+        ...getRandomQcMcSet(2),
+        ...getRandomSpatialSet(2)
       ];
       setAllQuestions(combined);
       setCurrentIndex(0);
