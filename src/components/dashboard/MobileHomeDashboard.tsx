@@ -292,6 +292,85 @@ export const MobileHomeDashboard: React.FC<MobileHomeDashboardProps> = ({
         </div>
       </div>
 
+      {/* Featured Video Edukasi Carousel / Section */}
+      <div className="space-y-2.5">
+        <div className="flex items-center justify-between px-1">
+          <h3 className="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+            <span>🎬 Video Edukasi Terbaru</span>
+            <span className="bg-red-500 text-white text-[8px] font-black uppercase px-1.5 py-0.2 rounded-full">New</span>
+          </h3>
+          <button
+            onClick={() => onSelectTest('tips')}
+            className="text-xs text-amber-600 dark:text-amber-400 font-bold hover:underline flex items-center gap-0.5"
+          >
+            <span>Lihat Semua</span>
+            <ArrowRight className="w-3 h-3" />
+          </button>
+        </div>
+
+        <div className="flex gap-3 overflow-x-auto pb-1 no-scrollbar">
+          {[
+            {
+              id: 'vid-kraepelin-1',
+              title: 'Trik Rahasia Tes Koran (Kraepelin & Pauli)',
+              duration: '10:24',
+              thumbnail: 'https://images.unsplash.com/photo-1434030216411-0b793f4b4173?w=400&auto=format&fit=crop&q=80',
+              speaker: 'Kak Budi Hartono',
+              badge: 'Kraepelin'
+            },
+            {
+              id: 'vid-wartegg-1',
+              title: 'Bedah Tuntas 8 Kotak Tes Wartegg',
+              duration: '12:45',
+              thumbnail: 'https://images.unsplash.com/photo-1513364776144-60967b0f800f?w=400&auto=format&fit=crop&q=80',
+              speaker: 'Psikolog Ratna Dewi',
+              badge: 'Wartegg'
+            },
+            {
+              id: 'vid-interview-1',
+              title: 'Simulasi Interview HRD Astra & Epson',
+              duration: '15:30',
+              thumbnail: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=400&auto=format&fit=crop&q=80',
+              speaker: 'HRD Industrial',
+              badge: 'Interview'
+            }
+          ].map((vid) => (
+            <div
+              key={vid.id}
+              onClick={() => onSelectTest('tips')}
+              className="w-56 shrink-0 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden cursor-pointer shadow-xs hover:border-amber-400 transition-all group flex flex-col justify-between"
+            >
+              <div className="relative aspect-video w-full bg-slate-800 overflow-hidden">
+                <img 
+                  src={vid.thumbnail} 
+                  alt={vid.title} 
+                  className="w-full h-full object-cover group-hover:scale-105 transition-all duration-300"
+                />
+                <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
+                  <div className="w-8 h-8 rounded-full bg-amber-500 text-white flex items-center justify-center shadow-md group-hover:scale-110 transition-all">
+                    <ArrowRight className="w-4 h-4 ml-0.5" />
+                  </div>
+                </div>
+                <span className="absolute top-2 left-2 px-1.5 py-0.5 rounded text-[8px] font-black uppercase bg-black/70 text-amber-300 backdrop-blur-xs">
+                  {vid.badge}
+                </span>
+                <span className="absolute bottom-1.5 right-1.5 px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-black/80 text-white">
+                  {vid.duration}
+                </span>
+              </div>
+              <div className="p-2.5 space-y-1">
+                <h4 className="text-xs font-bold line-clamp-1 text-slate-900 dark:text-white leading-snug">
+                  {vid.title}
+                </h4>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">
+                  {vid.speaker}
+                </p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
       {/* AI Voice Mock Interview Hero Card (Tahap 2 Feature) */}
       <div 
         onClick={() => onSelectTest('interview')}
