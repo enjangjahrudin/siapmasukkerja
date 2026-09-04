@@ -14,7 +14,9 @@ import {
   AlertCircle,
   Briefcase,
   Sun,
-  Moon
+  Moon,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { sounds } from '../../utils/sound-effects';
 import { registerNewCandidate, loginUser, RegisteredUser } from '../../utils/auth-storage';
@@ -40,6 +42,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
   const [major, setMajor] = useState<string>('');
   const [phone, setPhone] = useState<string>('');
   const [password, setPassword] = useState<string>('');
+  const [showPassword, setShowPassword] = useState<boolean>(false);
   const [targetRole, setTargetRole] = useState<TargetRole>('operator');
 
   // Error feedback
@@ -304,17 +307,27 @@ export const AuthPage: React.FC<AuthPageProps> = ({
               <div className="relative">
                 <Lock className={`w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 ${isDark ? 'text-slate-400' : 'text-slate-500'}`} />
                 <input
-                  type="password"
+                  type={showPassword ? 'text' : 'password'}
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Minimal 6 karakter"
-                  className={`w-full pl-10 pr-4 py-2.5 rounded-xl text-xs outline-none transition-colors border ${
+                  className={`w-full pl-10 pr-10 py-2.5 rounded-xl text-xs outline-none transition-colors border ${
                     isDark 
                       ? 'bg-slate-800/90 border-slate-700 text-white placeholder-slate-500 focus:border-brand-500' 
                       : 'bg-white border-slate-300 text-slate-900 placeholder-slate-400 focus:border-brand-600 shadow-xs'
                   }`}
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className={`absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-lg transition-colors ${
+                    isDark ? 'text-slate-400 hover:text-white' : 'text-slate-400 hover:text-slate-700'
+                  }`}
+                  title={showPassword ? 'Sembunyikan Kata Sandi' : 'Tampilkan Kata Sandi'}
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
               </div>
             </div>
 
@@ -389,17 +402,27 @@ export const AuthPage: React.FC<AuthPageProps> = ({
               <div className="relative">
                 <Lock className={`w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 ${isDark ? 'text-slate-400' : 'text-slate-500'}`} />
                 <input
-                  type="password"
+                  type={showPassword ? 'text' : 'password'}
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Kata sandi akun Anda"
-                  className={`w-full pl-10 pr-4 py-3 rounded-xl text-xs outline-none transition-colors border ${
+                  className={`w-full pl-10 pr-10 py-3 rounded-xl text-xs outline-none transition-colors border ${
                     isDark 
                       ? 'bg-slate-800/90 border-slate-700 text-white placeholder-slate-500 focus:border-brand-500' 
                       : 'bg-white border-slate-300 text-slate-900 placeholder-slate-400 focus:border-brand-600 shadow-xs'
                   }`}
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className={`absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-lg transition-colors ${
+                    isDark ? 'text-slate-400 hover:text-white' : 'text-slate-400 hover:text-slate-700'
+                  }`}
+                  title={showPassword ? 'Sembunyikan Kata Sandi' : 'Tampilkan Kata Sandi'}
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
               </div>
             </div>
 
