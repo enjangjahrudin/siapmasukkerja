@@ -36,6 +36,7 @@ export interface RegisteredUser {
   spatialScore?: number;
   arithmeticScore?: number;
   interviewScore?: number;
+  interviewTokens?: number; // Saldo Kredit / Token Simulasi AI Interview
   averageAccuracy?: number;
   passingPrediction?: number;
   overallStatus: 'Lolos Unggul' | 'Lolos Standar' | 'Perlu Latihan';
@@ -766,5 +767,67 @@ export const recordUserTestResult = async (
   }
 
   return updatedUser;
+};
+
+/**
+ * Get current user's AI Interview tokens balance
+ */
+export const getUserInterviewTokens = (userId?: string): number => {
+  const user = getActiveSession();
+  if (user && user.interviewTokens !== undefined) {
+    return user.interviewTokens;
+  }
+  const uid = userId || user?.id || 'guest';
+  const saved = localStorage.getItem('siapkerja_interview_tokens_' + uid);
+  if (saved !== null) {
+    return parseInt(saved, 10) || 0;
+  }
+  // Default 1 free trial token for all users
+  return 1;
+};
+
+/**
+ * Deduct 1 AI Interview token from user balance
+ */
+export const deductUserInterviewToken = (userId?: string): boolean => {
+  const currentTokens = getUserInterviewTokens(userId);
+  if (currentTokens <= 0) return false;
+  const newTokens = currentTokens - 1;
+
+  const user = getActiveSession();
+  if (user) {
+    user.interviewTokens = newTokens;
+    saveUser(user);
+    setActiveSession(user);
+  }
+  const uid = userId || user?.id || 'guest';
+  localStorage.setItem('siapkerja_interview_tokens_' + uid, String(newTokens));
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('siapkerja_tokens_updated', { detail: newTokens }));
+  }
+  return true;
+};
+
+/**
+ * Top up AI Interview tokens
+ */
+export const topUpUserInterviewTokens = (amount: number, userId?: string): number => {
+  const currentTokens = getUserInterviewTokens(userId);
+  const newTokens = currentTokens + amount;
+
+  const user = getActiveSession();
+  if (user) {
+    user.interviewTokens = newTokens;
+    saveUser(user);
+    setActiveSession(user);
+  }
+  const uid = userId || user?.id || 'guest';
+  localStorage.setItem('siapkerja_interview_tokens_' + uid, String(newTokens));
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('siapkerja_tokens_updated', { detail: newTokens }));
+  }
+  return newTokens;
 };
 

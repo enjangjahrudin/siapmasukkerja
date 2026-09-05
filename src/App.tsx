@@ -271,7 +271,7 @@ export const App: React.FC = () => {
               )}
 
               {activeNavTab === 'interview' && (
-                <div className="p-4 pb-20">
+                <div className="w-full px-1 sm:px-3 pt-1 pb-24">
                   <AiInterviewSimulator 
                     targetRole={userTargetRole} 
                     setTargetRole={(r) => {
