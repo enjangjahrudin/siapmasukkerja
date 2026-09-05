@@ -1209,6 +1209,7 @@ app.post('/api/interview/generate-followup', async (req, res) => {
       interviewerPersona = 'Bapak Hendra (Senior HRD Otomotif)', 
       userAnswer = '', 
       questionIndex = 1,
+      baseQuestionText = '',
       conversationHistory = [] // Array of { role: 'user' | 'assistant', content: string }
     } = req.body;
 
@@ -1220,6 +1221,7 @@ app.post('/api/interview/generate-followup', async (req, res) => {
       const systemPrompt = `Anda adalah pewawancara HRD industri manufaktur profesional bernama "${interviewerPersona}".
 Posisi yang dilamar: ${targetRole.toUpperCase()} di pabrik manufaktur.
 Tahap wawancara saat ini: Giliran pertanyaan ke-${questionIndex}.
+Target topik pertanyaan giliran ini: "${baseQuestionText || 'Kesiapan dan kompetensi kerja'}".
 
 ATURAN KOMUNIKASI WAWANCARA (SANGAT PENTING):
 1. DILARANG KERAS selalu memulai dengan kata klise repetitif seperti "Oh begitu ya", "Wah", atau ungkapan template yang sama terus-menerus.
@@ -1229,19 +1231,15 @@ ATURAN KOMUNIKASI WAWANCARA (SANGAT PENTING):
    - Mengapresiasi sikap: "Menarik sekali cara kamu berinisiatif mengatasi kendala tersebut."
    - Mengaitkan ke topik: "Oke baik, terkait komitmen kerja shift malam yang kamu sebutkan tadi..."
    - Menggarisbawahi poin: "Tepat sekali, ketelitian dan keselamatan kerja memang harga mati di pabrik kita."
-3. Alur pertanyaan bertahap (Stage Progression):
-   - Giliran 1-2: Pendalaman perkenalan diri, latar belakang SMK, jurusan, dan tugas konkret saat PKL/magang.
-   - Giliran 3-4: Pengalaman teknis pengoperasian alat/mesin, cara kerja cepat, dan pencegahan produk cacat (NG).
-   - Giliran 5-6: Penerapan K3, pemakaian APD lengkap, budaya 5S/5R, dan tindakan saat alarm andon/mesin bermasalah.
-   - Giliran 7-8: Kesiapan fisik berdiri 8 jam, rotasi 3 shift (pagi, sore, malam), lembur akhir pekan, dan manajemen stamina.
-   - Giliran 9-10: Kerjasama tim, sikap menerima teguran atasan/foreman, dan komitmen loyalitas jangka panjang.
-   - Giliran 11+: Menanyakan apakah ada pertanyaan dari kandidat, atau merangkum kesiapan kandidat sebelum penutupan.
-4. Format lisan: Total 2 kalimat (30-45 kata). Kalimat pertama tanggapan, kalimat kedua pertanyaan lanjutan yang mendalam.
+3. PENTING - HINDARI REPETISI:
+   DILARANG KERAS menanyakan pertanyaan yang sama atau topik yang sama dengan yang sudah pernah ditanyakan di dalam riwayat percakapan sebelumnya.
+   Gunakan target topik giliran ini ("${baseQuestionText || 'Kompetensi kerja'}") sebagai panduan utama menyusun pertanyaan berikutnya agar alur wawancara mengalir maju ke topik baru.
+4. Format lisan: Total 2 kalimat (30-45 kata). Kalimat pertama tanggapan kontekstual, kalimat kedua pertanyaan lanjutan yang mendalam.
 
 Kembalikan HANYA format JSON valid tanpa tanda kutip markdown:
 {
   "acknowledgement": "Tanggapan verbal alami bervariasi langsung merujuk jawaban kandidat (10-15 kata)",
-  "nextQuestion": "Pertanyaan lanjutan yang mengalir sesuai tahap wawancara (15-25 kata)",
+  "nextQuestion": "Pertanyaan lanjutan yang mengalir sesuai target topik giliran ini (15-25 kata)",
   "fullSpoken": "Gabungan tanggapan dan pertanyaan lanjutan untuk diucapkan langsung"
 }`;
 
@@ -1303,11 +1301,13 @@ Kembalikan HANYA format JSON valid tanpa tanda kutip markdown:
     if (geminiKey) {
       const systemPrompt = `Anda adalah pewawancara AI profesional: "${interviewerPersona}".
 Target posisi yang dilamar: "${targetRole.toUpperCase()} (Pabrik / Manufaktur Industri)".
+Tahap pertanyaan ke-${questionIndex}.
+Target topik giliran ini: "${baseQuestionText || 'Kompetensi dan kesiapan kerja'}".
 Kandidat baru saja menjawab: "${userAnswer}".
 
 Tugas Anda sebagai HRD pabrik profesional:
-1. Berikan tanggapan verbal alami singkat (1 kalimat) yang langsung merespons apa yang diceritakan kandidat.
-2. Sambungkan dengan pertanyaan lanjutan berikutnya yang mendalam dan realistis untuk posisi ${targetRole}.
+1. Berikan tanggapan verbal alami singkat (1 kalimat) yang langsung merespons apa yang diceritakan kandidat tanpa kata klise repetitif.
+2. Sambungkan dengan pertanyaan lanjutan berikutnya yang berfokus pada target topik: "${baseQuestionText || 'Kompetensi kerja'}" dan DILARANG KERAS menanyakan pertanyaan yang sama dengan sebelumnya.
 3. Total panjang ucapan 35-50 kata.
 
 Kembalikan respon HANYA dalam format JSON murni tanpa markdown:
@@ -1463,13 +1463,23 @@ Berikut adalah transkrip rekaman percakapan suara wawancara antara HRD (${interv
 ${transcriptFormatted}
 --- AKHIR TRANSKRIP ---
 
-ATURAN KRUSIAL PENILAIAN ASESMEN HRD:
-1. Hitung jumlah pertanyaan yang benar-benar dijawab oleh kandidat (${candidateName}). Wawancara standar pabrik membutuhkan minimal 6-10 pertanyaan untuk evaluasi kelulusan.
-2. Jika kandidat hanya menjawab 1-2 pertanyaan dari seluruh sesi, nilai totalAcceptanceProbability MAKSIMAL adalah 25% (STATUS: TIDAK LOLOS / GAGAL).
-3. Jika kandidat menjawab 3-5 pertanyaan, nilai MAKSIMAL adalah 55% (STATUS: BELUM MEMENUHI STANDAR / TIDAK LENGKAP).
-4. Skor kelulusan (>= 70%) HANYA boleh diberikan jika kandidat menjawab minimal 6 pertanyaan dengan relevansi STAR yang kuat, motivasi tinggi, dan pemahaman teknis/PKL yang baik.
-5. DILARANG MENGARANG ATAU BERHALUSINASI tentang jawaban yang tidak pernah diucapkan oleh kandidat. Evaluasi HANYA berdasarkan apa yang tertulis dalam transkrip di atas!
-6. Kembalikan HANYA format JSON valid tanpa tanda kutip markdown dan tanpa teks lain:
+PANDUAN PENILAIAN ASESMEN HRD:
+1. Hitung jumlah pertanyaan yang benar-benar dijawab oleh kandidat (${candidateName}).
+2. Bobot 4 Pilar Penilaian:
+   - Relevance (Metode STAR & Ketepatan Jawaban): bobot 35%
+   - Articulation (Kelancaran & Kejelasan Artikulasi): bobot 20%
+   - Etiquette (Kesopanan, Sikap Positif & Profesional): bobot 20%
+   - Job Fit (Kesesuaian Karakter, Disiplin & Minat Kerja Manufaktur): bobot 25%
+   PENTING: Nilai totalAcceptanceProbability HARUS matematis selaras dengan rata-rata berbobot dari ke-4 pilar tersebut: (Relevance*0.35 + Articulation*0.20 + Etiquette*0.20 + JobFit*0.25).
+3. Pedoman Jumlah Giliran Pertanyaan yang Selesai:
+   - Jika kandidat menyelesaikan 6 pertanyaan atau lebih dengan jawaban relevan: Berikan skor kelulusan 70% - 95%.
+   - Jika kandidat menyelesaikan 3 - 5 pertanyaan: Berikan skor 50% - 70% (kandidat berpotensi namun proses belum selesai penuh).
+   - Jika kandidat hanya menjawab 1 - 2 pertanyaan: Berikan skor 25% - 45% (sesi wawancara terputus di awal).
+4. Sikap Adil & Objektif:
+   Jika dalam transkrip terdapat pertanyaan dari pewawancara yang topiknya serupa/berulang, nilailah substansi dan konsistensi jawaban kandidat secara adil tanpa memotong skor secara berlebihan.
+5. DILARANG MENGARANG ATAU BERHALUSINASI tentang jawaban yang tidak pernah diucapkan kandidat. Evaluasi HANYA berdasarkan apa yang tertulis dalam transkrip di atas.
+
+Kembalikan HANYA format JSON valid tanpa tanda kutip markdown dan tanpa teks lain:
 {
   "totalAcceptanceProbability": <integer 0 - 100>,
   "relevanceScore": <integer 0 - 100>,
@@ -1503,10 +1513,31 @@ ATURAN KRUSIAL PENILAIAN ASESMEN HRD:
           const cleaned = raw.replace(/```json/g, '').replace(/```/g, '').trim();
           const parsed = JSON.parse(cleaned);
 
-          // Additional safety: ensure score respects turn count
-          if (candidateTurns.length <= 2 && parsed.totalAcceptanceProbability > 30) {
-            parsed.totalAcceptanceProbability = Math.min(30, parsed.totalAcceptanceProbability);
+          // Mathematically harmonize totalAcceptanceProbability with the 4 pillars
+          const rel = Math.max(0, Math.min(100, Number(parsed.relevanceScore) || 50));
+          const art = Math.max(0, Math.min(100, Number(parsed.articulationScore) || 50));
+          const eti = Math.max(0, Math.min(100, Number(parsed.etiquetteScore) || 50));
+          const fit = Math.max(0, Math.min(100, Number(parsed.jobFitScore) || 50));
+          const weighted = Math.round((rel * 0.35) + (art * 0.20) + (eti * 0.20) + (fit * 0.25));
+
+          let finalTotal = Number(parsed.totalAcceptanceProbability);
+          // If total score deviates abnormally from the weighted pillars, harmonize it
+          if (isNaN(finalTotal) || finalTotal < weighted - 8 || finalTotal > weighted + 8) {
+            finalTotal = weighted;
           }
+
+          // Safe guards for very early exits
+          if (candidateTurns.length <= 1) {
+            finalTotal = Math.min(35, finalTotal);
+          } else if (candidateTurns.length === 2) {
+            finalTotal = Math.min(48, finalTotal);
+          }
+
+          parsed.totalAcceptanceProbability = finalTotal;
+          parsed.relevanceScore = rel;
+          parsed.articulationScore = art;
+          parsed.etiquetteScore = eti;
+          parsed.jobFitScore = fit;
 
           return res.json({
             success: true,
