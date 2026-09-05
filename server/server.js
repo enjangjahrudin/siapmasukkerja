@@ -1007,6 +1007,77 @@ app.delete('/api/videos/:id', async (req, res) => {
   }
 });
 
+// ----------------------------------------------------------------------------
+// AI INTERVIEW DYNAMIC CONVERSATION & EVALUATION (GEMINI / LLM INTEGRATION)
+// ----------------------------------------------------------------------------
+
+app.post('/api/interview/generate-followup', async (req, res) => {
+  try {
+    const { 
+      targetRole = 'operator', 
+      interviewerPersona = 'Bapak Hendra (Senior HRD Otomotif)', 
+      userAnswer = '', 
+      questionIndex = 1,
+      conversationHistory = []
+    } = req.body;
+
+    const geminiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
+    const openaiKey = process.env.OPENAI_API_KEY;
+
+    if (geminiKey) {
+      const systemPrompt = `Anda adalah pewawancara AI profesional: "${interviewerPersona}".
+Target posisi yang dilamar: "${targetRole.toUpperCase()} (Pabrik / Manufaktur Industri)".
+Kandidat baru saja menjawab pertanyaan ke-${questionIndex} dengan jawaban suara: "${userAnswer}".
+
+Tugas Anda sebagai HRD pabrik profesional:
+1. Berikan tanggapan verbal alami singkat (1 kalimat) yang langsung merespons apa yang diceritakan kandidat (misal mengomentari pengalaman PKL, bagian mesin, stamina shift, atau penanganan K3).
+2. Sambungkan dengan pertanyaan lanjutan berikutnya (tahap ${questionIndex + 1}) yang mendalam, realistis, dan menguji kesiapan nyata kandidat untuk posisi ${targetRole}.
+3. Bahasa Indonesia yang digunakan harus profesional, tegas, ramah, dan mengalir seperti percakapan lisan tatap muka asli (maksimal total 45-55 kata agar enak didengar lewat text-to-speech).
+
+Kembalikan respon HANYA dalam format JSON murni tanpa markdown triple backticks:
+{
+  "acknowledgement": "Tanggapan singkat terhadap jawaban kandidat",
+  "nextQuestion": "Pertanyaan lanjutan yang tersambung",
+  "fullSpoken": "Gabungan tanggapan dan pertanyaan lanjutan untuk dibacakan suara"
+}`;
+
+      try {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: systemPrompt }] }],
+            generationConfig: {
+              temperature: 0.7,
+              maxOutputTokens: 250
+            }
+          })
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+          const cleanedText = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
+          const parsed = JSON.parse(cleanedText);
+          return res.json({ success: true, isAiGenerated: true, ...parsed });
+        }
+      } catch (aiErr) {
+        console.warn('[Gemini API Call Notice]', aiErr.message);
+      }
+    }
+
+    // Heuristic Fallback if Gemini key is not configured or offline
+    res.json({
+      success: true,
+      isAiGenerated: false,
+      message: 'Using heuristic contextual engine'
+    });
+  } catch (err) {
+    console.error('[Interview Gen Error]', err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`[Express] SMK Siap Masuk Kerja API listening on http://0.0.0.0:${PORT}`);
 });

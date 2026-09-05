@@ -186,20 +186,50 @@ export function evaluateUserInterviewResponse(
  * Dynamic Contextual Conversation Engine
  * Analyzes candidate's previous response, extracts topical cues, and synthesizes a natural contextual transition + adaptive question
  */
-export function generateAdaptiveFollowUp(
+export async function generateAdaptiveFollowUp(
   userPreviousAnswer: string,
   role: TargetRole,
   nextQuestionIndex: number,
   baseQuestionItem: InterviewQuestionItem
-): {
+): Promise<{
   acknowledgement: string;
   adaptiveQuestionText: string;
   fullSpokenDialogue: string;
-} {
+  isAiLiveGenerated?: boolean;
+}> {
+  // 1. Try Live Backend LLM / Gemini Generation if server is online
+  try {
+    const res = await fetch('/api/interview/generate-followup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        targetRole: role,
+        interviewerPersona: baseQuestionItem.interviewerPersona,
+        userAnswer: userPreviousAnswer,
+        questionIndex: nextQuestionIndex
+      })
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      if (data.isAiGenerated && data.fullSpoken) {
+        return {
+          acknowledgement: data.acknowledgement || 'Baik, terima kasih atas penjelasannya.',
+          adaptiveQuestionText: data.nextQuestion || baseQuestionItem.question,
+          fullSpokenDialogue: data.fullSpoken,
+          isAiLiveGenerated: true
+        };
+      }
+    }
+  } catch (e) {
+    // offline or backend not available, proceed to dynamic heuristic engine
+  }
+
+  // 2. Intelligent High-Grade Heuristic Engine Fallback (Zero Latency)
   const text = (userPreviousAnswer || '').toLowerCase().trim();
   const wordCount = text.split(/\s+/).filter(Boolean).length;
 
-  // 1. Topical extraction
+  // Topical extraction
   const hasPkl = text.includes('pkl') || text.includes('magang') || text.includes('prakerin') || text.includes('bengkel') || text.includes('sekolah');
   const hasTech = text.includes('mesin') || text.includes('rakit') || text.includes('perakitan') || text.includes('ukur') || text.includes('listrik') || text.includes('wiring') || text.includes('alat');
   const hasDiscipline = text.includes('disiplin') || text.includes('sop') || text.includes('k3') || text.includes('tanggung jawab') || text.includes('aturan');
@@ -207,7 +237,7 @@ export function generateAdaptiveFollowUp(
   const hasQuality = text.includes('kualitas') || text.includes('reject') || text.includes('cacat') || text.includes('zero defect') || text.includes('presisi') || text.includes('inspeksi');
   const hasTeam = text.includes('tim') || text.includes('leader') || text.includes('atasan') || text.includes('lapor') || text.includes('komunikasi') || text.includes('teman');
 
-  // 2. Dynamic Acknowledgement Generation
+  // Dynamic Acknowledgement Generation
   let acknowledgement = 'Baik, terima kasih atas penjelasannya.';
   if (hasPkl && hasTech) {
     acknowledgement = 'Bagus sekali, saya melihat Anda sudah memiliki bekal praktik kerja dan pemahaman teknis dasar yang cukup relevan.';
@@ -223,7 +253,7 @@ export function generateAdaptiveFollowUp(
     acknowledgement = 'Baik, poin inti jawaban Anda sudah saya tangkap.';
   }
 
-  // 3. Dynamic Question Synthesis based on Question Index & Role
+  // Dynamic Question Synthesis based on Question Index & Role
   let adaptiveQuestion = baseQuestionItem.question;
 
   if (nextQuestionIndex === 1) {
@@ -261,6 +291,7 @@ export function generateAdaptiveFollowUp(
   return {
     acknowledgement,
     adaptiveQuestionText: adaptiveQuestion,
-    fullSpokenDialogue
+    fullSpokenDialogue,
+    isAiLiveGenerated: false
   };
 }

@@ -310,7 +310,7 @@ export const AiInterviewSimulator: React.FC<AiInterviewSimulatorProps> = ({
   };
 
   // Submit Answer & Transition to Next Question
-  const processAnswerAndAdvance = (answerText: string) => {
+  const processAnswerAndAdvance = async (answerText: string) => {
     setConversationStatus('evaluating');
     sounds.playCorrect();
 
@@ -332,8 +332,8 @@ export const AiInterviewSimulator: React.FC<AiInterviewSimulatorProps> = ({
       const nextIdx = currentQIndex + 1;
       const baseNextQuestion = (interviewQuestionsBank[targetRole] || interviewQuestionsBank.operator)[nextIdx];
 
-      // Dynamic Contextual Adaptive Dialogue Synthesis
-      const followUp = generateAdaptiveFollowUp(answerText, targetRole, nextIdx, baseNextQuestion);
+      // Dynamic Contextual Adaptive Dialogue Synthesis (Live Gemini / LLM or Instant Heuristic Engine)
+      const followUp = await generateAdaptiveFollowUp(answerText, targetRole, nextIdx, baseNextQuestion);
 
       const nextList = [...dynamicQuestions];
       nextList[nextIdx] = {
@@ -347,7 +347,7 @@ export const AiInterviewSimulator: React.FC<AiInterviewSimulatorProps> = ({
 
       setTimeout(() => {
         speakQuestion(followUp.fullSpokenDialogue);
-      }, 600);
+      }, 400);
     } else {
       // Completed all questions
       stopListeningToUser();
