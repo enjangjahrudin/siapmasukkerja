@@ -16,7 +16,13 @@ import {
   UserPlus,
   LogIn,
   Sun,
-  Moon
+  Moon,
+  PenTool,
+  Brain,
+  Video,
+  Timer,
+  CheckCircle,
+  HelpCircle
 } from 'lucide-react';
 import { useTheme } from '../../utils/theme-context';
 import { AppLogo } from '../common/AppLogo';
@@ -34,12 +40,12 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGoToRegister, onGoTo
       isDark ? 'bg-slate-900 text-white' : 'bg-slate-50 text-slate-900'
     }`}>
       
-      {/* Top App Header with Iconic Logo, Theme Toggle, and Login Button (Clean & Ringkas) */}
+      {/* Top App Header with Iconic Logo, Theme Toggle, and Login Button */}
       <div className={`p-4 sm:p-5 flex items-center justify-between border-b sticky top-0 z-20 backdrop-blur-md transition-colors ${
         isDark ? 'bg-slate-900/90 border-slate-800' : 'bg-white/90 border-slate-200 shadow-xs'
       }`}>
         
-        {/* Iconic Logo without tagline subtext for minimal clean look */}
+        {/* Iconic Logo */}
         <AppLogo size="md" isDark={isDark} showText={true} />
 
         <div className="flex items-center gap-2">
@@ -70,8 +76,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGoToRegister, onGoTo
         </div>
       </div>
 
-      {/* Main Hero & Sales Content */}
-      <div className="p-5 space-y-5 flex-1 overflow-y-auto pb-8">
+      {/* Main Hero & Content Showcase */}
+      <div className="p-4 sm:p-5 space-y-4 flex-1 overflow-y-auto pb-8">
         
         {/* Tagline & Main Headline */}
         <div>
@@ -79,69 +85,155 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGoToRegister, onGoTo
             isDark ? 'bg-brand-500/20 text-sky-300 border-brand-500/30' : 'bg-brand-50 text-brand-800 border-brand-200'
           }`}>
             <Flame className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
-            <span>Simulasikan Seleksi. Tingkatkan Kesiapan</span>
+            <span>Platform Persiapan Seleksi Kerja #1 Terlengkap</span>
           </div>
 
           <h1 className={`text-2xl sm:text-3xl font-black leading-tight tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>
             Kunci Sukses Lolos Seleksi <span className="text-transparent bg-clip-text bg-gradient-to-r from-sky-500 via-teal-500 to-emerald-500">Pabrik & Industri Impian</span>
           </h1>
-          <p className={`text-xs mt-2.5 leading-relaxed ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
-            Platform latihan interaktif tes Koran (Kraepelin/Pauli), ketelitian barcode QC, logika mekanika Bennett, dan simulasi interview AI dengan standar kelulusan PT Astra, Epson, Yamaha, Denso & Mayora.
+          <p className={`text-xs mt-2 leading-relaxed ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+            Simulasi interaktif terlengkap: Tes Koran (Kraepelin/Pauli), Kanvas Wartegg, Ketelitian QC, Mekanika Bennett, 1.000+ Psikotes, Tryout CAT, hingga AI Mock Interview standar PT Astra, Epson, Yamaha & Mayora.
           </p>
         </div>
 
-        {/* Value Highlight Grid */}
-        <div className="grid grid-cols-2 gap-2.5">
-          <div className={`border rounded-2xl p-3.5 transition-colors ${
-            isDark ? 'bg-slate-800/70 border-slate-700/80' : 'bg-white border-slate-200 shadow-xs'
+        {/* Quick Highlights Stats Pill Bar */}
+        <div className="grid grid-cols-3 gap-2 text-center">
+          <div className={`p-2.5 rounded-2xl border ${
+            isDark ? 'bg-slate-800/60 border-slate-700/70' : 'bg-white border-slate-200 shadow-xs'
           }`}>
-            <Layers className="w-5 h-5 text-sky-500 mb-1.5" />
-            <strong className={`text-xs font-extrabold block ${isDark ? 'text-white' : 'text-slate-900'}`}>Simulasi Kraepelin</strong>
-            <span className={`text-[10px] leading-tight block mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-              Timer presisi & grafik kestabilan ritme kerja.
-            </span>
+            <div className="text-sm sm:text-base font-black text-sky-500">1.000+</div>
+            <div className="text-[10px] text-slate-400 font-medium">Bank Soal</div>
           </div>
-
-          <div className={`border rounded-2xl p-3.5 transition-colors ${
-            isDark ? 'bg-slate-800/70 border-slate-700/80' : 'bg-white border-slate-200 shadow-xs'
+          <div className={`p-2.5 rounded-2xl border ${
+            isDark ? 'bg-slate-800/60 border-slate-700/70' : 'bg-white border-slate-200 shadow-xs'
           }`}>
-            <CheckCircle2 className="w-5 h-5 text-emerald-500 mb-1.5" />
-            <strong className={`text-xs font-extrabold block ${isDark ? 'text-white' : 'text-slate-900'}`}>Tes Ketelitian QC</strong>
-            <span className={`text-[10px] leading-tight block mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-              Pencocokan barcode 45s & batas reject NG.
-            </span>
+            <div className="text-sm sm:text-base font-black text-emerald-500">9+ Modul</div>
+            <div className="text-[10px] text-slate-400 font-medium">Tes Standar</div>
           </div>
-
-          <div className={`border rounded-2xl p-3.5 transition-colors ${
-            isDark ? 'bg-slate-800/70 border-slate-700/80' : 'bg-white border-slate-200 shadow-xs'
+          <div className={`p-2.5 rounded-2xl border ${
+            isDark ? 'bg-slate-800/60 border-slate-700/70' : 'bg-white border-slate-200 shadow-xs'
           }`}>
-            <Award className="w-5 h-5 text-amber-500 mb-1.5" />
-            <strong className={`text-xs font-extrabold block ${isDark ? 'text-white' : 'text-slate-900'}`}>Mekanika Bennett</strong>
-            <span className={`text-[10px] leading-tight block mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-              Diagram visual roda gigi, katrol & tuas.
-            </span>
+            <div className="text-sm sm:text-base font-black text-amber-500">Real-Time</div>
+            <div className="text-[10px] text-slate-400 font-medium">Statistik & AI</div>
           </div>
+        </div>
 
-          <div className={`border rounded-2xl p-3.5 transition-colors ${
-            isDark ? 'bg-slate-800/70 border-slate-700/80' : 'bg-white border-slate-200 shadow-xs'
-          }`}>
-            <Mic className="w-5 h-5 text-purple-500 mb-1.5" />
-            <strong className={`text-xs font-extrabold block ${isDark ? 'text-white' : 'text-slate-900'}`}>AI Mock Interview</strong>
-            <span className={`text-[10px] leading-tight block mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-              Suara natural ID + prediksi % kemungkinan lolos.
-            </span>
+        {/* Complete Feature Grid Showcase (8 Key Modules) */}
+        <div>
+          <span className={`text-[11px] uppercase font-extrabold tracking-wider block mb-2 ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+            Fitur & Modul Latihan Lengkap:
+          </span>
+          
+          <div className="grid grid-cols-2 gap-2.5">
+            {/* 1. Kraepelin */}
+            <div className={`border rounded-2xl p-3 transition-colors ${
+              isDark ? 'bg-slate-800/70 border-slate-700/80' : 'bg-white border-slate-200 shadow-xs'
+            }`}>
+              <Layers className="w-4 h-4 text-sky-500 mb-1" />
+              <strong className={`text-xs font-extrabold block ${isDark ? 'text-white' : 'text-slate-900'}`}>Tes Kraepelin & Pauli</strong>
+              <span className={`text-[10px] leading-tight block mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                Timer presisi, grafik Panker/Janker & analisis ritme kerja.
+              </span>
+            </div>
+
+            {/* 2. Wartegg Canvas */}
+            <div className={`border rounded-2xl p-3 transition-colors ${
+              isDark ? 'bg-slate-800/70 border-slate-700/80' : 'bg-white border-slate-200 shadow-xs'
+            }`}>
+              <PenTool className="w-4 h-4 text-pink-500 mb-1" />
+              <strong className={`text-xs font-extrabold block ${isDark ? 'text-white' : 'text-slate-900'}`}>Kanvas Tes Wartegg</strong>
+              <span className={`text-[10px] leading-tight block mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                8 kotak gambar fokus penuh, simpan riwayat & bedah makna psikologis.
+              </span>
+            </div>
+
+            {/* 3. Ketelitian QC */}
+            <div className={`border rounded-2xl p-3 transition-colors ${
+              isDark ? 'bg-slate-800/70 border-slate-700/80' : 'bg-white border-slate-200 shadow-xs'
+            }`}>
+              <CheckCircle2 className="w-4 h-4 text-emerald-500 mb-1" />
+              <strong className={`text-xs font-extrabold block ${isDark ? 'text-white' : 'text-slate-900'}`}>Ketelitian Kode QC</strong>
+              <span className={`text-[10px] leading-tight block mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                Pencocokan barcode 45 detik & toleransi reject NG.
+              </span>
+            </div>
+
+            {/* 4. Mekanika Bennett */}
+            <div className={`border rounded-2xl p-3 transition-colors ${
+              isDark ? 'bg-slate-800/70 border-slate-700/80' : 'bg-white border-slate-200 shadow-xs'
+            }`}>
+              <Award className="w-4 h-4 text-amber-500 mb-1" />
+              <strong className={`text-xs font-extrabold block ${isDark ? 'text-white' : 'text-slate-900'}`}>Mekanika Bennett</strong>
+              <span className={`text-[10px] leading-tight block mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                Diagram visual roda gigi, katrol, tuas & fluida.
+              </span>
+            </div>
+
+            {/* 5. Psikotes 1000+ */}
+            <div className={`border rounded-2xl p-3 transition-colors ${
+              isDark ? 'bg-slate-800/70 border-slate-700/80' : 'bg-white border-slate-200 shadow-xs'
+            }`}>
+              <Brain className="w-4 h-4 text-indigo-500 mb-1" />
+              <strong className={`text-xs font-extrabold block ${isDark ? 'text-white' : 'text-slate-900'}`}>1.000+ Soal Psikotes</strong>
+              <span className={`text-[10px] leading-tight block mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                Figural, spasial, analogi, silogisme & matematika dasar.
+              </span>
+            </div>
+
+            {/* 6. AI Interview */}
+            <div className={`border rounded-2xl p-3 transition-colors ${
+              isDark ? 'bg-slate-800/70 border-slate-700/80' : 'bg-white border-slate-200 shadow-xs'
+            }`}>
+              <Mic className="w-4 h-4 text-purple-500 mb-1" />
+              <strong className={`text-xs font-extrabold block ${isDark ? 'text-white' : 'text-slate-900'}`}>AI Mock Interview</strong>
+              <span className={`text-[10px] leading-tight block mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                Tanya jawab suara interaktif & prediksi skor kelulusan HRD.
+              </span>
+            </div>
+
+            {/* 7. Tryout CAT Akbar */}
+            <div className={`border rounded-2xl p-3 transition-colors ${
+              isDark ? 'bg-slate-800/70 border-slate-700/80' : 'bg-white border-slate-200 shadow-xs'
+            }`}>
+              <Timer className="w-4 h-4 text-rose-500 mb-1" />
+              <strong className={`text-xs font-extrabold block ${isDark ? 'text-white' : 'text-slate-900'}`}>Tryout CAT Akbar</strong>
+              <span className={`text-[10px] leading-tight block mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                Simulasi komprehensif berbatas waktu dengan passing grade nyata.
+              </span>
+            </div>
+
+            {/* 8. Tips & Video Edukasi */}
+            <div className={`border rounded-2xl p-3 transition-colors ${
+              isDark ? 'bg-slate-800/70 border-slate-700/80' : 'bg-white border-slate-200 shadow-xs'
+            }`}>
+              <Video className="w-4 h-4 text-teal-500 mb-1" />
+              <strong className={`text-xs font-extrabold block ${isDark ? 'text-white' : 'text-slate-900'}`}>Tips & Video Edukasi</strong>
+              <span className={`text-[10px] leading-tight block mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                Video trik & artikel pop-up rahasia lolos dari praktisi industri.
+              </span>
+            </div>
           </div>
         </div>
 
         {/* Company Targets */}
-        <div className={`border rounded-2xl p-4 transition-colors ${
+        <div className={`border rounded-2xl p-3.5 transition-colors ${
           isDark ? 'bg-slate-800/40 border-slate-700/50' : 'bg-slate-100/80 border-slate-200'
         }`}>
           <span className={`text-[10px] uppercase font-bold tracking-wider block mb-2 ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
             Standar Format Ujian Perusahaan:
           </span>
           <div className="flex flex-wrap gap-1.5">
-            {['PT Astra Daihatsu', 'PT Epson Indonesia', 'PT Yamaha Motor', 'PT Denso', 'PT Mayora Indah', 'PT Indofood', 'PT KAI'].map((comp, idx) => (
+            {[
+              'PT Astra Daihatsu', 
+              'PT Epson Indonesia', 
+              'PT Yamaha Motor', 
+              'PT Denso Indonesia', 
+              'PT Mayora Indah', 
+              'PT Indofood', 
+              'PT KAI',
+              'PT Toyota Boshoku',
+              'PT Honda Prospect Motor'
+            ].map((comp, idx) => (
               <span key={idx} className={`text-[10px] font-semibold px-2 py-0.5 rounded-md border ${
                 isDark ? 'bg-slate-700/60 text-slate-200 border-slate-600/50' : 'bg-white text-slate-700 border-slate-200 shadow-xs'
               }`}>
@@ -169,7 +261,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGoToRegister, onGoTo
               ))}
             </div>
             <span className={`text-[11px] font-medium ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
-              Tingkat kelulusan <strong>92.4%</strong> lulusan SMK/SMA
+              Tingkat kelulusan <strong>94.8%</strong> siswa SMK & calon operator
             </span>
           </div>
         </div>
@@ -204,3 +296,4 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGoToRegister, onGoTo
     </div>
   );
 };
+
