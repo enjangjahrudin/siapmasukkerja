@@ -1021,20 +1021,84 @@ app.post('/api/interview/generate-followup', async (req, res) => {
       conversationHistory = []
     } = req.body;
 
+    const sumopodKey = process.env.SUMOPOD_API_KEY || process.env.OPENAI_API_KEY;
+    const sumopodBaseUrl = (process.env.SUMOPOD_BASE_URL || 'https://api.sumopod.com/v1').replace(/\/+$/, '');
+    const sumopodModel = process.env.SUMOPOD_MODEL || process.env.OPENAI_MODEL || 'gpt-4o-mini';
     const geminiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
-    const openaiKey = process.env.OPENAI_API_KEY;
 
+    // 1. Prioritize Sumopod.com / OpenAI-compatible API Gateway
+    if (sumopodKey) {
+      const systemPrompt = `Anda adalah pewawancara AI HRD & User industri profesional: "${interviewerPersona}".
+Target posisi yang dilamar kandidat: "${targetRole.toUpperCase()} (Pabrik / Manufaktur Industri)".
+Karakter Anda: Profesional, ramah, tegas, mengutamakan keselamatan kerja (K3), kedisiplinan, ketelitian, dan kesiapan fisik/mental pabrik.
+
+Instruksi Tugas:
+1. Dengarkan dan respon jawaban kandidat untuk pertanyaan ke-${questionIndex} secara natural (acknowledgement 1 kalimat singkat yang mengapresiasi atau mengomentari poin spesifik jawaban kandidat).
+2. Sambungkan dengan pertanyaan lanjutan berikutnya (tahap ${questionIndex + 1}) yang mendalam, relevan dengan jawaban kandidat dan posisi ${targetRole}.
+3. Bahasa Indonesia lisan yang sangat alami, formal namun luwes seperti wawancara tatap muka asli (panjang total ucapan sekitar 40-55 kata agar pas untuk disuarakan text-to-speech).
+
+Kembalikan HANYA format JSON valid tanpa tanda markdown (tanpa \`\`\`json):
+{
+  "acknowledgement": "Tanggapan verbal alami terhadap jawaban kandidat",
+  "nextQuestion": "Pertanyaan lanjutan yang tersambung logis",
+  "fullSpoken": "Gabungan tanggapan dan pertanyaan lanjutan untuk diucapkan secara langsung"
+}`;
+
+      try {
+        const aiRes = await fetch(`${sumopodBaseUrl}/chat/completions`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${sumopodKey}`
+          },
+          body: JSON.stringify({
+            model: sumopodModel,
+            messages: [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: `Jawaban kandidat pada pertanyaan ke-${questionIndex}: "${userAnswer || 'Saya siap dan memiliki komitmen tinggi.'}"` }
+            ],
+            temperature: 0.7,
+            max_tokens: 300
+          })
+        });
+
+        if (aiRes.ok) {
+          const aiData = await aiRes.json();
+          const rawContent = aiData?.choices?.[0]?.message?.content || '';
+          const cleanJsonStr = rawContent.replace(/```json/g, '').replace(/```/g, '').trim();
+          const parsed = JSON.parse(cleanJsonStr);
+          if (parsed.fullSpoken || parsed.nextQuestion) {
+            return res.json({
+              success: true,
+              isAiGenerated: true,
+              provider: 'sumopod',
+              model: sumopodModel,
+              acknowledgement: parsed.acknowledgement || 'Baik, terima kasih atas penjelasannya.',
+              nextQuestion: parsed.nextQuestion || 'Bisa jelaskan lebih lanjut mengenai kesiapan kerja Anda?',
+              fullSpoken: parsed.fullSpoken || `${parsed.acknowledgement} ${parsed.nextQuestion}`
+            });
+          }
+        } else {
+          const errText = await aiRes.text();
+          console.warn('[Sumopod API Error]', aiRes.status, errText);
+        }
+      } catch (sumoErr) {
+        console.warn('[Sumopod Call Exception]', sumoErr.message);
+      }
+    }
+
+    // 2. Direct Gemini Fallback if SUMOPOD_API_KEY is not set but GEMINI_API_KEY is available
     if (geminiKey) {
       const systemPrompt = `Anda adalah pewawancara AI profesional: "${interviewerPersona}".
 Target posisi yang dilamar: "${targetRole.toUpperCase()} (Pabrik / Manufaktur Industri)".
 Kandidat baru saja menjawab pertanyaan ke-${questionIndex} dengan jawaban suara: "${userAnswer}".
 
 Tugas Anda sebagai HRD pabrik profesional:
-1. Berikan tanggapan verbal alami singkat (1 kalimat) yang langsung merespons apa yang diceritakan kandidat (misal mengomentari pengalaman PKL, bagian mesin, stamina shift, atau penanganan K3).
+1. Berikan tanggapan verbal alami singkat (1 kalimat) yang langsung merespons apa yang diceritakan kandidat.
 2. Sambungkan dengan pertanyaan lanjutan berikutnya (tahap ${questionIndex + 1}) yang mendalam, realistis, dan menguji kesiapan nyata kandidat untuk posisi ${targetRole}.
-3. Bahasa Indonesia yang digunakan harus profesional, tegas, ramah, dan mengalir seperti percakapan lisan tatap muka asli (maksimal total 45-55 kata agar enak didengar lewat text-to-speech).
+3. Bahasa Indonesia yang digunakan harus profesional, tegas, ramah, dan mengalir seperti percakapan lisan tatap muka asli (total 40-55 kata).
 
-Kembalikan respon HANYA dalam format JSON murni tanpa markdown triple backticks:
+Kembalikan respon HANYA dalam format JSON murni tanpa markdown:
 {
   "acknowledgement": "Tanggapan singkat terhadap jawaban kandidat",
   "nextQuestion": "Pertanyaan lanjutan yang tersambung",
@@ -1059,14 +1123,14 @@ Kembalikan respon HANYA dalam format JSON murni tanpa markdown triple backticks:
           const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
           const cleanedText = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
           const parsed = JSON.parse(cleanedText);
-          return res.json({ success: true, isAiGenerated: true, ...parsed });
+          return res.json({ success: true, isAiGenerated: true, provider: 'gemini', ...parsed });
         }
       } catch (aiErr) {
         console.warn('[Gemini API Call Notice]', aiErr.message);
       }
     }
 
-    // Heuristic Fallback if Gemini key is not configured or offline
+    // Heuristic Fallback if AI key is not configured or offline
     res.json({
       success: true,
       isAiGenerated: false,
