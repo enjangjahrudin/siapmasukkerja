@@ -1129,7 +1129,55 @@ app.delete('/api/videos/:id', async (req, res) => {
 });
 
 // ----------------------------------------------------------------------------
-// AI INTERVIEW DYNAMIC CONVERSATION & EVALUATION (GEMINI / LLM INTEGRATION)
+// AI CONFIGURATION & RESOLVER HELPER (OPENAI DIRECT / SUMOPOD GATEWAY)
+// ----------------------------------------------------------------------------
+function getAiConfig() {
+  const openAiKey = (process.env.OPENAI_API_KEY || '').trim();
+  const sumopodKey = (process.env.SUMOPOD_API_KEY || '').trim();
+
+  // If OPENAI_API_KEY is provided OR if SUMOPOD_API_KEY starts with 'sk-proj-' / 'sk-svcacct-' (OpenAI format)
+  const isDirectOpenAi = Boolean(
+    openAiKey || 
+    (sumopodKey && (sumopodKey.startsWith('sk-proj-') || sumopodKey.startsWith('sk-svcacct-') || sumopodKey.length > 100))
+  );
+  const primaryKey = openAiKey || sumopodKey;
+
+  if (isDirectOpenAi && primaryKey) {
+    return {
+      provider: 'openai',
+      displayName: 'OpenAI Official (platform.openai.com)',
+      apiKey: primaryKey,
+      baseUrl: (process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1').replace(/\/+$/, ''),
+      model: process.env.OPENAI_MODEL || process.env.SUMOPOD_MODEL || 'gpt-4o-mini',
+      hasOfficialTts: true
+    };
+  }
+
+  if (sumopodKey) {
+    let baseUrl = (process.env.SUMOPOD_BASE_URL || 'https://ai.sumopod.com/v1').replace(/\/+$/, '');
+    if (baseUrl.includes('api.sumopod.com')) baseUrl = 'https://ai.sumopod.com/v1';
+    return {
+      provider: 'sumopod',
+      displayName: 'Sumopod.com AI Gateway',
+      apiKey: sumopodKey,
+      baseUrl,
+      model: process.env.SUMOPOD_MODEL || 'gpt-4o-mini',
+      hasOfficialTts: false
+    };
+  }
+
+  return {
+    provider: 'none',
+    displayName: 'Internal Engine',
+    apiKey: '',
+    baseUrl: '',
+    model: 'gpt-4o-mini',
+    hasOfficialTts: false
+  };
+}
+
+// ----------------------------------------------------------------------------
+// AI INTERVIEW DYNAMIC CONVERSATION & EVALUATION (OPENAI / SUMOPOD / GEMINI)
 // ----------------------------------------------------------------------------
 
 app.post('/api/interview/generate-followup', async (req, res) => {
@@ -1142,16 +1190,11 @@ app.post('/api/interview/generate-followup', async (req, res) => {
       conversationHistory = [] // Array of { role: 'user' | 'assistant', content: string }
     } = req.body;
 
-    const sumopodKey = process.env.SUMOPOD_API_KEY || process.env.OPENAI_API_KEY;
-    let sumopodBaseUrl = (process.env.SUMOPOD_BASE_URL || 'https://ai.sumopod.com/v1').replace(/\/+$/, '');
-    if (sumopodBaseUrl.includes('api.sumopod.com')) {
-      sumopodBaseUrl = 'https://ai.sumopod.com/v1';
-    }
-    const sumopodModel = process.env.SUMOPOD_MODEL || process.env.OPENAI_MODEL || 'gpt-4o-mini';
+    const aiConfig = getAiConfig();
     const geminiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
 
-    // 1. Prioritize Sumopod.com / OpenAI-compatible API Gateway
-    if (sumopodKey) {
+    // 1. Prioritize OpenAI / Sumopod
+    if (aiConfig.apiKey) {
       const systemPrompt = `Anda adalah pewawancara HRD industri manufaktur profesional bernama "${interviewerPersona}".
 Posisi yang dilamar: ${targetRole.toUpperCase()} di pabrik manufaktur.
 
@@ -1184,14 +1227,14 @@ Kembalikan HANYA JSON valid (tanpa markdown):
       });
 
       try {
-        const aiRes = await fetch(`${sumopodBaseUrl}/chat/completions`, {
+        const aiRes = await fetch(`${aiConfig.baseUrl}/chat/completions`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${sumopodKey}`
+            'Authorization': `Bearer ${aiConfig.apiKey}`
           },
           body: JSON.stringify({
-            model: sumopodModel,
+            model: aiConfig.model,
             messages,
             temperature: 0.75,
             max_tokens: 200
@@ -1207,8 +1250,8 @@ Kembalikan HANYA JSON valid (tanpa markdown):
             return res.json({
               success: true,
               isAiGenerated: true,
-              provider: 'sumopod',
-              model: sumopodModel,
+              provider: aiConfig.provider,
+              model: aiConfig.model,
               acknowledgement: parsed.acknowledgement || 'Baik, terima kasih atas penjelasannya.',
               nextQuestion: parsed.nextQuestion || 'Bisa jelaskan lebih lanjut mengenai kesiapan kerja Anda?',
               fullSpoken: parsed.fullSpoken || `${parsed.acknowledgement} ${parsed.nextQuestion}`
@@ -1216,14 +1259,14 @@ Kembalikan HANYA JSON valid (tanpa markdown):
           }
         } else {
           const errText = await aiRes.text();
-          console.warn('[Sumopod API Error]', aiRes.status, errText);
+          console.warn(`[${aiConfig.provider} API Error]`, aiRes.status, errText);
         }
-      } catch (sumoErr) {
-        console.warn('[Sumopod Call Exception]', sumoErr.message);
+      } catch (err) {
+        console.warn(`[${aiConfig.provider} Call Exception]`, err.message);
       }
     }
 
-    // 2. Direct Gemini Fallback if SUMOPOD_API_KEY is not set but GEMINI_API_KEY is available
+    // 2. Direct Gemini Fallback
     if (geminiKey) {
       const systemPrompt = `Anda adalah pewawancara AI profesional: "${interviewerPersona}".
 Target posisi yang dilamar: "${targetRole.toUpperCase()} (Pabrik / Manufaktur Industri)".
@@ -1242,66 +1285,80 @@ Kembalikan respon HANYA dalam format JSON murni tanpa markdown:
 }`;
 
       try {
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: systemPrompt }] }],
-            generationConfig: {
-              temperature: 0.7,
-              maxOutputTokens: 250
-            }
-          })
-        });
+        const geminiRes = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: systemPrompt }] }],
+              generationConfig: { responseMimeType: 'application/json', temperature: 0.7 }
+            })
+          }
+        );
 
-        if (response.ok) {
-          const data = await response.json();
-          const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-          const cleanedText = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
-          const parsed = JSON.parse(cleanedText);
-          return res.json({ success: true, isAiGenerated: true, provider: 'gemini', ...parsed });
+        if (geminiRes.ok) {
+          const gData = await geminiRes.json();
+          const rawText = gData?.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (rawText) {
+            const parsed = JSON.parse(rawText);
+            return res.json({
+              success: true,
+              isAiGenerated: true,
+              provider: 'gemini',
+              acknowledgement: parsed.acknowledgement || 'Terima kasih atas jawaban Anda.',
+              nextQuestion: parsed.nextQuestion || 'Mari kita lanjutkan ke pertanyaan berikutnya.',
+              fullSpoken: parsed.fullSpoken || `${parsed.acknowledgement} ${parsed.nextQuestion}`
+            });
+          }
         }
-      } catch (aiErr) {
-        console.warn('[Gemini API Call Notice]', aiErr.message);
+      } catch (geminiErr) {
+        console.warn('[Gemini Fallback Error]', geminiErr);
       }
     }
 
-    // Heuristic Fallback if AI key is not configured or offline
+    // 3. Fallback Heuristik
+    const fallbackAck = [
+      'Bagus sekali, saya mencatat poin penting dari jawaban Anda.',
+      'Menarik, pengalaman yang Anda ceritakan sangat relevan dengan kebutuhan kami.',
+      'Baik, terima kasih atas penjelasan yang cukup jelas.',
+      'Penjelasan Anda menunjukkan kesiapan mental kerja yang baik.'
+    ][(questionIndex - 1) % 4];
+
     res.json({
       success: true,
       isAiGenerated: false,
-      message: 'Using heuristic contextual engine'
+      provider: 'heuristic',
+      acknowledgement: fallbackAck,
+      nextQuestion: 'Bisa Anda ceritakan bagaimana Anda menangani situasi kerja di bawah tekanan atau target shift yang padat?',
+      fullSpoken: `${fallbackAck} Bisa Anda ceritakan bagaimana Anda menangani situasi kerja di bawah tekanan atau target shift yang padat?`
     });
+
   } catch (err) {
-    console.error('[Interview Gen Error]', err);
-    res.status(500).json({ success: false, message: err.message });
+    console.error('[Generate FollowUp Error]', err);
+    res.status(500).json({ success: false, message: 'Gagal memproses AI interview: ' + err.message });
   }
 });
 
 // ----------------------------------------------------------------------------
-// POST-CALL COMPREHENSIVE AI EVALUATION ENDPOINT
+// AI INTERVIEW COMPREHENSIVE SCORECARD EVALUATION ENDPOINT
 // ----------------------------------------------------------------------------
 app.post('/api/interview/evaluate-session', async (req, res) => {
   try {
     const {
       candidateName = 'Kandidat',
       targetRole = 'operator',
-      interviewerPersona = 'Bapak Hendra (Senior HRD Otomotif)',
+      interviewerPersona = 'Bapak Hendra',
       transcript = [] // Array of { speaker: string, text: string }
     } = req.body;
 
-    const sumopodKey = process.env.SUMOPOD_API_KEY || process.env.OPENAI_API_KEY;
-    let sumopodBaseUrl = (process.env.SUMOPOD_BASE_URL || 'https://ai.sumopod.com/v1').replace(/\/+$/, '');
-    if (sumopodBaseUrl.includes('api.sumopod.com')) {
-      sumopodBaseUrl = 'https://ai.sumopod.com/v1';
-    }
-    const sumopodModel = process.env.SUMOPOD_MODEL || process.env.OPENAI_MODEL || 'gpt-4o-mini';
+    const aiConfig = getAiConfig();
 
     const transcriptFormatted = Array.isArray(transcript) 
       ? transcript.map(t => `${t.speaker}: ${t.text}`).join('\n')
       : String(transcript);
 
-    if (sumopodKey && transcriptFormatted.length > 20) {
+    if (aiConfig.apiKey && transcriptFormatted.length > 20) {
       const evalPrompt = `Anda adalah Tim Rekrutmen & Penilai Asesmen HRD Industri Manufaktur untuk posisi "${targetRole.toUpperCase()}".
 Berikut adalah transkrip rekaman percakapan suara wawancara antara HRD (${interviewerPersona}) dengan kandidat (${candidateName}):
 
@@ -1316,9 +1373,7 @@ Nilai 4 aspek (skor 0 - 100):
 2. articulationScore: Artikulasi bicara, ketegasan, dan kejelasan ide.
 3. etiquetteScore: Sikap, kesopanan, kerendahan hati, dan kepatuhan norma kerja.
 4. jobFitScore: Kesesuaian fisik/mental, pemahaman teknis/PKL, dan komitmen shift pabrik.
-Hitung totalAcceptanceProbability (rata-rata terbobot 0 - 100%).
-
-Kembalikan HANYA format JSON valid tanpa markdown (\`\`\`json):
+Kembalikan HANYA format JSON valid tanpa tanda kutip markdown:
 {
   "totalAcceptanceProbability": 78,
   "relevanceScore": 75,
@@ -1332,14 +1387,14 @@ Kembalikan HANYA format JSON valid tanpa markdown (\`\`\`json):
 }`;
 
       try {
-        const evalRes = await fetch(`${sumopodBaseUrl}/chat/completions`, {
+        const evalRes = await fetch(`${aiConfig.baseUrl}/chat/completions`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${sumopodKey}`
+            'Authorization': `Bearer ${aiConfig.apiKey}`
           },
           body: JSON.stringify({
-            model: sumopodModel,
+            model: aiConfig.model,
             messages: [{ role: 'system', content: evalPrompt }],
             temperature: 0.5,
             max_tokens: 500
@@ -1375,8 +1430,13 @@ Kembalikan HANYA format JSON valid tanpa markdown (\`\`\`json):
 });
 
 // ----------------------------------------------------------------------------
-// AI INTERVIEW TTS PROXY — Microsoft Edge Neural TTS (id-ID-ArdiNeural / GadisNeural)
-// Fallback chain: Edge TTS → Sumopod OpenAI TTS → (client Web Speech API)
+// AI INTERVIEW TTS PROXY — Suara Neural HRD
+// Priority:
+// 1. OpenAI Official TTS (tts-1: onyx / nova) jika OpenAI API Key tersedia
+// 2. TikTok TTS (id_001 = Indonesian Male) via Cloudflare
+// 3. Google Translate TTS (Indonesian Female)
+// 4. Microsoft Edge TTS (id-ID-ArdiNeural / GadisNeural)
+// 5. Client Web Speech API fallback
 // ----------------------------------------------------------------------------
 
 // Helper: generate audio via Google Translate TTS (Female Indonesian)
@@ -1402,9 +1462,46 @@ app.post('/api/interview/speak', async (req, res) => {
       return res.status(400).json({ success: false, message: 'Text is required.' });
     }
 
+    const aiConfig = getAiConfig();
     const isMale = voice === 'onyx' || voice === 'echo' || voice === 'fable';
 
-    // ── Tier 1 for Male: TikTok TTS (id_001 = Indonesian Male Voice, fast & reliable HTTP) ──
+    // ── TIER 1: OPENAI OFFICIAL TTS (tts-1: onyx / nova / echo / fable) ──
+    // Kualitas tertinggi persis ChatGPT Voice asli
+    if (aiConfig.hasOfficialTts) {
+      try {
+        const openAiVoice = voice || (isMale ? 'onyx' : 'nova');
+        const ttsRes = await fetch(`${aiConfig.baseUrl}/audio/speech`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${aiConfig.apiKey}`
+          },
+          body: JSON.stringify({
+            model: 'tts-1',
+            input: text,
+            voice: openAiVoice,
+            speed: speed
+          }),
+          signal: AbortSignal.timeout(12000)
+        });
+
+        if (ttsRes.ok) {
+          const contentType = ttsRes.headers.get('content-type') || 'audio/mpeg';
+          res.setHeader('Content-Type', contentType);
+          res.setHeader('X-TTS-Provider', 'openai-official');
+          res.setHeader('X-TTS-Voice', openAiVoice);
+          const audioBuffer = await ttsRes.arrayBuffer();
+          return res.end(Buffer.from(audioBuffer));
+        } else {
+          const errText = await ttsRes.text();
+          console.warn('[OpenAI TTS Failed, falling back]', ttsRes.status, errText.slice(0, 150));
+        }
+      } catch (openAiErr) {
+        console.warn('[OpenAI TTS Exception, falling back]', openAiErr.message);
+      }
+    }
+
+    // ── TIER 2: TIKTOK INDONESIAN MALE TTS (id_001) / GOOGLE FEMALE TTS ──
     if (isMale) {
       try {
         const audioBuffer = await generateTikTokTTS(text, voice);
@@ -1418,7 +1515,6 @@ app.post('/api/interview/speak', async (req, res) => {
         console.warn('[TikTok TTS Error]', tiktokErr.message);
       }
     } else {
-      // ── Tier 1 for Female: Google Translate TTS (Indonesian Female) ──
       try {
         const audioBuffer = await generateGoogleTTS(text);
         if (audioBuffer && audioBuffer.length > 0) {
@@ -1432,7 +1528,7 @@ app.post('/api/interview/speak', async (req, res) => {
       }
     }
 
-    // ── Tier 2: Microsoft Edge TTS (id-ID-ArdiNeural or GadisNeural) ──
+    // ── TIER 3: MICROSOFT EDGE TTS (id-ID-ArdiNeural / GadisNeural) ──
     try {
       const audioBuffer = await generateEdgeTTS(text, voice);
       if (audioBuffer && audioBuffer.length > 0) {
@@ -1445,32 +1541,7 @@ app.post('/api/interview/speak', async (req, res) => {
       console.warn('[Edge TTS Error]', edgeErr.message);
     }
 
-    // ── Tier 3: Sumopod / OpenAI TTS (Fallback if active) ──
-    const sumopodKey = process.env.SUMOPOD_API_KEY || process.env.OPENAI_API_KEY;
-    let sumopodBaseUrl = (process.env.SUMOPOD_BASE_URL || 'https://ai.sumopod.com/v1').replace(/\/+$/, '');
-    if (sumopodBaseUrl.includes('api.sumopod.com')) sumopodBaseUrl = 'https://ai.sumopod.com/v1';
-
-    if (sumopodKey) {
-      try {
-        const ttsRes = await fetch(`${sumopodBaseUrl}/audio/speech`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${sumopodKey}` },
-          body: JSON.stringify({ model: 'tts-1', input: text, voice, speed })
-        });
-        if (ttsRes.ok) {
-          const contentType = ttsRes.headers.get('content-type') || 'audio/mpeg';
-          res.setHeader('Content-Type', contentType);
-          res.setHeader('X-TTS-Provider', 'sumopod');
-          res.setHeader('X-TTS-Voice', voice);
-          const audioBuffer = await ttsRes.arrayBuffer();
-          return res.end(Buffer.from(audioBuffer));
-        }
-      } catch (ttsErr) {
-        console.warn('[Sumopod TTS Exception]', ttsErr.message);
-      }
-    }
-
-    // ── Tier 4: Cross-fallback (Google for male, or TikTok for female) ──
+    // ── TIER 4: CROSS-FALLBACK (Google for male, or TikTok for female) ──
     try {
       const audioBuffer = isMale ? await generateGoogleTTS(text) : await generateTikTokTTS(text, voice);
       if (audioBuffer && audioBuffer.length > 0) {
@@ -1482,7 +1553,7 @@ app.post('/api/interview/speak', async (req, res) => {
       console.warn('[Cross TTS Error]', crossErr.message);
     }
 
-    // ── Tier 5: All server-side methods failed → client Web Speech fallback ──
+    // ── TIER 5: Fallback to client Web Speech API ──
     res.status(503).json({ success: false, message: 'TTS service unavailable. Use Web Speech API fallback.' });
 
   } catch (err) {
@@ -1494,12 +1565,44 @@ app.post('/api/interview/speak', async (req, res) => {
 // GET for easy browser testing: /api/interview/speak-test?voice=onyx&text=Halo+Pak+Hendra
 app.get('/api/interview/speak-test', async (req, res) => {
   const voice = String(req.query.voice || 'onyx');
-  const text = String(req.query.text || 'Selamat pagi, saya Bapak Hendra dari divisi HRD perusahaan manufaktur. Senang bertemu dengan Anda hari ini dalam sesi wawancara.');
+  const text = String(req.query.text || 'Selamat pagi, saya Bapak Hendra dari divisi HRD. Senang bertemu dengan Anda hari ini.');
   const isMale = voice === 'onyx' || voice === 'echo' || voice === 'fable';
 
+  const aiConfig = getAiConfig();
   const errors = [];
 
-  // Try TikTok first for male
+  // 1. Try OpenAI Official TTS first if available
+  if (aiConfig.hasOfficialTts) {
+    try {
+      const openAiVoice = voice || (isMale ? 'onyx' : 'nova');
+      const ttsRes = await fetch(`${aiConfig.baseUrl}/audio/speech`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${aiConfig.apiKey}`
+        },
+        body: JSON.stringify({
+          model: 'tts-1',
+          input: text,
+          voice: openAiVoice,
+          speed: 0.95
+        }),
+        signal: AbortSignal.timeout(10000)
+      });
+      if (ttsRes.ok) {
+        res.setHeader('Content-Type', ttsRes.headers.get('content-type') || 'audio/mpeg');
+        res.setHeader('X-TTS-Provider', 'openai-official');
+        res.setHeader('X-TTS-Voice', openAiVoice);
+        const buf = await ttsRes.arrayBuffer();
+        return res.end(Buffer.from(buf));
+      }
+      errors.push(`OpenAI TTS: HTTP ${ttsRes.status} ${(await ttsRes.text()).slice(0, 100)}`);
+    } catch (e) {
+      errors.push(`OpenAI TTS: ${e.message}`);
+    }
+  }
+
+  // 2. Try TikTok for male
   if (isMale) {
     try {
       const audioBuffer = await generateTikTokTTS(text, voice);
@@ -1525,50 +1628,24 @@ app.get('/api/interview/speak-test', async (req, res) => {
     }
   }
 
-  // Try Edge TTS
+  // 3. Try Edge TTS
   try {
     const audioBuffer = await generateEdgeTTS(text, voice);
     if (audioBuffer && audioBuffer.length > 0) {
-      const edgeVoice = EDGE_TTS_VOICE_MAP[voice] || 'id-ID-ArdiNeural';
       res.setHeader('Content-Type', 'audio/mpeg');
       res.setHeader('X-TTS-Provider', 'microsoft-edge');
-      res.setHeader('X-TTS-Voice', edgeVoice);
       return res.end(audioBuffer);
     }
   } catch (e) {
     errors.push(`Edge: ${e.message}`);
   }
 
-  // Sumopod fallback
-  const sumopodKey = process.env.SUMOPOD_API_KEY || process.env.OPENAI_API_KEY;
-  let sumopodBaseUrl = (process.env.SUMOPOD_BASE_URL || 'https://ai.sumopod.com/v1').replace(/\/+$/, '');
-  if (sumopodBaseUrl.includes('api.sumopod.com')) sumopodBaseUrl = 'https://ai.sumopod.com/v1';
-
-  if (sumopodKey) {
-    try {
-      const ttsRes = await fetch(`${sumopodBaseUrl}/audio/speech`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${sumopodKey}` },
-        body: JSON.stringify({ model: 'tts-1', input: text, voice, speed: 0.95 })
-      });
-      if (ttsRes.ok) {
-        res.setHeader('Content-Type', ttsRes.headers.get('content-type') || 'audio/mpeg');
-        res.setHeader('X-TTS-Provider', 'sumopod');
-        const buf = await ttsRes.arrayBuffer();
-        return res.end(Buffer.from(buf));
-      }
-      errors.push(`Sumopod: HTTP ${ttsRes.status}`);
-    } catch (e) {
-      errors.push(`Sumopod: ${e.message}`);
-    }
-  }
-
-  // Final fallback
+  // 4. Final cross-fallback
   try {
     const audioBuffer = isMale ? await generateGoogleTTS(text) : await generateTikTokTTS(text, voice);
     if (audioBuffer && audioBuffer.length > 0) {
       res.setHeader('Content-Type', 'audio/mpeg');
-      res.setHeader('X-TTS-Provider', isMale ? 'google-fallback' : 'tiktok-fallback');
+      res.setHeader('X-TTS-Provider', 'fallback');
       return res.end(audioBuffer);
     }
   } catch (e) {
@@ -1577,38 +1654,36 @@ app.get('/api/interview/speak-test', async (req, res) => {
 
   res.status(503).json({
     error: 'TTS unavailable',
+    aiConfig: {
+      provider: aiConfig.provider,
+      hasOfficialTts: aiConfig.hasOfficialTts
+    },
     details: errors
   });
 });
-
-
 
 // ----------------------------------------------------------------------------
 // AI INTERVIEW API CONNECTION DIAGNOSTIC / TEST ENDPOINT
 // ----------------------------------------------------------------------------
 app.get('/api/interview/test-connection', async (req, res) => {
   const startTime = Date.now();
-  const sumopodKey = process.env.SUMOPOD_API_KEY || process.env.OPENAI_API_KEY;
-  let sumopodBaseUrl = (process.env.SUMOPOD_BASE_URL || 'https://ai.sumopod.com/v1').replace(/\/+$/, '');
-  if (sumopodBaseUrl.includes('api.sumopod.com')) {
-    sumopodBaseUrl = 'https://ai.sumopod.com/v1';
-  }
-  const sumopodModel = process.env.SUMOPOD_MODEL || process.env.OPENAI_MODEL || 'gpt-4o-mini';
+  const aiConfig = getAiConfig();
   const geminiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
 
-  if (sumopodKey) {
+  if (aiConfig.apiKey) {
     try {
-      const aiRes = await fetch(`${sumopodBaseUrl}/chat/completions`, {
+      // 1. Test Chat Completion
+      const aiRes = await fetch(`${aiConfig.baseUrl}/chat/completions`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${sumopodKey}`
+          'Authorization': `Bearer ${aiConfig.apiKey}`
         },
         body: JSON.stringify({
-          model: sumopodModel,
+          model: aiConfig.model,
           messages: [
             { role: 'system', content: 'Kamu adalah asisten HRD AI. Jawab singkat maksimal 1 kalimat.' },
-            { role: 'user', content: 'Tes koneksi API Sumopod. Balas dengan kalimat konfirmasi singkat.' }
+            { role: 'user', content: 'Tes koneksi API. Balas dengan konfirmasi singkat.' }
           ],
           max_tokens: 60
         })
@@ -1619,37 +1694,66 @@ app.get('/api/interview/test-connection', async (req, res) => {
       if (aiRes.ok) {
         const aiData = await aiRes.json();
         const reply = aiData?.choices?.[0]?.message?.content || '';
+
+        // 2. If OpenAI official, also check TTS
+        let ttsStatus = 'Not configured';
+        if (aiConfig.hasOfficialTts) {
+          try {
+            const ttsCheck = await fetch(`${aiConfig.baseUrl}/audio/speech`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${aiConfig.apiKey}`
+              },
+              body: JSON.stringify({
+                model: 'tts-1',
+                input: 'Tes suara OpenAI',
+                voice: 'onyx'
+              })
+            });
+            ttsStatus = ttsCheck.ok 
+              ? 'ACTIVE 100% (OpenAI Neural Voice tts-1: onyx, nova)' 
+              : `HTTP ${ttsCheck.status} - ${await ttsCheck.text()}`;
+          } catch (te) {
+            ttsStatus = 'Error: ' + te.message;
+          }
+        }
+
         return res.json({
           status: 'SUCCESS',
           connected: true,
-          provider: 'sumopod.com',
-          model: sumopodModel,
-          baseUrl: sumopodBaseUrl,
+          provider: aiConfig.displayName,
+          model: aiConfig.model,
+          baseUrl: aiConfig.baseUrl,
           latency: `${latencyMs}ms`,
+          chatCompletion: 'OK (Aktif)',
+          ttsEngine: aiConfig.hasOfficialTts ? ttsStatus : 'Fallback Neural Engine (TikTok & Edge)',
           aiResponse: reply.trim(),
-          message: 'Koneksi ke Sumopod.com API Key berhasil dan aktif 100%!'
+          message: aiConfig.hasOfficialTts 
+            ? 'Koneksi ke OpenAI API Key RESMI berhasil 100%! Fitur chat & suara ChatGPT Voice aktif.'
+            : 'Koneksi ke AI Gateway berhasil dan aktif 100%!'
         });
       } else {
         const errBody = await aiRes.text();
         return res.status(aiRes.status).json({
           status: 'ERROR',
           connected: false,
-          provider: 'sumopod.com',
-          model: sumopodModel,
-          baseUrl: sumopodBaseUrl,
+          provider: aiConfig.displayName,
+          model: aiConfig.model,
+          baseUrl: aiConfig.baseUrl,
           statusCode: aiRes.status,
           errorDetails: errBody,
-          message: 'Gagal terhubung ke Sumopod API. Periksa kembali validitas API Key atau nama model di file .env.'
+          message: 'Gagal terhubung ke AI API. Periksa kembali validitas API Key atau nama model di file .env.'
         });
       }
     } catch (err) {
       return res.status(500).json({
         status: 'EXCEPTION',
         connected: false,
-        provider: 'sumopod.com',
+        provider: aiConfig.displayName,
         latency: `${Date.now() - startTime}ms`,
         error: err.message,
-        message: 'Koneksi jaringan ke server Sumopod mengalami kendala.'
+        message: 'Koneksi jaringan ke server AI mengalami kendala.'
       });
     }
   }
@@ -1659,15 +1763,15 @@ app.get('/api/interview/test-connection', async (req, res) => {
       status: 'CONFIGURED',
       connected: true,
       provider: 'Google Gemini (Direct)',
-      message: 'SUMOPOD_API_KEY tidak terdeteksi, namun GEMINI_API_KEY aktif sebagai fallback.'
+      message: 'API Key AI belum terdeteksi, namun GEMINI_API_KEY aktif sebagai fallback.'
     });
   }
 
   return res.json({
     status: 'NOT_CONFIGURED',
     connected: false,
-    provider: 'Heuristic Internal Engine (Offline Fallback)',
-    message: 'SUMOPOD_API_KEY belum terpasang di file .env. Sistem menggunakan Heuristic Engine internal.'
+    provider: 'Heuristic Internal Engine',
+    message: 'API Key belum terpasang di file .env.'
   });
 });
 
