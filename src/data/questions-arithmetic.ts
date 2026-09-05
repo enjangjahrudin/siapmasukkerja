@@ -376,12 +376,20 @@ export function generateParametricArithmeticQuestion(seed?: number): BaseQuestio
 
 export function getRandomArithmeticSet(count: number = 10): BaseQuestion[] {
   const result: BaseQuestion[] = [];
+  const seenFingerprints = new Set<string>();
   const baseSeed = Math.floor(Math.random() * 10000);
+  let attempts = 0;
 
-  for (let i = 0; i < count; i++) {
-    const genIdx = (i + baseSeed) % ARITHMETIC_GENERATORS.length;
-    const seed = baseSeed * 29 + i * 19 + Math.floor(Math.random() * 1000);
-    result.push(ARITHMETIC_GENERATORS[genIdx](seed));
+  while (result.length < count && attempts < count * 25) {
+    attempts++;
+    const genIdx = (result.length + baseSeed + attempts) % ARITHMETIC_GENERATORS.length;
+    const seed = baseSeed * 29 + attempts * 19 + Math.floor(Math.random() * 10000);
+    const q = ARITHMETIC_GENERATORS[genIdx](seed);
+    const fp = `${q.subCategory}-${q.question.replace(/\s+/g, ' ').trim()}`;
+    if (!seenFingerprints.has(fp)) {
+      seenFingerprints.add(fp);
+      result.push(q);
+    }
   }
 
   return result;

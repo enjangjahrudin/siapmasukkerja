@@ -155,12 +155,22 @@ export function generateParametricSpatialQuestion(seed?: number): BaseQuestion {
 
 export function getRandomSpatialSet(count: number = 10): BaseQuestion[] {
   const result: BaseQuestion[] = [];
+  const seenFingerprints = new Set<string>();
   const baseSeed = Math.floor(Math.random() * 10000);
-  for (let i = 0; i < count; i++) {
-    const genIdx = (i + baseSeed) % SPATIAL_GENERATORS.length;
-    const seed = baseSeed * 41 + i * 23 + Math.floor(Math.random() * 1000);
-    result.push(SPATIAL_GENERATORS[genIdx](seed));
+  let attempts = 0;
+
+  while (result.length < count && attempts < count * 25) {
+    attempts++;
+    const genIdx = (result.length + baseSeed + attempts) % SPATIAL_GENERATORS.length;
+    const seed = baseSeed * 41 + attempts * 23 + Math.floor(Math.random() * 10000);
+    const q = SPATIAL_GENERATORS[genIdx](seed);
+    const fp = `${q.subCategory}-${q.question.replace(/\s+/g, ' ').trim()}`;
+    if (!seenFingerprints.has(fp)) {
+      seenFingerprints.add(fp);
+      result.push(q);
+    }
   }
+
   return result;
 }
 

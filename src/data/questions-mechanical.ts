@@ -657,14 +657,21 @@ export function generateParametricMechanicalQuestion(seed?: number): BaseQuestio
  */
 export function getRandomMechanicalSet(count: number = 10): BaseQuestion[] {
   const result: BaseQuestion[] = [];
+  const seenFingerprints = new Set<string>();
   const baseSeed = Math.floor(Math.random() * 10000);
+  let attempts = 0;
 
-  for (let i = 0; i < count; i++) {
+  while (result.length < count && attempts < count * 25) {
+    attempts++;
     // Distribute across all 14 generator types
-    let genIdx = (i + baseSeed) % GENERATOR_FUNCTIONS.length;
-    let seed = baseSeed * 31 + i * 17 + Math.floor(Math.random() * 1000);
-    
-    result.push(GENERATOR_FUNCTIONS[genIdx](seed));
+    const genIdx = (result.length + baseSeed + attempts) % GENERATOR_FUNCTIONS.length;
+    const seed = baseSeed * 31 + attempts * 17 + Math.floor(Math.random() * 10000);
+    const q = GENERATOR_FUNCTIONS[genIdx](seed);
+    const fp = `${q.subCategory}-${q.question.replace(/\s+/g, ' ').trim()}`;
+    if (!seenFingerprints.has(fp)) {
+      seenFingerprints.add(fp);
+      result.push(q);
+    }
   }
 
   return result;
