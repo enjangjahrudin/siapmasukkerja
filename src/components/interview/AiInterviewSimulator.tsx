@@ -70,6 +70,7 @@ export const AiInterviewSimulator: React.FC<AiInterviewSimulatorProps> = ({
   const [isTopUpModalOpen, setIsTopUpModalOpen] = useState<boolean>(false);
   const [selectedTopUpPackage, setSelectedTopUpPackage] = useState<number | null>(null);
   const [topUpSuccessNotice, setTopUpSuccessNotice] = useState<string | null>(null);
+  const [micPermissionBlocked, setMicPermissionBlocked] = useState<boolean>(false);
 
   // Results
   const [sessionResponses, setSessionResponses] = useState<{
@@ -159,6 +160,9 @@ export const AiInterviewSimulator: React.FC<AiInterviewSimulatorProps> = ({
           console.log('Speech recognition notice:', err);
           recognitionActiveRef.current = false;
           setIsRecording(false);
+          if (err?.error === 'not-allowed' || err?.error === 'service-not-allowed') {
+            setMicPermissionBlocked(true);
+          }
         };
 
         recognition.onend = () => {
@@ -683,7 +687,7 @@ export const AiInterviewSimulator: React.FC<AiInterviewSimulatorProps> = ({
             </div>
 
             {/* Live Spoken Captions & Subtitles Box */}
-            <div className="w-full max-w-xl bg-black/60 backdrop-blur-md border border-white/10 rounded-2xl p-4 my-4 relative z-10 text-center space-y-2">
+            <div className="w-full max-w-xl bg-black/60 backdrop-blur-md border border-white/10 rounded-2xl p-4 my-3 relative z-10 text-center space-y-2">
               <span className="text-[10px] uppercase tracking-wider font-extrabold text-slate-400 block">
                 {isAiSpeaking ? 'Pertanyaan HRD:' : 'Transkrip Suara Anda:'}
               </span>
@@ -696,6 +700,23 @@ export const AiInterviewSimulator: React.FC<AiInterviewSimulatorProps> = ({
                     : 'Silakan berbicara langsung melalui mikrofon perangkat Anda...'}
               </p>
             </div>
+
+            {/* Mic Permission Blocked / Overlay Guidance Banner */}
+            {micPermissionBlocked && (
+              <div className="w-full max-w-xl bg-amber-500/20 border border-amber-500/60 text-amber-200 text-xs p-3.5 rounded-2xl space-y-1.5 text-left mb-3 relative z-10 animate-in fade-in">
+                <div className="font-extrabold flex items-center gap-1.5 text-amber-300 text-xs">
+                  <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
+                  <span>Izin Mikrofon Terhalang Keamanan HP (Overlay Terdeteksi)</span>
+                </div>
+                <p className="text-[11px] leading-relaxed text-amber-100">
+                  Sistem Android memblokir dialog izin jika ada balon chat (Messenger/WA) atau tombol melayang.
+                </p>
+                <div className="text-[11px] font-medium text-amber-200 space-y-0.5 pt-1 border-t border-amber-500/30">
+                  <div>👉 <strong>Solusi Cepat:</strong> Ketuk ikon gembok di sebelah URL <code>siapkerja.buatdigital.id</code> &gt; <strong>Izin</strong> &gt; pilih <strong>Izinkan Mikrofon</strong>.</div>
+                  <div>👉 Atau tutup balon chat / floating app yang sedang aktif di HP Anda.</div>
+                </div>
+              </div>
+            )}
 
             {/* Bottom Call Action Controls */}
             <div className="w-full flex flex-col sm:flex-row items-center justify-center gap-2.5 relative z-10">
