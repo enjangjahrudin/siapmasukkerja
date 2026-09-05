@@ -3,16 +3,95 @@ const cors = require('cors');
 const mysql = require('mysql2/promise');
 require('dotenv').config();
 
-// Microsoft Edge Neural TTS — free, no API key, genuine Indonesian voices
-// id-ID-ArdiNeural (male), id-ID-GadisNeural (female)
-let MsEdgeTTS, OUTPUT_FORMAT;
-try {
-  const edgeTts = require('msedge-tts');
-  MsEdgeTTS = edgeTts.MsEdgeTTS;
-  OUTPUT_FORMAT = edgeTts.OUTPUT_FORMAT;
-} catch (e) {
-  console.warn('[TTS] msedge-tts not available, will use fallback:', e.message);
+// ─── Microsoft Edge TTS — WebSocket client (id-ID-ArdiNeural male / id-ID-GadisNeural female) ───
+// Uses ws package (standard, no pnpm required). Connects directly to Microsoft Edge Speech API.
+const WebSocket = require('ws');
+
+const EDGE_TTS_VOICE_MAP = {
+  'onyx':    'id-ID-ArdiNeural',   // Bapak Hendra — deep Indonesian male
+  'echo':    'id-ID-ArdiNeural',   // Bapak Suryo
+  'fable':   'id-ID-ArdiNeural',   // Bapak Anton
+  'nova':    'id-ID-GadisNeural',  // Ibu Ratna — warm Indonesian female
+  'alloy':   'id-ID-GadisNeural',
+  'shimmer': 'id-ID-GadisNeural',
+};
+
+function generateEdgeTTS(text, voiceKey) {
+  return new Promise((resolve, reject) => {
+    const voiceName = EDGE_TTS_VOICE_MAP[voiceKey] || 'id-ID-ArdiNeural';
+    // Random connection ID (replaces uuid)
+    const connId = Array.from({ length: 32 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
+    const wsUrl = `wss://speech.platform.bing.com/consumer/speech/synthesize/readaloud/edge/v1?TrustedClientToken=6A5AA1D4EAFF4E9FB37E23D68491D6F4&ConnectionId=${connId}`;
+
+    const ws = new WebSocket(wsUrl, {
+      headers: {
+        'Pragma': 'no-cache',
+        'Cache-Control': 'no-cache',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0',
+        'Origin': 'chrome-extension://jdiccldimpdaibmpdkjnbmckianbfold',
+      }
+    });
+
+    const audioChunks = [];
+    let resolved = false;
+
+    const finish = () => {
+      if (!resolved) {
+        resolved = true;
+        if (audioChunks.length > 0) resolve(Buffer.concat(audioChunks));
+        else reject(new Error('Edge TTS: no audio data received'));
+      }
+    };
+
+    const timeout = setTimeout(() => {
+      ws.terminate();
+      finish();
+    }, 12000);
+
+    ws.on('open', () => {
+      const ts = new Date().toISOString();
+      // Send audio config
+      ws.send(
+        `X-Timestamp:${ts}\r\nContent-Type:application/json; charset=utf-8\r\nPath:speech.config\r\n\r\n` +
+        `{"context":{"synthesis":{"audio":{"metadataoptions":{"sentenceBoundaryEnabled":"false","wordBoundaryEnabled":"false"},"outputFormat":"audio-24khz-48kbitrate-mono-mp3"}}}}`
+      );
+      // Send SSML
+      const ssml = `<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='id-ID'><voice name='${voiceName}'><prosody rate='-5%'>${text.replace(/[<>&'"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;',"'":'&apos;','"':'&quot;'}[c]))}</prosody></voice></speak>`;
+      ws.send(
+        `X-RequestId:${connId}\r\nContent-Type:application/ssml+xml\r\nX-Timestamp:${new Date().toISOString()}\r\nPath:ssml\r\n\r\n${ssml}`
+      );
+    });
+
+    ws.on('message', (data, isBinary) => {
+      if (isBinary) {
+        // Binary frame: first 2 bytes = header length, rest after header = audio
+        try {
+          const headerLen = data.readUInt16BE(0);
+          const audio = data.slice(2 + headerLen);
+          if (audio.length > 0) audioChunks.push(audio);
+        } catch (_) {}
+      } else {
+        const msg = data.toString();
+        if (msg.includes('Path:turn.end')) {
+          clearTimeout(timeout);
+          ws.close();
+          finish();
+        }
+      }
+    });
+
+    ws.on('error', (err) => {
+      clearTimeout(timeout);
+      if (!resolved) { resolved = true; reject(err); }
+    });
+
+    ws.on('close', () => {
+      clearTimeout(timeout);
+      finish();
+    });
+  });
 }
+
 
 const { 
   sendRegistrationOtpEmail, 
@@ -1269,31 +1348,6 @@ Kembalikan HANYA format JSON valid tanpa markdown (\`\`\`json):
 // Fallback chain: Edge TTS → Sumopod OpenAI TTS → (client Web Speech API)
 // ----------------------------------------------------------------------------
 
-// Map from persona ttsVoice key → Edge TTS voice name
-const EDGE_TTS_VOICE_MAP = {
-  'onyx':   'id-ID-ArdiNeural',    // Bapak Hendra — deep Indonesian male
-  'echo':   'id-ID-ArdiNeural',    // Bapak Suryo — same male voice
-  'fable':  'id-ID-ArdiNeural',    // Bapak Anton — same male voice
-  'nova':   'id-ID-GadisNeural',   // Ibu Ratna — warm Indonesian female
-  'alloy':  'id-ID-GadisNeural',
-  'shimmer':'id-ID-GadisNeural',
-};
-
-// Helper: generate audio via Microsoft Edge TTS
-async function generateEdgeTTS(text, voiceKey) {
-  if (!MsEdgeTTS || !OUTPUT_FORMAT) throw new Error('msedge-tts not loaded');
-  const voiceName = EDGE_TTS_VOICE_MAP[voiceKey] || 'id-ID-ArdiNeural';
-  const tts = new MsEdgeTTS();
-  await tts.setMetadata(voiceName, OUTPUT_FORMAT.AUDIO_24KHZ_48KBITRATE_MONO_MP3);
-  const readable = await tts.toStream(text);
-  return new Promise((resolve, reject) => {
-    const chunks = [];
-    readable.on('data', chunk => chunks.push(chunk));
-    readable.on('end', () => resolve(Buffer.concat(chunks)));
-    readable.on('error', reject);
-  });
-}
-
 app.post('/api/interview/speak', async (req, res) => {
   try {
     const { text = '', voice = 'onyx', speed = 0.95 } = req.body;
@@ -1302,18 +1356,16 @@ app.post('/api/interview/speak', async (req, res) => {
     }
 
     // ── 1. Microsoft Edge TTS (PRIMARY — free, neural, genuine Indonesian voices) ──
-    if (MsEdgeTTS) {
-      try {
-        const audioBuffer = await generateEdgeTTS(text, voice);
-        if (audioBuffer && audioBuffer.length > 0) {
-          res.setHeader('Content-Type', 'audio/mpeg');
-          res.setHeader('X-TTS-Provider', 'microsoft-edge');
-          res.setHeader('X-TTS-Voice', EDGE_TTS_VOICE_MAP[voice] || 'id-ID-ArdiNeural');
-          return res.end(audioBuffer);
-        }
-      } catch (edgeErr) {
-        console.warn('[Edge TTS Error]', edgeErr.message);
+    try {
+      const audioBuffer = await generateEdgeTTS(text, voice);
+      if (audioBuffer && audioBuffer.length > 0) {
+        res.setHeader('Content-Type', 'audio/mpeg');
+        res.setHeader('X-TTS-Provider', 'microsoft-edge');
+        res.setHeader('X-TTS-Voice', EDGE_TTS_VOICE_MAP[voice] || 'id-ID-ArdiNeural');
+        return res.end(audioBuffer);
       }
+    } catch (edgeErr) {
+      console.warn('[Edge TTS Error]', edgeErr.message);
     }
 
     // ── 2. Sumopod / OpenAI TTS (Fallback) ──────────────────────────────────────
@@ -1357,20 +1409,17 @@ app.get('/api/interview/speak-test', async (req, res) => {
   const voice = String(req.query.voice || 'onyx');
   const text = String(req.query.text || 'Selamat pagi, saya Bapak Hendra dari divisi HRD perusahaan manufaktur. Senang bertemu dengan Anda hari ini dalam sesi wawancara.');
 
-  // Try Edge TTS first
-  if (MsEdgeTTS) {
-    try {
-      const audioBuffer = await generateEdgeTTS(text, voice);
-      if (audioBuffer && audioBuffer.length > 0) {
-        const edgeVoice = EDGE_TTS_VOICE_MAP[voice] || 'id-ID-ArdiNeural';
-        res.setHeader('Content-Type', 'audio/mpeg');
-        res.setHeader('X-TTS-Provider', 'microsoft-edge');
-        res.setHeader('X-TTS-Voice', edgeVoice);
-        return res.end(audioBuffer);
-      }
-    } catch (e) {
-      console.warn('[TTS Test Edge Error]', e.message);
+  try {
+    const audioBuffer = await generateEdgeTTS(text, voice);
+    if (audioBuffer && audioBuffer.length > 0) {
+      const edgeVoice = EDGE_TTS_VOICE_MAP[voice] || 'id-ID-ArdiNeural';
+      res.setHeader('Content-Type', 'audio/mpeg');
+      res.setHeader('X-TTS-Provider', 'microsoft-edge');
+      res.setHeader('X-TTS-Voice', edgeVoice);
+      return res.end(audioBuffer);
     }
+  } catch (e) {
+    console.warn('[TTS Test Edge Error]', e.message);
   }
 
   // Sumopod fallback
@@ -1396,10 +1445,10 @@ app.get('/api/interview/speak-test', async (req, res) => {
 
   res.status(503).json({
     error: 'TTS unavailable',
-    edgeTtsLoaded: !!MsEdgeTTS,
     note: 'Edge TTS dan Sumopod TTS keduanya tidak berhasil.'
   });
 });
+
 
 
 // ----------------------------------------------------------------------------
