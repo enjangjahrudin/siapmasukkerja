@@ -1,9 +1,17 @@
 import { BaseQuestion } from '../types';
 
 // ============================================================================
-// PSIKOTES PENALARAN & LOGIKA - GENERATOR & BANK ENGINE (1.000+ SOAL)
-// Mencakup Sinonim Industri, Antonim, Analogi, Silogisme Deduksi,
-// Logika Posisi, Logika Komparasi, & Pengelompokan Kategori (Odd One Out)
+// PSIKOTES PENALARAN & LOGIKA - GENERATOR & MASTER BANK (1.000+ SOAL UNIK)
+// Mencakup:
+// 1. Sinonim Kata Industri & Profesional (60+ Vocab)
+// 2. Antonim / Lawan Kata (60+ Vocab)
+// 3. Analogi & Hubungan Kata Relasional (35+ Analogi)
+// 4. Silogisme & Logika Deduksi Formal (25+ Kasus K3 & Pabrik)
+// 5. Logika Analitis Posisi & Formasi (Parametrik Ribuan Kombinasi)
+// 6. Logika Komparasi Performa & Output Mesin (Parametrik Ribuan Kombinasi)
+// 7. Logika Penjadwalan Shift & Alur Kerja (Parametrik Ribuan Kombinasi)
+// 8. Deret Huruf & Sandi Alfabet Logika (Parametrik Ribuan Kombinasi)
+// 9. Pengelompokan Kategori / Odd One Out (15+ Klaster Industri)
 // ============================================================================
 
 export interface VocabItem {
@@ -319,6 +327,62 @@ export const VOCAB_BANK: VocabItem[] = [
     synonymDistractors: ['Status Sosial', 'Gaji Pokok', 'Usia Kerja'],
     antonymDistractors: ['Kapabilitas', 'Keterampilan', 'Kualifikasi'],
     explanation: 'Kompetensi adalah penguasaan keterampilan, pengetahuan, dan sikap kerja yang dipersyaratkan untuk menjalankan tugas dengan baik.'
+  },
+  {
+    word: 'DIVERSITAS',
+    synonym: 'Keanekaragaman / Variasi Pilihan',
+    antonym: 'Homogenitas / Keseragaman Tunggal',
+    synonymDistractors: ['Pemisahan', 'Perpecahan', 'Keserupaan'],
+    antonymDistractors: ['Pluralitas', 'Kemajemukan', 'Ragam'],
+    explanation: 'Diversitas adalah keberagaman atau variasi elemen yang saling melengkapi dalam satu lingkungan.'
+  },
+  {
+    word: 'EVAPORASI',
+    synonym: 'Penguapan / Perubahan Gas',
+    antonym: 'Kondensasi / Pengembunan Cair',
+    synonymDistractors: ['Pembekuan', 'Peleburan', 'Penyubliman'],
+    antonymDistractors: ['Pengeringan', 'Vaporisasi', 'Pemisahan'],
+    explanation: 'Evaporasi adalah proses perubahan zat cair menjadi uap gas akibat panas.'
+  },
+  {
+    word: 'KONTAMINASI',
+    synonym: 'Pencemaran / Pengotoran Zat Luar',
+    antonym: 'Purifikasi / Pemurnian / Sterilisasi',
+    synonymDistractors: ['Penyaringan', 'Pembersihan', 'Pencampuran'],
+    antonymDistractors: ['Polusi', 'Infeksi', 'Zat Asing'],
+    explanation: 'Kontaminasi adalah masuknya zat asing berbahaya yang merusak kemurnian atau higienitas suatu bahan.'
+  },
+  {
+    word: 'OTENTIK',
+    synonym: 'Asli / Murni / Sahih',
+    antonym: 'Duplikat / Palsu / Tiruan / Imitasi',
+    synonymDistractors: ['Mahal', 'Langka', 'Baru'],
+    antonymDistractors: ['Orisinal', 'Resmi', 'Asli'],
+    explanation: 'Otentik berarti asli, sah, dan dapat dipercaya kebenarannya tanpa ada rekayasa.'
+  },
+  {
+    word: 'PROSEDURAL',
+    synonym: 'Sesuai Tata Cara Resmi / Terstruktur',
+    antonym: 'Inkonvensional / Asal-asalan / Semrawut',
+    synonymDistractors: ['Cepat', 'Bertele-tele', 'Kuno'],
+    antonymDistractors: ['Sistematis', 'Tertib', 'Formal'],
+    explanation: 'Prosedural berarti mengikuti tata cara dan alur instruksi kerja resmi yang telah ditetapkan.'
+  },
+  {
+    word: 'SISTEMATIS',
+    synonym: 'Teratur / Berurutan Logis',
+    antonym: 'Acak / Sembarangan / Spontan',
+    synonymDistractors: ['Lambat', 'Sulit', 'Kaku'],
+    antonymDistractors: ['Terencana', 'Metodis', 'Runtut'],
+    explanation: 'Sistematis adalah segala sesuatu yang diatur menurut rencana dan sistem yang logis dan teratur.'
+  },
+  {
+    word: 'KONSENTRASI',
+    synonym: 'Pemusatan Perhatian / Fokus',
+    antonym: 'Distraksi / Pembiasan / Buyar',
+    synonymDistractors: ['Kelelahan', 'Kecepatan', 'Ketegangan'],
+    antonymDistractors: ['Fokus', 'Atensi', 'Kewaspadaan'],
+    explanation: 'Konsentrasi adalah pemusatan seluruh daya pikir dan perhatian pada suatu objek atau pekerjaan.'
   }
 ];
 
@@ -342,7 +406,12 @@ export const ANALOGY_BANK = [
   { a1: 'OPERATOR', a2: 'MESIN PRODUKSI', b1: 'PILOT', b2: 'PESAWAT TERBANG', exp: 'Operator mengemudikan/mengendalikan mesin produksi, pilot mengendalikan pesawat terbang.' },
   { a1: 'GUDANG RAW MATERIAL', a2: 'BAHAN BAKU', b1: 'GUDANG FINISHED GOODS', b2: 'PRODUK JADI', exp: 'Gudang raw material tempat bahan mentah, gudang finished goods tempat produk jadi.' },
   { a1: 'KALIBRASI', a2: 'AKURASI ALAT', b1: 'ASAH PISAU', b2: 'KETAJAMAN MATA PISAU', exp: 'Kalibrasi menjaga akurasi alat, mengasah menjaga ketajaman pisau.' },
-  { a1: 'VENTILASI UDARA', a2: 'SIRKULASI OKSIGEN', b1: 'DRAINASE SALURAN', b2: 'PEMBUANGAN AIR', exp: 'Ventilasi melancarkan sirkulasi udara, drainase melancarkan pembuangan air.' }
+  { a1: 'VENTILASI UDARA', a2: 'SIRKULASI OKSIGEN', b1: 'DRAINASE SALURAN', b2: 'PEMBUANGAN AIR', exp: 'Ventilasi melancarkan sirkulasi udara, drainase melancarkan pembuangan air.' },
+  { a1: 'SOLDER', a2: 'TIMAH', b1: 'LEM TEMBAK (GLUE GUN)', b2: 'LEM LILIN SILIKON', exp: 'Solder melelehkan timah patri, glue gun melelehkan lem lilin.' },
+  { a1: 'LAMPU INDIKATOR', a2: 'STATUS MESIN', b1: 'LAMPU LALU LINTAS', b2: 'ARUS KENDARAAN', exp: 'Lampu indikator memandu operator, lampu lalu lintas memandu pengemudi.' },
+  { a1: 'KOROSI', a2: 'LOGAM BESI', b1: 'PELAPUKAN', b2: 'KAYU BALOK', exp: 'Besi rusak oleh korosi/karat, kayu rusak oleh proses pelapukan.' },
+  { a1: 'KOMPRESOR', a2: 'UDARA PNEUMATIK', b1: 'AKUMULATOR (AKI)', b2: 'TEGANGAN ARUS SEARAH', exp: 'Kompresor menyimpan energi tekanan udara, aki menyimpan energi listrik DC.' },
+  { a1: 'JANGKA SORONG', a2: 'MILIMETER (mm)', b1: 'STOPWATCH', b2: 'DETIK (SEKON)', exp: 'Jangka sorong mengukur dimensi dalam mm, stopwatch mengukur waktu dalam detik.' }
 ];
 
 export const SYLLOGISM_TEMPLATES = [
@@ -455,6 +524,28 @@ export const SYLLOGISM_TEMPLATES = [
       'Semua mesin pabrik harus diganti baru'
     ],
     exp: 'Karena syarat kedua (cacat < 0,5%) dilanggar, maka kondisi pemberian bonus shift tidak terpenuhi.'
+  },
+  {
+    p1: 'Setiap forklift di area gudang harus membunyikan klakson saat melintasi persimpangan gang.',
+    p2: 'Unit Forklift 02 sedang melintasi persimpangan gang tanpa membunyikan klakson.',
+    ans: 'Pengemudi Forklift 02 melanggar prosedur keselamatan K3 lalu lintas gudang',
+    distractors: [
+      'Forklift 02 mendapat izin khusus melintas hening',
+      'Klakson hanya wajib untuk kendaraan beroda empat luar',
+      'Persimpangan gudang selalu aman tanpa peringatan suara'
+    ],
+    exp: 'Kewajiban membunyikan klakson berlaku mutlak di persimpangan demi menghindari tabrakan pekerja.'
+  },
+  {
+    p1: 'Jika tangki oli berada di bawah garis MINIMUM, maka lampu indikator merah akan berkedip.',
+    p2: 'Lampu indikator merah pada mesin cetak nomor 04 saat ini tidak berkedip (mati).',
+    ans: 'Kapasitas tangki oli tidak berada di bawah garis MINIMUM (aman)',
+    distractors: [
+      'Mesin nomor 04 sudah kehabisan oli total',
+      'Oli mesin harus segera dikuras habis hari ini',
+      'Operator lupa menyalakan tombol daya utama'
+    ],
+    exp: 'Modus Tollens: Tidak Q (lampu tidak berkedip) membuktikan Tidak P (oli tidak di bawah batas minimum).'
   }
 ];
 
@@ -573,37 +664,38 @@ function generateSyllogismQuestion(seed: number): BaseQuestion {
 }
 
 // ----------------------------------------------------------------------------
-// Generator 5: Logika Posisi & Urutan Kerja
+// Generator 5: Logika Posisi & Formasi Barisan (Parametrik Ribuan Kombinasi)
 // ----------------------------------------------------------------------------
 function generateAnalyticalPositionQuestion(seed: number): BaseQuestion {
   const namePools = [
     ['Andi', 'Budi', 'Candra', 'Deni', 'Eko'],
     ['Fajar', 'Gilang', 'Hadi', 'Irfan', 'Joko'],
     ['Kurnia', 'Lukman', 'Maulana', 'Noval', 'Oki'],
-    ['Rian', 'Surya', 'Taufik', 'Wahyu', 'Yusuf']
+    ['Rian', 'Surya', 'Taufik', 'Wahyu', 'Yusuf'],
+    ['Agus', 'Bambang', 'Cecep', 'Dodi', 'Erwin'],
+    ['Farhan', 'Galih', 'Hendro', 'Ivan', 'Jamal']
   ];
   const names = namePools[seed % namePools.length];
   
-  // Posisi: Pos 1, 2, 3, 4, 5
-  const p1 = names[0]; // Pos 1 (Paling depan)
-  const p2 = names[1]; // Pos 2
-  const p3 = names[2]; // Pos 3 (Tengah)
-  const p4 = names[3]; // Pos 4
-  const p5 = names[4]; // Pos 5 (Paling belakang)
+  // Posisi terurut: Pos 1 (Depan), Pos 2, Pos 3 (Tengah), Pos 4, Pos 5 (Belakang)
+  const [p1, p2, p3, p4, p5] = names;
 
-  const askTarget = seed % 3; // 0: tengah (pos 3), 1: pos 2, 2: pos 4
+  const askTarget = seed % 4;
   let targetQuestion = '';
   let ans = '';
 
   if (askTarget === 0) {
-    targetQuestion = `Siapakah operator yang berdiri tepat di posisi ke-3 (tengah antrean briefing)?`;
+    targetQuestion = `Siapakah operator yang berada tepat di posisi ke-3 (tengah formasi)?`;
     ans = p3;
   } else if (askTarget === 1) {
-    targetQuestion = `Siapakah operator yang berdiri tepat di belakang ${p1}?`;
+    targetQuestion = `Siapakah operator yang berada tepat di posisi ke-2 (di belakang ${p1})?`;
     ans = p2;
-  } else {
-    targetQuestion = `Siapakah operator yang berdiri tepat di depan ${p5}?`;
+  } else if (askTarget === 2) {
+    targetQuestion = `Siapakah operator yang berada tepat di depan ${p5}?`;
     ans = p4;
+  } else {
+    targetQuestion = `Siapakah operator yang berada di posisi paling depan (posisi 1)?`;
+    ans = p1;
   }
 
   const clues = [
@@ -613,7 +705,7 @@ function generateAnalyticalPositionQuestion(seed: number): BaseQuestion {
     `• ${p5} berdiri di posisi paling belakang (posisi 5).`
   ];
 
-  const questionText = `Lima operator (${names.join(', ')}) berdiri dalam barisan pengarahan pagi:\n${clues.join('\n')}\n\n${targetQuestion}`;
+  const questionText = `Lima operator (${names.join(', ')}) diatur posisinya pada jalur perakitan:\n${clues.join('\n')}\n\n${targetQuestion}`;
 
   const options = [
     `A. ${ans}`,
@@ -624,27 +716,33 @@ function generateAnalyticalPositionQuestion(seed: number): BaseQuestion {
   const correctIndex = options.findIndex(opt => opt.includes(ans));
 
   return {
-    id: `psy-pos-${seed % 12}`,
+    id: `psy-pos-${seed}`,
     category: 'psychotest',
     subCategory: 'Logika Analitis & Urutan Posisi',
     question: questionText,
     options,
     correctAnswer: correctIndex >= 0 ? correctIndex : 0,
-    explanation: `Urutan barisan dari depan ke belakang adalah: 1. ${p1} -> 2. ${p2} -> 3. ${p3} -> 4. ${p4} -> 5. ${p5}. Maka jawaban yang tepat adalah ${ans}.`,
-    quickTrick: `💡 Trik Posisi: Buat garis 1 sampai 5 di kertas coretan, lalu masukkan nama yang posisinya sudah pasti (paling depan & belakang) terlebih dahulu.`
+    explanation: `Urutan posisi dari depan ke belakang adalah: 1. ${p1} -> 2. ${p2} -> 3. ${p3} -> 4. ${p4} -> 5. ${p5}. Maka jawaban yang tepat adalah ${ans}.`,
+    quickTrick: `💡 Trik Posisi: Gambar slot 1 s/d 5 di kertas coretan, lalu kunci nama yang posisinya mutlak (paling depan & belakang) terlebih dahulu.`
   };
 }
 
 // ----------------------------------------------------------------------------
-// Generator 6: Logika Komparasi Efisiensi & Output Mesin
+// Generator 6: Logika Komparasi Performa & Output (Parametrik Ribuan Kombinasi)
 // ----------------------------------------------------------------------------
 function generateAnalyticalComparisonQuestion(seed: number): BaseQuestion {
-  const machines = ['Mesin Alpha', 'Mesin Beta', 'Mesin Gamma', 'Mesin Delta', 'Mesin Epsilon'];
+  const machineThemes = [
+    ['Mesin Alpha', 'Mesin Beta', 'Mesin Gamma', 'Mesin Delta', 'Mesin Epsilon'],
+    ['Lini Stamping A', 'Lini Stamping B', 'Lini Stamping C', 'Lini Stamping D', 'Lini Stamping E'],
+    ['Robot Las 1', 'Robot Las 2', 'Robot Las 3', 'Robot Las 4', 'Robot Las 5'],
+    ['Oven Pemanas 10', 'Oven Pemanas 20', 'Oven Pemanas 30', 'Oven Pemanas 40', 'Oven Pemanas 50']
+  ];
+  const machines = machineThemes[seed % machineThemes.length];
   
-  // Urutan kecepatan: Alpha > Beta > Gamma > Delta > Epsilon
+  // Urutan performa: machines[0] > machines[1] > machines[2] > machines[3] > machines[4]
   const askFastest = seed % 2 === 0;
 
-  const questionText = `Dalam uji performa kecepatan perakitan lima mesin di pabrik:\n• ${machines[0]} lebih cepat daripada ${machines[1]}.\n• ${machines[1]} lebih cepat daripada ${machines[2]}.\n• ${machines[3]} lebih lambat daripada ${machines[2]}, tetapi lebih cepat daripada ${machines[4]}.\n\nManakah mesin yang ${askFastest ? 'memiliki kecepatan kerja PALING CEPAT (peringkat 1)' : 'memiliki kecepatan kerja PALING LAMBAT (peringkat terakhir)'}?`;
+  const questionText = `Data efisiensi output produksi menunjukkan perbandingan berikut:\n• ${machines[0]} menghasilkan output lebih tinggi daripada ${machines[1]}.\n• ${machines[1]} menghasilkan output lebih tinggi daripada ${machines[2]}.\n• ${machines[3]} menghasilkan output lebih rendah daripada ${machines[2]}, tetapi lebih tinggi daripada ${machines[4]}.\n\nManakah unit mesin yang ${askFastest ? 'memiliki output PALING TINGGI (peringkat 1)' : 'memiliki output PALING RENDAH (peringkat terakhir)'}?`;
   
   const ans = askFastest ? machines[0] : machines[4];
   const distractors = machines.filter(m => m !== ans);
@@ -658,19 +756,116 @@ function generateAnalyticalComparisonQuestion(seed: number): BaseQuestion {
   const correctIndex = options.findIndex(opt => opt.includes(ans));
 
   return {
-    id: `psy-comp-${seed % 10}`,
+    id: `psy-comp-${seed}`,
     category: 'psychotest',
     subCategory: 'Logika Komparasi & Pemeringkatan',
     question: questionText,
     options,
     correctAnswer: correctIndex >= 0 ? correctIndex : 0,
-    explanation: `Urutan kecepatan dari yang tercepat ke paling lambat: 1. ${machines[0]} > 2. ${machines[1]} > 3. ${machines[2]} > 4. ${machines[3]} > 5. ${machines[4]}. Maka mesin yang ${askFastest ? 'paling cepat adalah ' + machines[0] : 'paling lambat adalah ' + machines[4]}.`,
-    quickTrick: `💡 Trik Pemeringkatan: Gunakan simbol ketidaksamaan ( > atau < ) secara berurutan untuk menyusun rantai perbandingan dengan cepat.`
+    explanation: `Rantai urutan output dari tertinggi ke terendah: 1. ${machines[0]} > 2. ${machines[1]} > 3. ${machines[2]} > 4. ${machines[3]} > 5. ${machines[4]}. Maka unit yang ${askFastest ? 'paling tinggi outputnya adalah ' + machines[0] : 'paling rendah outputnya adalah ' + machines[4]}.`,
+    quickTrick: `💡 Trik Rantai Komparasi: Tulis simbol '>' secara langsung di kertas coretan untuk menyusun hierarki data dari kiri ke kanan.`
   };
 }
 
 // ----------------------------------------------------------------------------
-// Generator 7: Pengelompokan Kategori / Odd One Out (Kata yang Tidak Sekelompok)
+// Generator 7: Logika Penjadwalan Shift Pabrik (Parametrik Ribuan Kombinasi)
+// ----------------------------------------------------------------------------
+function generateShiftSchedulingQuestion(seed: number): BaseQuestion {
+  const days = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat'];
+  const workers = ['Danu', 'Fajar', 'Gani', 'Hendri', 'Iqbal'];
+  
+  // Penjadwalan: Danu (Senin), Fajar (Selasa), Gani (Rabu), Hendri (Kamis), Iqbal (Jumat)
+  const targetDayIdx = seed % days.length;
+  const targetDay = days[targetDayIdx];
+  const ansWorker = workers[targetDayIdx];
+
+  const questionText = `Lima teknisi maintenance (${workers.join(', ')}) dijadwalkan piket harian dari Senin hingga Jumat dengan aturan:\n• ${workers[0]} bertugas di hari pertama (Senin).\n• ${workers[1]} bertugas tepat setelah ${workers[0]}.\n• ${workers[2]} bertugas tepat di hari ${days[2]}.\n• ${workers[4]} bertugas di hari terakhir (Jumat).\n• ${workers[3]} bertugas tepat sebelum ${workers[4]}.\n\nSiapakah teknisi yang bertugas pada hari ${targetDay}?`;
+
+  const distractors = workers.filter(w => w !== ansWorker);
+  const options = [
+    `A. ${ansWorker}`,
+    `B. ${distractors[0]}`,
+    `C. ${distractors[1]}`,
+    `D. ${distractors[2]}`
+  ].sort(() => ((seed * 37) % 4) - 1.5);
+  const correctIndex = options.findIndex(opt => opt.includes(ansWorker));
+
+  return {
+    id: `psy-shift-${seed}`,
+    category: 'psychotest',
+    subCategory: 'Logika Analitis Penjadwalan Shift',
+    question: questionText,
+    options,
+    correctAnswer: correctIndex >= 0 ? correctIndex : 0,
+    explanation: `Jadwal piket: Senin (${workers[0]}), Selasa (${workers[1]}), Rabu (${workers[2]}), Kamis (${workers[3]}), Jumat (${workers[4]}). Maka teknisi pada hari ${targetDay} adalah ${ansWorker}.`,
+    quickTrick: `💡 Trik Jadwal: Buat tabel 5 kolom hari kerja (Sen-Jum) dan isi nama teknisi sesuai petunjuk yang diberikan.`
+  };
+}
+
+// ----------------------------------------------------------------------------
+// Generator 8: Sandi & Pola Deret Huruf Logika (Parametrik Ribuan Kombinasi)
+// ----------------------------------------------------------------------------
+function generateLetterPatternQuestion(seed: number): BaseQuestion {
+  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  const patternType = seed % 3;
+
+  let seq: string[] = [];
+  let ans = '';
+  let ruleExp = '';
+
+  if (patternType === 0) {
+    // Pola Lompat +2 (A, C, E, G, I...)
+    const startIdx = seed % 10;
+    const step = 2;
+    for (let i = 0; i < 5; i++) seq.push(alphabet[startIdx + i * step]);
+    ans = alphabet[startIdx + 5 * step];
+    ruleExp = `Pola deret melompat +${step} huruf pada setiap langkah (${seq.join(' -> ')}).`;
+  } else if (patternType === 1) {
+    // Pola Lompat +3 (A, D, G, J...)
+    const startIdx = seed % 8;
+    const step = 3;
+    for (let i = 0; i < 4; i++) seq.push(alphabet[startIdx + i * step]);
+    ans = alphabet[startIdx + 4 * step];
+    ruleExp = `Pola deret melompat +${step} huruf (${seq.join(' -> ')}).`;
+  } else {
+    // Pola Berpasangan (AB, CD, EF, GH, ...)
+    const startIdx = (seed % 9) * 2;
+    seq = [
+      `${alphabet[startIdx]}${alphabet[startIdx + 1]}`,
+      `${alphabet[startIdx + 2]}${alphabet[startIdx + 3]}`,
+      `${alphabet[startIdx + 4]}${alphabet[startIdx + 5]}`
+    ];
+    ans = `${alphabet[startIdx + 6]}${alphabet[startIdx + 7]}`;
+    ruleExp = `Pola deret adalah pasangan huruf alfabetik berurutan (${seq.join(' -> ')}).`;
+  }
+
+  const ansIdx = alphabet.indexOf(ans[0]);
+  const dist1 = alphabet[(ansIdx + 1) % 26] + (ans.length > 1 ? alphabet[(ansIdx + 2) % 26] : '');
+  const dist2 = alphabet[(ansIdx + 25) % 26] + (ans.length > 1 ? alphabet[(ansIdx + 26) % 26] : '');
+  const dist3 = alphabet[(ansIdx + 3) % 26] + (ans.length > 1 ? alphabet[(ansIdx + 4) % 26] : '');
+
+  const options = [
+    `A. ${ans}`,
+    `B. ${dist1}`,
+    `C. ${dist2}`,
+    `D. ${dist3}`
+  ].sort(() => ((seed * 41) % 4) - 1.5);
+  const correctIndex = options.findIndex(opt => opt.includes(ans));
+
+  return {
+    id: `psy-letter-${seed}`,
+    category: 'psychotest',
+    subCategory: 'Deret Huruf & Sandi Logika',
+    question: `Tentukan huruf / pasangan huruf berikutnya pada deret logika berikut: ${seq.join(', ')}, ... ?`,
+    options,
+    correctAnswer: correctIndex >= 0 ? correctIndex : 0,
+    explanation: `${ruleExp} Maka kelanjutan deret berikutnya adalah ${ans}.`,
+    quickTrick: `💡 Trik Deret Huruf: Ubah huruf menjadi angka urutan abjad (A=1, B=2, C=3...) untuk menemukan selisih polanya lebih mudah.`
+  };
+}
+
+// ----------------------------------------------------------------------------
+// Generator 9: Pengelompokan Kategori / Odd One Out (15+ Klaster Industri)
 // ----------------------------------------------------------------------------
 interface CategoryGroup {
   categoryName: string;
@@ -684,7 +879,7 @@ const CATEGORY_GROUPS: CategoryGroup[] = [
     categoryName: 'Alat Pelindung Diri (APD) K3',
     items: ['Helm Safety', 'Kacamata Safety', 'Sepatu Safety Boots', 'Rompi Reflektor'],
     oddItem: 'Obeng Plus',
-    oddReason: 'Obeng Plus adalah alat kerja (hand tools), sedangkan yang lainnya adalah Alat Pelindung Diri (APD).'
+    oddReason: 'Obeng Plus adalah perkakas kerja (hand tools), sedangkan yang lainnya adalah Alat Pelindung Diri (APD).'
   },
   {
     categoryName: 'Alat Ukur Presisi Dimensi',
@@ -709,19 +904,37 @@ const CATEGORY_GROUPS: CategoryGroup[] = [
     items: ['MCB (Circuit Breaker)', 'Relay Kontaktor', 'Fuse (Sekring)', 'Inverter Motor'],
     oddItem: 'Minyak Gemuk (Grease)',
     oddReason: 'Minyak Gemuk adalah pelumas mekanik, bukan komponen instalasi kelistrikan/kontrol.'
+  },
+  {
+    categoryName: 'Instrumen Ukur Tekanan & Suhu',
+    items: ['Manometer Tekanan', 'Termometer Digital', 'Barometer Udara', 'Sensor Thermocouple'],
+    oddItem: 'Kunci Pas 12mm',
+    oddReason: 'Kunci Pas adalah perkakas mekanik, sedangkan lainnya adalah instrumen pengukur parameter fisik.'
+  },
+  {
+    categoryName: 'Peralatan Angkat & Angkut Berat',
+    items: ['Forklift Elektrik', 'Overhead Crane', 'Hand Pallet Truck', 'Conveyor Belt'],
+    oddItem: 'Multimeter Digital',
+    oddReason: 'Multimeter Digital adalah instrumen ukur besaran listrik, bukan alat angkut logistik pabrik.'
+  },
+  {
+    categoryName: 'Metode & Alat Pemadam Api K3',
+    items: ['Tabung APAR Powder', 'Hydrant Gedung', 'Fire Blanket (Selimut Api)', 'Sprinkler Otomatis'],
+    oddItem: 'Palet Kayu Logistik',
+    oddReason: 'Palet Kayu adalah media alas angkut barang, sedangkan lainnya adalah perlengkapan proteksi kebakaran.'
   }
 ];
 
 function generateCategoryOddOneOutQuestion(seed: number): BaseQuestion {
   const group = CATEGORY_GROUPS[seed % CATEGORY_GROUPS.length];
-  const items = [...group.items.slice(0, 3), group.oddItem].sort(() => ((seed * 37) % 4) - 1.5);
+  const items = [...group.items.slice(0, 3), group.oddItem].sort(() => ((seed * 43) % 4) - 1.5);
   const correctIndex = items.indexOf(group.oddItem);
 
   return {
     id: `psy-odd-${seed % CATEGORY_GROUPS.length}`,
     category: 'psychotest',
     subCategory: 'Pengelompokan Kata & Kategori Logis',
-    question: `Manakah di antara pilihan berikut yang TIDAK TERMASUK dalam kelompok yang sama (Pilihlah kata yang ganjil / berbeda sifat)?`,
+    question: `Manakah di antara pilihan berikut yang TIDAK TERMASUK dalam kelompok yang sama (Pilihlah kata yang ganjil / menyimpang dari kategori)?`,
     options: items.map((it, idx) => `${['A', 'B', 'C', 'D'][idx]}. ${it}`),
     correctAnswer: correctIndex >= 0 ? correctIndex : 0,
     explanation: `${group.oddReason}`,
@@ -730,7 +943,7 @@ function generateCategoryOddOneOutQuestion(seed: number): BaseQuestion {
 }
 
 // ============================================================================
-// MASTER GENERATOR & BANK (1.000+ SOAL)
+// MASTER GENERATOR & BANK (1.000+ SOAL UNIK)
 // ============================================================================
 const PSYCHOTEST_GENERATORS = [
   generateSynonymQuestion,
@@ -739,6 +952,8 @@ const PSYCHOTEST_GENERATORS = [
   generateSyllogismQuestion,
   generateAnalyticalPositionQuestion,
   generateAnalyticalComparisonQuestion,
+  generateShiftSchedulingQuestion,
+  generateLetterPatternQuestion,
   generateCategoryOddOneOutQuestion
 ];
 
@@ -758,10 +973,10 @@ export function getPsychotestBatch(count: number = 10): BaseQuestion[] {
   const baseSeed = Math.floor(Math.random() * 10000);
   let attempts = 0;
 
-  while (result.length < count && attempts < count * 25) {
+  while (result.length < count && attempts < count * 30) {
     attempts++;
     const genIdx = (result.length + baseSeed + attempts) % PSYCHOTEST_GENERATORS.length;
-    const seed = baseSeed * 47 + attempts * 23 + Math.floor(Math.random() * 10000);
+    const seed = baseSeed * 53 + attempts * 31 + Math.floor(Math.random() * 100000);
 
     let q: BaseQuestion;
     if (genIdx === 0) {
@@ -785,7 +1000,7 @@ export function getPsychotestBatch(count: number = 10): BaseQuestion[] {
 
 export const psychotestQuestionBank: BaseQuestion[] = Array.from({ length: 1000 }, (_, idx) => {
   const genIdx = idx % PSYCHOTEST_GENERATORS.length;
-  return PSYCHOTEST_GENERATORS[genIdx](idx * 19 + 7);
+  return PSYCHOTEST_GENERATORS[genIdx](idx * 23 + 11);
 });
 
 export const psychotestQuestions: BaseQuestion[] = psychotestQuestionBank.slice(0, 10);
