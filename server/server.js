@@ -3,6 +3,17 @@ const cors = require('cors');
 const mysql = require('mysql2/promise');
 require('dotenv').config();
 
+// Microsoft Edge Neural TTS — free, no API key, genuine Indonesian voices
+// id-ID-ArdiNeural (male), id-ID-GadisNeural (female)
+let MsEdgeTTS, OUTPUT_FORMAT;
+try {
+  const edgeTts = require('msedge-tts');
+  MsEdgeTTS = edgeTts.MsEdgeTTS;
+  OUTPUT_FORMAT = edgeTts.OUTPUT_FORMAT;
+} catch (e) {
+  console.warn('[TTS] msedge-tts not available, will use fallback:', e.message);
+}
+
 const { 
   sendRegistrationOtpEmail, 
   sendPasswordResetOtpEmail, 
@@ -1254,8 +1265,35 @@ Kembalikan HANYA format JSON valid tanpa markdown (\`\`\`json):
 });
 
 // ----------------------------------------------------------------------------
-// AI INTERVIEW TTS PROXY — Suara Neural HRD (Onyx/Nova/Echo/Fable via Sumopod)
+// AI INTERVIEW TTS PROXY — Microsoft Edge Neural TTS (id-ID-ArdiNeural / GadisNeural)
+// Fallback chain: Edge TTS → Sumopod OpenAI TTS → (client Web Speech API)
 // ----------------------------------------------------------------------------
+
+// Map from persona ttsVoice key → Edge TTS voice name
+const EDGE_TTS_VOICE_MAP = {
+  'onyx':   'id-ID-ArdiNeural',    // Bapak Hendra — deep Indonesian male
+  'echo':   'id-ID-ArdiNeural',    // Bapak Suryo — same male voice
+  'fable':  'id-ID-ArdiNeural',    // Bapak Anton — same male voice
+  'nova':   'id-ID-GadisNeural',   // Ibu Ratna — warm Indonesian female
+  'alloy':  'id-ID-GadisNeural',
+  'shimmer':'id-ID-GadisNeural',
+};
+
+// Helper: generate audio via Microsoft Edge TTS
+async function generateEdgeTTS(text, voiceKey) {
+  if (!MsEdgeTTS || !OUTPUT_FORMAT) throw new Error('msedge-tts not loaded');
+  const voiceName = EDGE_TTS_VOICE_MAP[voiceKey] || 'id-ID-ArdiNeural';
+  const tts = new MsEdgeTTS();
+  await tts.setMetadata(voiceName, OUTPUT_FORMAT.AUDIO_24KHZ_48KBITRATE_MONO_MP3);
+  const readable = await tts.toStream(text);
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    readable.on('data', chunk => chunks.push(chunk));
+    readable.on('end', () => resolve(Buffer.concat(chunks)));
+    readable.on('error', reject);
+  });
+}
+
 app.post('/api/interview/speak', async (req, res) => {
   try {
     const { text = '', voice = 'onyx', speed = 0.95 } = req.body;
@@ -1263,29 +1301,33 @@ app.post('/api/interview/speak', async (req, res) => {
       return res.status(400).json({ success: false, message: 'Text is required.' });
     }
 
-    const sumopodKey = process.env.SUMOPOD_API_KEY || process.env.OPENAI_API_KEY;
-    let sumopodBaseUrl = (process.env.SUMOPOD_BASE_URL || 'https://ai.sumopod.com/v1').replace(/\/+$/, '');
-    if (sumopodBaseUrl.includes('api.sumopod.com')) {
-      sumopodBaseUrl = 'https://ai.sumopod.com/v1';
+    // ── 1. Microsoft Edge TTS (PRIMARY — free, neural, genuine Indonesian voices) ──
+    if (MsEdgeTTS) {
+      try {
+        const audioBuffer = await generateEdgeTTS(text, voice);
+        if (audioBuffer && audioBuffer.length > 0) {
+          res.setHeader('Content-Type', 'audio/mpeg');
+          res.setHeader('X-TTS-Provider', 'microsoft-edge');
+          res.setHeader('X-TTS-Voice', EDGE_TTS_VOICE_MAP[voice] || 'id-ID-ArdiNeural');
+          return res.end(audioBuffer);
+        }
+      } catch (edgeErr) {
+        console.warn('[Edge TTS Error]', edgeErr.message);
+      }
     }
 
-    // 1. Try Sumopod / OpenAI TTS endpoint
+    // ── 2. Sumopod / OpenAI TTS (Fallback) ──────────────────────────────────────
+    const sumopodKey = process.env.SUMOPOD_API_KEY || process.env.OPENAI_API_KEY;
+    let sumopodBaseUrl = (process.env.SUMOPOD_BASE_URL || 'https://ai.sumopod.com/v1').replace(/\/+$/, '');
+    if (sumopodBaseUrl.includes('api.sumopod.com')) sumopodBaseUrl = 'https://ai.sumopod.com/v1';
+
     if (sumopodKey) {
       try {
         const ttsRes = await fetch(`${sumopodBaseUrl}/audio/speech`, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${sumopodKey}`
-          },
-          body: JSON.stringify({
-            model: 'tts-1',
-            input: text,
-            voice: voice,
-            speed: speed
-          })
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${sumopodKey}` },
+          body: JSON.stringify({ model: 'tts-1', input: text, voice, speed })
         });
-
         if (ttsRes.ok) {
           const contentType = ttsRes.headers.get('content-type') || 'audio/mpeg';
           res.setHeader('Content-Type', contentType);
@@ -1293,37 +1335,15 @@ app.post('/api/interview/speak', async (req, res) => {
           res.setHeader('X-TTS-Voice', voice);
           const audioBuffer = await ttsRes.arrayBuffer();
           return res.end(Buffer.from(audioBuffer));
-        } else {
-          const errText = await ttsRes.text();
-          console.warn('[Sumopod TTS Not Supported]', ttsRes.status, errText.slice(0, 200));
         }
+        const errText = await ttsRes.text();
+        console.warn('[Sumopod TTS]', ttsRes.status, errText.slice(0, 100));
       } catch (ttsErr) {
         console.warn('[Sumopod TTS Exception]', ttsErr.message);
       }
     }
 
-    // 2. Google Translate TTS Fallback (Free, no API key, supports Indonesian neural voice)
-    const encodedText = encodeURIComponent(text.slice(0, 200));
-    const gttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&tl=id&client=tw-ob&q=${encodedText}`;
-    try {
-      const gttsRes = await fetch(gttsUrl, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-          'Referer': 'https://translate.google.com/'
-        }
-      });
-      if (gttsRes.ok) {
-        const contentType = gttsRes.headers.get('content-type') || 'audio/mpeg';
-        res.setHeader('Content-Type', contentType);
-        res.setHeader('X-TTS-Provider', 'google-translate-fallback');
-        const audioBuffer = await gttsRes.arrayBuffer();
-        return res.end(Buffer.from(audioBuffer));
-      }
-    } catch (gttsErr) {
-      console.warn('[Google TTS Exception]', gttsErr.message);
-    }
-
-    // 3. Both failed — tell client to use Web Speech API fallback
+    // ── 3. Both failed → tell client to use Web Speech API fallback ─────────────
     res.status(503).json({ success: false, message: 'TTS service unavailable. Use Web Speech API fallback.' });
 
   } catch (err) {
@@ -1332,52 +1352,55 @@ app.post('/api/interview/speak', async (req, res) => {
   }
 });
 
-// GET version for easy browser testing: /api/interview/speak-test?voice=onyx&text=Halo
+// GET for easy browser testing: /api/interview/speak-test?voice=onyx&text=Halo+Pak+Hendra
 app.get('/api/interview/speak-test', async (req, res) => {
-  const voice = req.query.voice || 'onyx';
-  const text = String(req.query.text || 'Selamat pagi, saya Bapak Hendra dari divisi HRD. Senang bertemu dengan Anda hari ini.');
+  const voice = String(req.query.voice || 'onyx');
+  const text = String(req.query.text || 'Selamat pagi, saya Bapak Hendra dari divisi HRD perusahaan manufaktur. Senang bertemu dengan Anda hari ini dalam sesi wawancara.');
 
+  // Try Edge TTS first
+  if (MsEdgeTTS) {
+    try {
+      const audioBuffer = await generateEdgeTTS(text, voice);
+      if (audioBuffer && audioBuffer.length > 0) {
+        const edgeVoice = EDGE_TTS_VOICE_MAP[voice] || 'id-ID-ArdiNeural';
+        res.setHeader('Content-Type', 'audio/mpeg');
+        res.setHeader('X-TTS-Provider', 'microsoft-edge');
+        res.setHeader('X-TTS-Voice', edgeVoice);
+        return res.end(audioBuffer);
+      }
+    } catch (e) {
+      console.warn('[TTS Test Edge Error]', e.message);
+    }
+  }
+
+  // Sumopod fallback
   const sumopodKey = process.env.SUMOPOD_API_KEY || process.env.OPENAI_API_KEY;
   let sumopodBaseUrl = (process.env.SUMOPOD_BASE_URL || 'https://ai.sumopod.com/v1').replace(/\/+$/, '');
   if (sumopodBaseUrl.includes('api.sumopod.com')) sumopodBaseUrl = 'https://ai.sumopod.com/v1';
 
-  let providerUsed = 'none';
-  try {
-    if (sumopodKey) {
+  if (sumopodKey) {
+    try {
       const ttsRes = await fetch(`${sumopodBaseUrl}/audio/speech`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${sumopodKey}` },
         body: JSON.stringify({ model: 'tts-1', input: text, voice, speed: 0.95 })
       });
       if (ttsRes.ok) {
-        providerUsed = 'sumopod';
         res.setHeader('Content-Type', ttsRes.headers.get('content-type') || 'audio/mpeg');
-        res.setHeader('X-TTS-Provider', providerUsed);
-        res.setHeader('X-TTS-Voice', voice);
+        res.setHeader('X-TTS-Provider', 'sumopod');
         const buf = await ttsRes.arrayBuffer();
         return res.end(Buffer.from(buf));
       }
-      console.warn('[TTS Test] Sumopod returned', ttsRes.status);
-    }
-
-    // Google TTS fallback
-    const encodedText = encodeURIComponent(text.slice(0, 200));
-    const gttsRes = await fetch(`https://translate.google.com/translate_tts?ie=UTF-8&tl=id&client=tw-ob&q=${encodedText}`, {
-      headers: { 'User-Agent': 'Mozilla/5.0 (compatible)', 'Referer': 'https://translate.google.com/' }
-    });
-    if (gttsRes.ok) {
-      providerUsed = 'google-translate';
-      res.setHeader('Content-Type', gttsRes.headers.get('content-type') || 'audio/mpeg');
-      res.setHeader('X-TTS-Provider', providerUsed);
-      const buf = await gttsRes.arrayBuffer();
-      return res.end(Buffer.from(buf));
-    }
-
-    res.status(503).json({ error: 'TTS unavailable', providerUsed, note: 'Neither Sumopod TTS nor Google TTS responded with audio.' });
-  } catch (e) {
-    res.status(500).json({ error: e.message, providerUsed });
+    } catch (e) { /* ignore */ }
   }
+
+  res.status(503).json({
+    error: 'TTS unavailable',
+    edgeTtsLoaded: !!MsEdgeTTS,
+    note: 'Edge TTS dan Sumopod TTS keduanya tidak berhasil.'
+  });
 });
+
 
 // ----------------------------------------------------------------------------
 // AI INTERVIEW API CONNECTION DIAGNOSTIC / TEST ENDPOINT
