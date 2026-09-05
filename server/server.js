@@ -1142,6 +1142,91 @@ Kembalikan respon HANYA dalam format JSON murni tanpa markdown:
   }
 });
 
+// ----------------------------------------------------------------------------
+// AI INTERVIEW API CONNECTION DIAGNOSTIC / TEST ENDPOINT
+// ----------------------------------------------------------------------------
+app.get('/api/interview/test-connection', async (req, res) => {
+  const startTime = Date.now();
+  const sumopodKey = process.env.SUMOPOD_API_KEY || process.env.OPENAI_API_KEY;
+  const sumopodBaseUrl = (process.env.SUMOPOD_BASE_URL || 'https://api.sumopod.com/v1').replace(/\/+$/, '');
+  const sumopodModel = process.env.SUMOPOD_MODEL || process.env.OPENAI_MODEL || 'gpt-4o-mini';
+  const geminiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
+
+  if (sumopodKey) {
+    try {
+      const aiRes = await fetch(`${sumopodBaseUrl}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${sumopodKey}`
+        },
+        body: JSON.stringify({
+          model: sumopodModel,
+          messages: [
+            { role: 'system', content: 'Kamu adalah asisten HRD AI. Jawab singkat maksimal 1 kalimat.' },
+            { role: 'user', content: 'Tes koneksi API Sumopod. Balas dengan kalimat konfirmasi singkat.' }
+          ],
+          max_tokens: 60
+        })
+      });
+
+      const latencyMs = Date.now() - startTime;
+
+      if (aiRes.ok) {
+        const aiData = await aiRes.json();
+        const reply = aiData?.choices?.[0]?.message?.content || '';
+        return res.json({
+          status: 'SUCCESS',
+          connected: true,
+          provider: 'sumopod.com',
+          model: sumopodModel,
+          baseUrl: sumopodBaseUrl,
+          latency: `${latencyMs}ms`,
+          aiResponse: reply.trim(),
+          message: 'Koneksi ke Sumopod.com API Key berhasil dan aktif 100%!'
+        });
+      } else {
+        const errBody = await aiRes.text();
+        return res.status(aiRes.status).json({
+          status: 'ERROR',
+          connected: false,
+          provider: 'sumopod.com',
+          model: sumopodModel,
+          baseUrl: sumopodBaseUrl,
+          statusCode: aiRes.status,
+          errorDetails: errBody,
+          message: 'Gagal terhubung ke Sumopod API. Periksa kembali validitas API Key atau nama model di file .env.'
+        });
+      }
+    } catch (err) {
+      return res.status(500).json({
+        status: 'EXCEPTION',
+        connected: false,
+        provider: 'sumopod.com',
+        latency: `${Date.now() - startTime}ms`,
+        error: err.message,
+        message: 'Koneksi jaringan ke server Sumopod mengalami kendala.'
+      });
+    }
+  }
+
+  if (geminiKey) {
+    return res.json({
+      status: 'CONFIGURED',
+      connected: true,
+      provider: 'Google Gemini (Direct)',
+      message: 'SUMOPOD_API_KEY tidak terdeteksi, namun GEMINI_API_KEY aktif sebagai fallback.'
+    });
+  }
+
+  return res.json({
+    status: 'NOT_CONFIGURED',
+    connected: false,
+    provider: 'Heuristic Internal Engine (Offline Fallback)',
+    message: 'SUMOPOD_API_KEY belum terpasang di file .env. Sistem menggunakan Heuristic Engine internal.'
+  });
+});
+
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`[Express] SMK Siap Masuk Kerja API listening on http://0.0.0.0:${PORT}`);
 });
