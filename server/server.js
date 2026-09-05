@@ -16,6 +16,17 @@ const EDGE_TTS_VOICE_MAP = {
   'shimmer': 'id-ID-GadisNeural',
 };
 
+// TikTok TTS voice mapping (HTTP-based, works from any VPS via Cloudflare)
+// id_001 = Indonesian Male, id_002 = Indonesian Female
+const TIKTOK_TTS_VOICE_MAP = {
+  'onyx':    'id_001',  // Indonesian Male
+  'echo':    'id_001',
+  'fable':   'id_001',
+  'nova':    'id_002',  // Indonesian Female
+  'alloy':   'id_002',
+  'shimmer': 'id_002',
+};
+
 function generateEdgeTTS(text, voiceKey) {
   return new Promise((resolve, reject) => {
     const voiceName = EDGE_TTS_VOICE_MAP[voiceKey] || 'id-ID-ArdiNeural';
@@ -50,12 +61,10 @@ function generateEdgeTTS(text, voiceKey) {
 
     ws.on('open', () => {
       const ts = new Date().toISOString();
-      // Send audio config
       ws.send(
         `X-Timestamp:${ts}\r\nContent-Type:application/json; charset=utf-8\r\nPath:speech.config\r\n\r\n` +
         `{"context":{"synthesis":{"audio":{"metadataoptions":{"sentenceBoundaryEnabled":"false","wordBoundaryEnabled":"false"},"outputFormat":"audio-24khz-48kbitrate-mono-mp3"}}}}`
       );
-      // Send SSML
       const ssml = `<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='id-ID'><voice name='${voiceName}'><prosody rate='-5%'>${text.replace(/[<>&'"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;',"'":'&apos;','"':'&quot;'}[c]))}</prosody></voice></speak>`;
       ws.send(
         `X-RequestId:${connId}\r\nContent-Type:application/ssml+xml\r\nX-Timestamp:${new Date().toISOString()}\r\nPath:ssml\r\n\r\n${ssml}`
@@ -64,7 +73,6 @@ function generateEdgeTTS(text, voiceKey) {
 
     ws.on('message', (data, isBinary) => {
       if (isBinary) {
-        // Binary frame: first 2 bytes = header length, rest after header = audio
         try {
           const headerLen = data.readUInt16BE(0);
           const audio = data.slice(2 + headerLen);
@@ -91,6 +99,29 @@ function generateEdgeTTS(text, voiceKey) {
     });
   });
 }
+
+// ─── TikTok TTS — HTTP via Cloudflare Workers (no WebSocket, always accessible) ───
+// voice id_001 = Indonesian Male, id_002 = Indonesian Female
+async function generateTikTokTTS(text, voiceKey) {
+  const voice = TIKTOK_TTS_VOICE_MAP[voiceKey] || 'id_001';
+  const safeText = text.slice(0, 300); // TikTok TTS max ~300 chars
+
+  // Primary: community proxy via Cloudflare Workers (very stable)
+  const resp = await fetch('https://tiktok-tts.weilnet.workers.dev/api/generation', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text: safeText, voice }),
+    signal: AbortSignal.timeout(10000)
+  });
+
+  if (!resp.ok) throw new Error(`TikTok TTS proxy: ${resp.status}`);
+  const json = await resp.json();
+  if (json.success && json.data) {
+    return Buffer.from(json.data, 'base64');
+  }
+  throw new Error('TikTok TTS: no audio data in response');
+}
+
 
 
 const { 
@@ -1348,6 +1379,22 @@ Kembalikan HANYA format JSON valid tanpa markdown (\`\`\`json):
 // Fallback chain: Edge TTS → Sumopod OpenAI TTS → (client Web Speech API)
 // ----------------------------------------------------------------------------
 
+// Helper: generate audio via Google Translate TTS (Female Indonesian)
+async function generateGoogleTTS(text) {
+  const safeText = encodeURIComponent(text.slice(0, 200));
+  const resp = await fetch(`https://translate.google.com/translate_tts?ie=UTF-8&tl=id&client=tw-ob&q=${safeText}`, {
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'Referer': 'https://translate.google.com/'
+    },
+    signal: AbortSignal.timeout(8000)
+  });
+  if (!resp.ok) throw new Error(`Google TTS status: ${resp.status}`);
+  const buf = await resp.arrayBuffer();
+  if (!buf || buf.byteLength === 0) throw new Error('Google TTS empty');
+  return Buffer.from(buf);
+}
+
 app.post('/api/interview/speak', async (req, res) => {
   try {
     const { text = '', voice = 'onyx', speed = 0.95 } = req.body;
@@ -1355,7 +1402,37 @@ app.post('/api/interview/speak', async (req, res) => {
       return res.status(400).json({ success: false, message: 'Text is required.' });
     }
 
-    // ── 1. Microsoft Edge TTS (PRIMARY — free, neural, genuine Indonesian voices) ──
+    const isMale = voice === 'onyx' || voice === 'echo' || voice === 'fable';
+
+    // ── Tier 1 for Male: TikTok TTS (id_001 = Indonesian Male Voice, fast & reliable HTTP) ──
+    if (isMale) {
+      try {
+        const audioBuffer = await generateTikTokTTS(text, voice);
+        if (audioBuffer && audioBuffer.length > 0) {
+          res.setHeader('Content-Type', 'audio/mpeg');
+          res.setHeader('X-TTS-Provider', 'tiktok-male');
+          res.setHeader('X-TTS-Voice', 'id_001');
+          return res.end(audioBuffer);
+        }
+      } catch (tiktokErr) {
+        console.warn('[TikTok TTS Error]', tiktokErr.message);
+      }
+    } else {
+      // ── Tier 1 for Female: Google Translate TTS (Indonesian Female) ──
+      try {
+        const audioBuffer = await generateGoogleTTS(text);
+        if (audioBuffer && audioBuffer.length > 0) {
+          res.setHeader('Content-Type', 'audio/mpeg');
+          res.setHeader('X-TTS-Provider', 'google-female');
+          res.setHeader('X-TTS-Voice', 'id-female');
+          return res.end(audioBuffer);
+        }
+      } catch (gErr) {
+        console.warn('[Google TTS Error]', gErr.message);
+      }
+    }
+
+    // ── Tier 2: Microsoft Edge TTS (id-ID-ArdiNeural or GadisNeural) ──
     try {
       const audioBuffer = await generateEdgeTTS(text, voice);
       if (audioBuffer && audioBuffer.length > 0) {
@@ -1368,7 +1445,7 @@ app.post('/api/interview/speak', async (req, res) => {
       console.warn('[Edge TTS Error]', edgeErr.message);
     }
 
-    // ── 2. Sumopod / OpenAI TTS (Fallback) ──────────────────────────────────────
+    // ── Tier 3: Sumopod / OpenAI TTS (Fallback if active) ──
     const sumopodKey = process.env.SUMOPOD_API_KEY || process.env.OPENAI_API_KEY;
     let sumopodBaseUrl = (process.env.SUMOPOD_BASE_URL || 'https://ai.sumopod.com/v1').replace(/\/+$/, '');
     if (sumopodBaseUrl.includes('api.sumopod.com')) sumopodBaseUrl = 'https://ai.sumopod.com/v1';
@@ -1388,14 +1465,24 @@ app.post('/api/interview/speak', async (req, res) => {
           const audioBuffer = await ttsRes.arrayBuffer();
           return res.end(Buffer.from(audioBuffer));
         }
-        const errText = await ttsRes.text();
-        console.warn('[Sumopod TTS]', ttsRes.status, errText.slice(0, 100));
       } catch (ttsErr) {
         console.warn('[Sumopod TTS Exception]', ttsErr.message);
       }
     }
 
-    // ── 3. Both failed → tell client to use Web Speech API fallback ─────────────
+    // ── Tier 4: Cross-fallback (Google for male, or TikTok for female) ──
+    try {
+      const audioBuffer = isMale ? await generateGoogleTTS(text) : await generateTikTokTTS(text, voice);
+      if (audioBuffer && audioBuffer.length > 0) {
+        res.setHeader('Content-Type', 'audio/mpeg');
+        res.setHeader('X-TTS-Provider', isMale ? 'google-fallback' : 'tiktok-fallback');
+        return res.end(audioBuffer);
+      }
+    } catch (crossErr) {
+      console.warn('[Cross TTS Error]', crossErr.message);
+    }
+
+    // ── Tier 5: All server-side methods failed → client Web Speech fallback ──
     res.status(503).json({ success: false, message: 'TTS service unavailable. Use Web Speech API fallback.' });
 
   } catch (err) {
@@ -1408,7 +1495,37 @@ app.post('/api/interview/speak', async (req, res) => {
 app.get('/api/interview/speak-test', async (req, res) => {
   const voice = String(req.query.voice || 'onyx');
   const text = String(req.query.text || 'Selamat pagi, saya Bapak Hendra dari divisi HRD perusahaan manufaktur. Senang bertemu dengan Anda hari ini dalam sesi wawancara.');
+  const isMale = voice === 'onyx' || voice === 'echo' || voice === 'fable';
 
+  const errors = [];
+
+  // Try TikTok first for male
+  if (isMale) {
+    try {
+      const audioBuffer = await generateTikTokTTS(text, voice);
+      if (audioBuffer && audioBuffer.length > 0) {
+        res.setHeader('Content-Type', 'audio/mpeg');
+        res.setHeader('X-TTS-Provider', 'tiktok-male');
+        res.setHeader('X-TTS-Voice', 'id_001');
+        return res.end(audioBuffer);
+      }
+    } catch (e) {
+      errors.push(`TikTok: ${e.message}`);
+    }
+  } else {
+    try {
+      const audioBuffer = await generateGoogleTTS(text);
+      if (audioBuffer && audioBuffer.length > 0) {
+        res.setHeader('Content-Type', 'audio/mpeg');
+        res.setHeader('X-TTS-Provider', 'google-female');
+        return res.end(audioBuffer);
+      }
+    } catch (e) {
+      errors.push(`Google: ${e.message}`);
+    }
+  }
+
+  // Try Edge TTS
   try {
     const audioBuffer = await generateEdgeTTS(text, voice);
     if (audioBuffer && audioBuffer.length > 0) {
@@ -1419,7 +1536,7 @@ app.get('/api/interview/speak-test', async (req, res) => {
       return res.end(audioBuffer);
     }
   } catch (e) {
-    console.warn('[TTS Test Edge Error]', e.message);
+    errors.push(`Edge: ${e.message}`);
   }
 
   // Sumopod fallback
@@ -1440,12 +1557,27 @@ app.get('/api/interview/speak-test', async (req, res) => {
         const buf = await ttsRes.arrayBuffer();
         return res.end(Buffer.from(buf));
       }
-    } catch (e) { /* ignore */ }
+      errors.push(`Sumopod: HTTP ${ttsRes.status}`);
+    } catch (e) {
+      errors.push(`Sumopod: ${e.message}`);
+    }
+  }
+
+  // Final fallback
+  try {
+    const audioBuffer = isMale ? await generateGoogleTTS(text) : await generateTikTokTTS(text, voice);
+    if (audioBuffer && audioBuffer.length > 0) {
+      res.setHeader('Content-Type', 'audio/mpeg');
+      res.setHeader('X-TTS-Provider', isMale ? 'google-fallback' : 'tiktok-fallback');
+      return res.end(audioBuffer);
+    }
+  } catch (e) {
+    errors.push(`FinalFallback: ${e.message}`);
   }
 
   res.status(503).json({
     error: 'TTS unavailable',
-    note: 'Edge TTS dan Sumopod TTS keduanya tidak berhasil.'
+    details: errors
   });
 });
 
