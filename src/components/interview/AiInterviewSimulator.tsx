@@ -117,6 +117,7 @@ export const AiInterviewSimulator: React.FC<AiInterviewSimulatorProps> = ({
   const silenceTimerRef = useRef<any>(null);
   const callTimerRef = useRef<any>(null);
   const recognitionActiveRef = useRef<boolean>(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null); // For server TTS playback & interrupt
 
   // Synchronize Token Balance with storage & events
   useEffect(() => {
@@ -176,13 +177,13 @@ export const AiInterviewSimulator: React.FC<AiInterviewSimulatorProps> = ({
 
             // Reset silence detector
             if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
-            if (transcript.trim().split(/\s+/).length >= 4) {
-              // Auto-commit after 2.5s of natural pause
+            if (transcript.trim().split(/\s+/).length >= 3) {
+              // Auto-commit after 1.2s of natural pause (faster = more natural)
               silenceTimerRef.current = setTimeout(() => {
                 if (recognitionActiveRef.current) {
                   handleCommitCandidateAnswer(transcript);
                 }
-              }, 2500);
+              }, 1200);
             }
           }
         };
@@ -215,62 +216,116 @@ export const AiInterviewSimulator: React.FC<AiInterviewSimulatorProps> = ({
     };
   }, []);
 
-  // AI Voice Synthesis (Text-to-Speech) with Male/Female Pitch Calibration
-  const speakText = (text: string, onDoneCallback?: () => void) => {
+  // ─── Interrupt AI speech (user taps avatar while AI is talking) ──────────
+  const interruptAiSpeech = () => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.src = '';
+      audioRef.current = null;
+    }
+    window.speechSynthesis?.cancel();
+    setIsAiSpeaking(false);
+    startListeningToUser();
+  };
+
+  // ─── Web Speech API fallback TTS (last resort) ────────────────────────────
+  const speakWithWebSpeech = (text: string, onDoneCallback?: () => void) => {
     if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
       if (onDoneCallback) onDoneCallback();
       return;
     }
-
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = 'id-ID';
-
     const isMale = persona.gender === 'male';
-    // 0.78 pitch produces deep masculine baritone voice on Web Speech TTS
-    utterance.pitch = isMale ? 0.78 : 1.05;
-    utterance.rate = isMale ? 0.94 : 0.98;
-
-    // Indonesian voice preference
+    utterance.pitch = isMale ? 0.75 : 1.05;
+    utterance.rate = isMale ? 0.92 : 0.97;
     const voices = window.speechSynthesis.getVoices();
-    let preferredVoice = voices.find(v => {
-      const matchLang = v.lang.includes('id') || v.lang.includes('ID');
-      const name = v.name.toLowerCase();
-      if (!matchLang) return false;
-      if (isMale) {
-        return name.includes('male') || name.includes('david') || name.includes('arun') || name.includes('budi');
-      } else {
-        return name.includes('female') || name.includes('gadis') || name.includes('siti');
-      }
-    });
-
-    if (!preferredVoice) {
-      preferredVoice = voices.find(v => v.lang.includes('id') || v.lang.includes('ID'));
-    }
-    if (preferredVoice) utterance.voice = preferredVoice;
-
-    utterance.onstart = () => {
-      setIsAiSpeaking(true);
-      setConversationStatus('ai_talking');
-    };
-
+    const preferred = voices.find(v => v.lang.includes('id') || v.lang.includes('ID'));
+    if (preferred) utterance.voice = preferred;
+    utterance.onstart = () => { setIsAiSpeaking(true); setConversationStatus('ai_talking'); };
     utterance.onend = () => {
       setIsAiSpeaking(false);
-      if (onDoneCallback) {
-        onDoneCallback();
-      } else {
-        // Automatically start listening to user
-        startListeningToUser();
-      }
+      if (onDoneCallback) onDoneCallback(); else startListeningToUser();
     };
-
     utterance.onerror = () => {
       setIsAiSpeaking(false);
-      if (onDoneCallback) onDoneCallback();
-      else startListeningToUser();
+      if (onDoneCallback) onDoneCallback(); else startListeningToUser();
     };
-
     window.speechSynthesis.speak(utterance);
+  };
+
+  // ─── Primary TTS: Server-side Neural Voice (Sumopod onyx / Google TTS) ────
+  const speakText = async (text: string, onDoneCallback?: () => void) => {
+    if (!text.trim()) {
+      if (onDoneCallback) onDoneCallback();
+      return;
+    }
+
+    // Stop any currently playing audio
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.src = '';
+      audioRef.current = null;
+    }
+    window.speechSynthesis?.cancel();
+
+    setIsAiSpeaking(true);
+    setConversationStatus('ai_talking');
+
+    try {
+      const response = await fetch('/api/interview/speak', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text,
+          voice: persona.ttsVoice || 'onyx',
+          speed: persona.gender === 'male' ? 0.92 : 0.98
+        }),
+        signal: AbortSignal.timeout(15000) // 15s timeout
+      });
+
+      if (response.ok) {
+        const blob = await response.blob();
+        if (blob.size > 0) {
+          const audioUrl = URL.createObjectURL(blob);
+          const audio = new Audio(audioUrl);
+          audioRef.current = audio;
+
+          audio.onended = () => {
+            URL.revokeObjectURL(audioUrl);
+            audioRef.current = null;
+            setIsAiSpeaking(false);
+            if (onDoneCallback) onDoneCallback(); else startListeningToUser();
+          };
+
+          audio.onerror = () => {
+            URL.revokeObjectURL(audioUrl);
+            audioRef.current = null;
+            setIsAiSpeaking(false);
+            // Fallback to Web Speech on audio error
+            speakWithWebSpeech(text, onDoneCallback);
+          };
+
+          audio.play().catch(() => {
+            // Autoplay blocked or error — use Web Speech fallback
+            setIsAiSpeaking(false);
+            speakWithWebSpeech(text, onDoneCallback);
+          });
+          return; // Success path
+        }
+      }
+
+      // Server returned non-ok or empty → fallback
+      console.warn('[TTS] Server TTS unavailable, using Web Speech fallback');
+      setIsAiSpeaking(false);
+      speakWithWebSpeech(text, onDoneCallback);
+
+    } catch (err) {
+      console.warn('[TTS] Server TTS error:', err);
+      setIsAiSpeaking(false);
+      speakWithWebSpeech(text, onDoneCallback);
+    }
   };
 
   // Start listening to user voice automatically
@@ -681,43 +736,63 @@ export const AiInterviewSimulator: React.FC<AiInterviewSimulatorProps> = ({
               {/* Concentric Audio Ripples when AI is Speaking */}
               {isAiSpeaking && (
                 <>
-                  <div className="absolute -inset-10 rounded-full bg-purple-500/15 animate-ping opacity-60" />
-                  <div className="absolute -inset-6 rounded-full bg-indigo-500/25 animate-pulse" />
-                  <div className="absolute -inset-2 rounded-full bg-purple-400/30 animate-pulse" />
+                  <div className="absolute -inset-12 rounded-full bg-purple-500/10 animate-ping opacity-50" />
+                  <div className="absolute -inset-7 rounded-full bg-indigo-500/20 animate-pulse" />
+                  <div className="absolute -inset-3 rounded-full bg-purple-400/25 animate-pulse" />
                 </>
               )}
 
               {/* Concentric Audio Ripples when Candidate is Speaking */}
               {isRecording && !isAiSpeaking && (
                 <>
-                  <div className="absolute -inset-8 rounded-full bg-emerald-400/20 animate-ping opacity-75" />
-                  <div className="absolute -inset-4 rounded-full bg-teal-500/30 animate-pulse" />
+                  <div className="absolute -inset-9 rounded-full bg-emerald-400/15 animate-ping opacity-60" />
+                  <div className="absolute -inset-5 rounded-full bg-teal-500/25 animate-pulse" />
                 </>
               )}
 
-              {/* Avatar Image Frame */}
-              <div className={`relative w-36 h-36 sm:w-44 sm:h-44 rounded-full overflow-hidden border-4 shadow-2xl transition-all duration-500 ${
-                isAiSpeaking
-                  ? 'border-purple-400 ring-8 ring-purple-500/30 scale-105'
-                  : isRecording
-                    ? 'border-emerald-400 ring-8 ring-emerald-500/30 scale-105'
-                    : 'border-slate-700'
-              }`}>
+              {/* Avatar Image Frame — Tappable to Interrupt AI Speech */}
+              <div
+                onClick={isAiSpeaking ? interruptAiSpeech : undefined}
+                className={`relative w-36 h-36 sm:w-44 sm:h-44 rounded-full overflow-hidden border-4 shadow-2xl transition-all duration-500 ${
+                  isAiSpeaking
+                    ? 'border-purple-400 ring-8 ring-purple-500/30 scale-105 cursor-pointer hover:scale-110 hover:ring-purple-400/60'
+                    : isRecording
+                      ? 'border-emerald-400 ring-8 ring-emerald-500/30 scale-105'
+                      : 'border-slate-700'
+                }`}
+                title={isAiSpeaking ? `Tap untuk interupsi ${persona.name}` : undefined}
+              >
                 <img
                   src={persona.avatarUrl}
                   alt={persona.name}
                   className="w-full h-full object-cover"
                 />
+                {/* Interrupt overlay hint */}
+                {isAiSpeaking && (
+                  <div className="absolute inset-0 bg-purple-900/30 flex items-end justify-center pb-2 opacity-0 hover:opacity-100 transition-opacity duration-200">
+                    <span className="text-[9px] text-white font-bold bg-purple-600/80 px-2 py-0.5 rounded-full">TAP = INTERUPSI</span>
+                  </div>
+                )}
               </div>
 
             </div>
 
             {/* Live Interactive Status Pill */}
-            <div className="relative z-10">
+            <div className="relative z-10 min-h-[2rem] flex items-center justify-center">
               {isAiSpeaking && (
-                <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-purple-500/20 border border-purple-500/40 text-purple-200 text-xs font-bold animate-pulse">
-                  <Volume2 className="w-4 h-4 text-purple-400 animate-bounce" />
+                <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-purple-500/20 border border-purple-500/40 text-purple-200 text-xs font-bold">
+                  {/* Animated speaking bars */}
+                  <div className="flex items-end gap-0.5 h-4">
+                    {[1, 2, 3, 2, 1].map((h, i) => (
+                      <div
+                        key={i}
+                        className="w-0.5 bg-purple-400 rounded-full animate-pulse"
+                        style={{ height: `${h * 4}px`, animationDelay: `${i * 0.1}s` }}
+                      />
+                    ))}
+                  </div>
                   <span>{persona.name} sedang berbicara...</span>
+                  <span className="text-[9px] opacity-60 ml-1">• Tap avatar untuk interupsi</span>
                 </div>
               )}
 
@@ -729,9 +804,18 @@ export const AiInterviewSimulator: React.FC<AiInterviewSimulatorProps> = ({
               )}
 
               {conversationStatus === 'evaluating' && (
-                <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-300 text-xs font-bold">
-                  <Sparkles className="w-4 h-4 text-amber-400 animate-spin" />
-                  <span>{persona.name} sedang menyimak...</span>
+                <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300 text-xs font-bold">
+                  {/* Thinking dots animation */}
+                  <div className="flex items-center gap-0.5">
+                    {[0, 0.2, 0.4].map((delay, i) => (
+                      <div
+                        key={i}
+                        className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-bounce"
+                        style={{ animationDelay: `${delay}s` }}
+                      />
+                    ))}
+                  </div>
+                  <span>{persona.name} sedang memikirkan respons...</span>
                 </div>
               )}
             </div>
@@ -740,14 +824,16 @@ export const AiInterviewSimulator: React.FC<AiInterviewSimulatorProps> = ({
             {isSubtitlesVisible && (
               <div className="w-full max-w-xl bg-black/60 backdrop-blur-md border border-white/10 rounded-2xl p-4 my-4 relative z-10 text-center space-y-1.5 animate-in fade-in">
                 <span className="text-[10px] uppercase font-black tracking-wider text-slate-400 block">
-                  {isAiSpeaking ? `${persona.name}:` : 'Suara Anda:'}
+                  {isAiSpeaking ? `${persona.name}:` : conversationStatus === 'evaluating' ? 'Memproses...' : 'Suara Anda:'}
                 </span>
                 <p className="text-xs sm:text-sm font-medium text-slate-100 leading-relaxed italic min-h-[2.5rem] flex items-center justify-center">
                   {isAiSpeaking 
                     ? `"${latestAiDialogue}"` 
-                    : userInputText.trim() 
-                      ? `"${userInputText}"` 
-                      : 'Bicaralah langsung ke mikrofon, suara Anda akan tertangkap otomatis...'}
+                    : conversationStatus === 'evaluating'
+                      ? '...'
+                      : userInputText.trim() 
+                        ? `"${userInputText}"` 
+                        : 'Bicaralah langsung ke mikrofon, suara Anda akan tertangkap otomatis...'}
                 </p>
               </div>
             )}

@@ -1031,21 +1031,21 @@ app.post('/api/interview/generate-followup', async (req, res) => {
 
     // 1. Prioritize Sumopod.com / OpenAI-compatible API Gateway
     if (sumopodKey) {
-      const systemPrompt = `Anda adalah pewawancara AI HRD & User industri manufaktur profesional: "${interviewerPersona}".
-Target posisi yang dilamar kandidat: "${targetRole.toUpperCase()} (Pabrik / Manufaktur Industri)".
-Karakter Anda: Profesional, ramah, tegas, berwibawa, mengutamakan keselamatan kerja (K3), kedisiplinan, ketelitian, dan kesiapan fisik/mental pabrik.
+      const systemPrompt = `Anda adalah pewawancara HRD industri manufaktur profesional bernama "${interviewerPersona}".
+Posisi yang dilamar: ${targetRole.toUpperCase()} di pabrik manufaktur.
 
-Instruksi Wawancara:
-1. Anda sedang melakukan panggilan suara langsung (Live Voice Call) dengan kandidat.
-2. Tanggapi apa yang baru saja diceritakan kandidat secara alami dan apresiatif (1 kalimat tanggapan verbal).
-3. Sambungkan langsung dengan pertanyaan berikutnya yang mendalam, kontekstual, dan menguji kesiapan nyata kandidat untuk posisi ${targetRole}.
-4. Gunakan bahasa Indonesia lisan yang sangat alami, ringkas, santai namun formal (panjang total ucapan sekitar 35-50 kata agar nyaman didengar lewat audio suara).
+PENTING — Ini panggilan SUARA LANGSUNG, bukan chat teks. Gaya bicara harus:
+- Sangat alami seperti obrolan telepon sungguhan (BUKAN surat formal)
+- RINGKAS: TOTAL hanya 2 kalimat (25-35 kata saja) — 1 tanggapan + 1 pertanyaan
+- Sambungkan pertanyaan dengan apa yang baru saja diceritakan kandidat
+- Gunakan kata-kata sehari-hari: "Oh begitu ya", "Menarik sekali", "Oke baik", "Wah"
+- JANGAN panjang-panjang. Ini percakapan telepon, bukan pidato.
 
-Kembalikan HANYA format JSON valid tanpa markdown (\`\`\`json):
+Kembalikan HANYA JSON valid (tanpa markdown):
 {
-  "acknowledgement": "Tanggapan verbal alami atas jawaban kandidat",
-  "nextQuestion": "Pertanyaan lanjutan yang mengalir",
-  "fullSpoken": "Gabungan tanggapan dan pertanyaan lanjutan untuk diucapkan langsung"
+  "acknowledgement": "1 kalimat tanggapan alami atas jawaban kandidat (10-15 kata)",
+  "nextQuestion": "1 pertanyaan lanjutan yang natural dan kontekstual (15-20 kata)",
+  "fullSpoken": "Gabungan 2 kalimat di atas untuk diucapkan langsung via suara"
 }`;
 
       // Build multi-turn messages array
@@ -1072,8 +1072,8 @@ Kembalikan HANYA format JSON valid tanpa markdown (\`\`\`json):
           body: JSON.stringify({
             model: sumopodModel,
             messages,
-            temperature: 0.7,
-            max_tokens: 300
+            temperature: 0.75,
+            max_tokens: 200
           })
         });
 
@@ -1250,6 +1250,132 @@ Kembalikan HANYA format JSON valid tanpa markdown (\`\`\`json):
   } catch (err) {
     console.error('[Evaluate Error]', err);
     res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ----------------------------------------------------------------------------
+// AI INTERVIEW TTS PROXY — Suara Neural HRD (Onyx/Nova/Echo/Fable via Sumopod)
+// ----------------------------------------------------------------------------
+app.post('/api/interview/speak', async (req, res) => {
+  try {
+    const { text = '', voice = 'onyx', speed = 0.95 } = req.body;
+    if (!text.trim()) {
+      return res.status(400).json({ success: false, message: 'Text is required.' });
+    }
+
+    const sumopodKey = process.env.SUMOPOD_API_KEY || process.env.OPENAI_API_KEY;
+    let sumopodBaseUrl = (process.env.SUMOPOD_BASE_URL || 'https://ai.sumopod.com/v1').replace(/\/+$/, '');
+    if (sumopodBaseUrl.includes('api.sumopod.com')) {
+      sumopodBaseUrl = 'https://ai.sumopod.com/v1';
+    }
+
+    // 1. Try Sumopod / OpenAI TTS endpoint
+    if (sumopodKey) {
+      try {
+        const ttsRes = await fetch(`${sumopodBaseUrl}/audio/speech`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${sumopodKey}`
+          },
+          body: JSON.stringify({
+            model: 'tts-1',
+            input: text,
+            voice: voice,
+            speed: speed
+          })
+        });
+
+        if (ttsRes.ok) {
+          const contentType = ttsRes.headers.get('content-type') || 'audio/mpeg';
+          res.setHeader('Content-Type', contentType);
+          res.setHeader('X-TTS-Provider', 'sumopod');
+          res.setHeader('X-TTS-Voice', voice);
+          const audioBuffer = await ttsRes.arrayBuffer();
+          return res.end(Buffer.from(audioBuffer));
+        } else {
+          const errText = await ttsRes.text();
+          console.warn('[Sumopod TTS Not Supported]', ttsRes.status, errText.slice(0, 200));
+        }
+      } catch (ttsErr) {
+        console.warn('[Sumopod TTS Exception]', ttsErr.message);
+      }
+    }
+
+    // 2. Google Translate TTS Fallback (Free, no API key, supports Indonesian neural voice)
+    const encodedText = encodeURIComponent(text.slice(0, 200));
+    const gttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&tl=id&client=tw-ob&q=${encodedText}`;
+    try {
+      const gttsRes = await fetch(gttsUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          'Referer': 'https://translate.google.com/'
+        }
+      });
+      if (gttsRes.ok) {
+        const contentType = gttsRes.headers.get('content-type') || 'audio/mpeg';
+        res.setHeader('Content-Type', contentType);
+        res.setHeader('X-TTS-Provider', 'google-translate-fallback');
+        const audioBuffer = await gttsRes.arrayBuffer();
+        return res.end(Buffer.from(audioBuffer));
+      }
+    } catch (gttsErr) {
+      console.warn('[Google TTS Exception]', gttsErr.message);
+    }
+
+    // 3. Both failed — tell client to use Web Speech API fallback
+    res.status(503).json({ success: false, message: 'TTS service unavailable. Use Web Speech API fallback.' });
+
+  } catch (err) {
+    console.error('[TTS Proxy Error]', err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// GET version for easy browser testing: /api/interview/speak-test?voice=onyx&text=Halo
+app.get('/api/interview/speak-test', async (req, res) => {
+  const voice = req.query.voice || 'onyx';
+  const text = String(req.query.text || 'Selamat pagi, saya Bapak Hendra dari divisi HRD. Senang bertemu dengan Anda hari ini.');
+
+  const sumopodKey = process.env.SUMOPOD_API_KEY || process.env.OPENAI_API_KEY;
+  let sumopodBaseUrl = (process.env.SUMOPOD_BASE_URL || 'https://ai.sumopod.com/v1').replace(/\/+$/, '');
+  if (sumopodBaseUrl.includes('api.sumopod.com')) sumopodBaseUrl = 'https://ai.sumopod.com/v1';
+
+  let providerUsed = 'none';
+  try {
+    if (sumopodKey) {
+      const ttsRes = await fetch(`${sumopodBaseUrl}/audio/speech`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${sumopodKey}` },
+        body: JSON.stringify({ model: 'tts-1', input: text, voice, speed: 0.95 })
+      });
+      if (ttsRes.ok) {
+        providerUsed = 'sumopod';
+        res.setHeader('Content-Type', ttsRes.headers.get('content-type') || 'audio/mpeg');
+        res.setHeader('X-TTS-Provider', providerUsed);
+        res.setHeader('X-TTS-Voice', voice);
+        const buf = await ttsRes.arrayBuffer();
+        return res.end(Buffer.from(buf));
+      }
+      console.warn('[TTS Test] Sumopod returned', ttsRes.status);
+    }
+
+    // Google TTS fallback
+    const encodedText = encodeURIComponent(text.slice(0, 200));
+    const gttsRes = await fetch(`https://translate.google.com/translate_tts?ie=UTF-8&tl=id&client=tw-ob&q=${encodedText}`, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible)', 'Referer': 'https://translate.google.com/' }
+    });
+    if (gttsRes.ok) {
+      providerUsed = 'google-translate';
+      res.setHeader('Content-Type', gttsRes.headers.get('content-type') || 'audio/mpeg');
+      res.setHeader('X-TTS-Provider', providerUsed);
+      const buf = await gttsRes.arrayBuffer();
+      return res.end(Buffer.from(buf));
+    }
+
+    res.status(503).json({ error: 'TTS unavailable', providerUsed, note: 'Neither Sumopod TTS nor Google TTS responded with audio.' });
+  } catch (e) {
+    res.status(500).json({ error: e.message, providerUsed });
   }
 });
 

@@ -7,6 +7,7 @@ export interface RecruiterPersonaInfo {
   companyContext: string;
   avatarUrl: string;
   gender: 'male' | 'female';
+  ttsVoice: 'onyx' | 'echo' | 'fable' | 'nova' | 'alloy' | 'shimmer';
   greeting: string;
   closing: string;
 }
@@ -19,8 +20,9 @@ export const recruiterPersonas: Record<TargetRole, RecruiterPersonaInfo> = {
     companyContext: 'Divisi Rekrutmen Manufaktur & Perakitan',
     avatarUrl: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=400&auto=format&fit=crop&q=80',
     gender: 'male',
-    greeting: 'Halo, selamat pagi. Terima kasih sudah hadir tepat waktu untuk panggilan interview hari ini. Bagaimana kabarnya? Silakan perkenalkan diri Anda secara singkat, ceritakan latar belakang sekolah dan pengalaman PKL Anda.',
-    closing: 'Terima kasih banyak atas waktunya. Seluruh penjelasan Anda kami catat dengan baik. Mari kita lihat evaluasi sesi wawancara Anda.'
+    ttsVoice: 'onyx',
+    greeting: 'Halo, selamat pagi. Terima kasih sudah hadir tepat waktu. Bagaimana kabarnya? Silakan perkenalkan diri Anda secara singkat, ceritakan latar belakang sekolah dan pengalaman PKL Anda.',
+    closing: 'Baik, terima kasih banyak ya. Penjelasan Anda kami catat. Nanti saya sampaikan hasil evaluasinya.'
   },
   qc: {
     id: 'ratna',
@@ -29,8 +31,9 @@ export const recruiterPersonas: Record<TargetRole, RecruiterPersonaInfo> = {
     companyContext: 'Divisi Standar Mutu & Inspeksi Presisi',
     avatarUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=400&auto=format&fit=crop&q=80',
     gender: 'female',
-    greeting: 'Selamat pagi. Terima kasih atas kehadirannya. Silakan perkenalkan diri Anda dan ceritakan pemahaman Anda mengenai peran Quality Control (QC) di pabrik manufaktur.',
-    closing: 'Terima kasih atas penjelasan yang detail. Saya melihat ketelitian dan komitmen mutu yang baik. Mari kita lihat laporan hasil wawancara Anda.'
+    ttsVoice: 'nova',
+    greeting: 'Selamat pagi. Terima kasih atas kehadirannya. Silakan perkenalkan diri dan ceritakan pemahaman Anda mengenai peran Quality Control di pabrik manufaktur.',
+    closing: 'Baik, terima kasih atas penjelasannya. Ketelitian dan komitmen mutu Anda cukup terlihat. Mari kita lihat hasilnya.'
   },
   maintenance: {
     id: 'suryo',
@@ -39,8 +42,9 @@ export const recruiterPersonas: Record<TargetRole, RecruiterPersonaInfo> = {
     companyContext: 'Divisi Perawatan Mesin & Otomasi Pabrik',
     avatarUrl: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=400&auto=format&fit=crop&q=80',
     gender: 'male',
-    greeting: 'Selamat pagi. Silakan perkenalkan diri Anda dan ceritakan keahlian dasar kelistrikan dan mekanik mesin yang Anda kuasai.',
-    closing: 'Terima kasih, pemahaman teknis dan kepedulian K3 Anda sangat krusial di pabrik kami. Mari kita review hasil asesmen teknis ini.'
+    ttsVoice: 'echo',
+    greeting: 'Selamat pagi. Silakan perkenalkan diri Anda dan ceritakan keahlian dasar kelistrikan dan mekanik yang Anda kuasai.',
+    closing: 'Oke, terima kasih. Pemahaman teknis dan kepedulian K3 Anda kami nilai dengan baik. Silakan lihat hasil asesmen ini.'
   },
   logistics: {
     id: 'anton',
@@ -49,8 +53,9 @@ export const recruiterPersonas: Record<TargetRole, RecruiterPersonaInfo> = {
     companyContext: 'Divisi Logistik, Pergudangan & Distribusi',
     avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&auto=format&fit=crop&q=80',
     gender: 'male',
-    greeting: 'Selamat pagi. Silakan perkenalkan diri Anda dan ceritakan pengalaman Anda dalam manajemen barang di gudang atau pergudangan sekolah/PKL.',
-    closing: 'Terima kasih. Ketelitian pencatatan stok dan disiplin FIFO adalah kunci kelancaran rantai pasok kita. Silakan lihat hasil evaluasi Anda.'
+    ttsVoice: 'fable',
+    greeting: 'Selamat pagi. Silakan perkenalkan diri Anda dan ceritakan pengalaman dalam manajemen barang di gudang atau saat PKL.',
+    closing: 'Oke baik, terima kasih. Ketelitian pencatatan stok dan kedisiplinan adalah kunci. Kita lihat evaluasi Anda ya.'
   }
 };
 
