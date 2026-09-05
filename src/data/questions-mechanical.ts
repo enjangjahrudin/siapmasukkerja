@@ -683,5 +683,21 @@ export const mechanicalQuestionBank: BaseQuestion[] = Array.from({ length: 1008 
   return GENERATOR_FUNCTIONS[genIdx](idx * 13 + 7);
 });
 
+// Standard locked duration per question count preset (Bennett Mechanical Benchmark)
+export function getMechanicalStandardDuration(questionCount: number): { seconds: number; label: string; perQuestion: string } {
+  switch (questionCount) {
+    case 10:
+      return { seconds: 10 * 60, label: '10 Menit', perQuestion: '60 detik / soal' };
+    case 20:
+      return { seconds: 18 * 60, label: '18 Menit', perQuestion: '54 detik / soal' };
+    case 35:
+      return { seconds: 30 * 60, label: '30 Menit', perQuestion: '51 detik / soal' };
+    case 50:
+      return { seconds: 45 * 60, label: '45 Menit', perQuestion: '54 detik / soal' };
+    default:
+      return { seconds: Math.round(questionCount * 60), label: `${Math.round((questionCount * 60) / 60)} Menit`, perQuestion: '60 detik / soal' };
+  }
+}
+
 // Default active sample questions for tryouts & backward compatibility
 export const mechanicalQuestions: BaseQuestion[] = mechanicalQuestionBank.slice(0, 10);

@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { getRandomMechanicalSet, mechanicalQuestionBank } from '../../data/questions-mechanical';
+import React, { useState, useEffect, useRef } from 'react';
+import { getRandomMechanicalSet, mechanicalQuestionBank, getMechanicalStandardDuration } from '../../data/questions-mechanical';
 import { BaseQuestion } from '../../types';
 import { sounds } from '../../utils/sound-effects';
 import { 
@@ -11,16 +11,61 @@ import {
   Sparkles,
   Shuffle,
   Layers,
-  HelpCircle
+  HelpCircle,
+  Clock,
+  Play,
+  ShieldCheck,
+  Zap
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
 export const MechanicalTest: React.FC = () => {
-  const [questions, setQuestions] = useState<BaseQuestion[]>(() => getRandomMechanicalSet(10));
+  const [selectedQuestionCount, setSelectedQuestionCount] = useState<number>(10);
+  const [gameState, setGameState] = useState<'setup' | 'running' | 'completed'>('setup');
+
+  const [questions, setQuestions] = useState<BaseQuestion[]>([]);
   const [currentIndex, setCurrentIndex] = useState<number>(0);
   const [selectedAnswers, setSelectedAnswers] = useState<Record<number, number>>({});
   const [showExplanation, setShowExplanation] = useState<boolean>(false);
-  const [isFinished, setIsFinished] = useState<boolean>(false);
+  const [timeLeft, setTimeLeft] = useState<number>(10 * 60);
+
+  const timerRef = useRef<any>(null);
+  const durationInfo = getMechanicalStandardDuration(selectedQuestionCount);
+
+  const handleStartTest = () => {
+    const batch = getRandomMechanicalSet(selectedQuestionCount);
+    setQuestions(batch);
+    setCurrentIndex(0);
+    setSelectedAnswers({});
+    setShowExplanation(false);
+    setTimeLeft(durationInfo.seconds);
+    setGameState('running');
+    sounds.playBeep();
+  };
+
+  useEffect(() => {
+    if (gameState === 'running') {
+      timerRef.current = setInterval(() => {
+        setTimeLeft(prev => {
+          if (prev <= 1) {
+            finishTest();
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, [gameState, questions, selectedAnswers]);
+
+  const finishTest = () => {
+    setGameState('completed');
+    if (timerRef.current) clearInterval(timerRef.current);
+    sounds.playCelebration();
+    confetti({ particleCount: 75, spread: 60 });
+  };
 
   const currentQ = questions[currentIndex] || questions[0];
   const selectedOpt = selectedAnswers[currentIndex];
@@ -45,9 +90,7 @@ export const MechanicalTest: React.FC = () => {
       setCurrentIndex(prev => prev + 1);
       setShowExplanation(selectedAnswers[currentIndex + 1] !== undefined);
     } else {
-      setIsFinished(true);
-      sounds.playCelebration();
-      confetti({ particleCount: 75, spread: 60 });
+      finishTest();
     }
   };
 
@@ -58,20 +101,37 @@ export const MechanicalTest: React.FC = () => {
     }
   };
 
-  const handleReset = (newBatch: boolean = true) => {
-    if (newBatch) {
-      setQuestions(getRandomMechanicalSet(10));
-    }
+  const handleResetToSetup = () => {
+    if (timerRef.current) clearInterval(timerRef.current);
+    setGameState('setup');
     setSelectedAnswers({});
     setCurrentIndex(0);
     setShowExplanation(false);
-    setIsFinished(false);
+    sounds.playBeep();
+  };
+
+  const handleRestartNewBatch = () => {
+    const freshBatch = getRandomMechanicalSet(selectedQuestionCount);
+    setQuestions(freshBatch);
+    setSelectedAnswers({});
+    setCurrentIndex(0);
+    setShowExplanation(false);
+    setTimeLeft(durationInfo.seconds);
+    setGameState('running');
+    sounds.playBeep();
+  };
+
+  const formatTime = (secs: number) => {
+    const mins = Math.floor(secs / 60);
+    const remainderSecs = secs % 60;
+    return `${mins.toString().padStart(2, '0')}:${remainderSecs.toString().padStart(2, '0')}`;
   };
 
   const correctCount = Object.entries(selectedAnswers).filter(
     ([idx, ans]) => questions[Number(idx)] && questions[Number(idx)].correctAnswer === ans
   ).length;
-  const scorePercent = Math.round((correctCount / questions.length) * 100);
+  const scorePercent = questions.length > 0 ? Math.round((correctCount / questions.length) * 100) : 0;
+  const isTimeLow = timeLeft < 60;
 
   // --------------------------------------------------------------------------
   // Rich SVG Mechanical Diagram Renderers (14 Dynamic Diagram Types)
@@ -571,10 +631,109 @@ export const MechanicalTest: React.FC = () => {
   return (
     <div className="w-full h-full flex flex-col justify-between p-3.5 pb-12 select-none overflow-y-auto">
       
-      {!isFinished ? (
-        <div className="space-y-3">
+      {/* 1. SETUP SCREEN: PILIHAN PAKET & WAKTU STANDAR BMCT */}
+      {gameState === 'setup' && (
+        <div className="space-y-4 pb-8 max-w-2xl mx-auto w-full">
+          {/* Header Card */}
+          <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-3xl p-5 shadow-xs">
+            <div className="flex items-center justify-between gap-2 mb-2">
+              <span className="bg-brand-100 dark:bg-brand-950/70 text-brand-900 dark:text-brand-300 text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full border border-brand-200 dark:border-brand-800">
+                Bennett Mechanical (BMCT)
+              </span>
+              <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                <ShieldCheck className="w-3.5 h-3.5 text-brand-600" />
+                Standar Astra, Toyota, Epson
+              </span>
+            </div>
+
+            <h1 className="text-lg font-extrabold text-slate-900 dark:text-white leading-tight">
+              Tes Pemahaman Mekanikal & Listrik
+            </h1>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+              Mencakup simulasi roda gigi bertingkat, sistem katrol & derek, tuas & momen, bejana berhubungan, hidrolik pascal, rangkaian listrik, bidang miring, bimetal, gaya gesek, dan daya apung fluida.
+            </p>
+          </div>
+
+          {/* Preset Selector */}
+          <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-3xl p-5 shadow-xs space-y-4">
+            <div>
+              <label className="block text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-2">
+                Pilih Jumlah Soal & Waktu Pengerjaan Standar:
+              </label>
+              
+              <div className="grid grid-cols-2 gap-2.5">
+                {[
+                  { count: 10, label: '10 Soal', dur: '10 Menit', desc: 'Standar Kilat BMCT (60 dtk/soal)', badge: 'Populer' },
+                  { count: 20, label: '20 Soal', dur: '18 Menit', desc: 'Standar Seleksi Operator', badge: 'Ideal' },
+                  { count: 35, label: '35 Soal', dur: '30 Menit', desc: 'Standar Tes Bennett Resmi', badge: 'Lengkap' },
+                  { count: 50, label: '50 Soal', dur: '45 Menit', desc: 'Full Simulation CAT Bennett', badge: 'Tantangan' },
+                ].map((item) => (
+                  <button
+                    key={item.count}
+                    type="button"
+                    onClick={() => setSelectedQuestionCount(item.count)}
+                    className={`p-3.5 rounded-2xl border text-left transition-all relative ${
+                      selectedQuestionCount === item.count
+                        ? 'bg-brand-50 dark:bg-brand-950/40 border-brand-500 text-brand-950 dark:text-brand-200 ring-2 ring-brand-200 dark:ring-brand-800 shadow-xs'
+                        : 'bg-slate-50 dark:bg-slate-750 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-sm font-black">{item.label}</span>
+                      <span className={`text-[9px] font-black px-1.5 py-0.5 rounded ${
+                        selectedQuestionCount === item.count ? 'bg-brand-600 text-white' : 'bg-slate-200 dark:bg-slate-650 text-slate-600 dark:text-slate-300'
+                      }`}>
+                        {item.badge}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-brand-700 dark:text-brand-300 mb-1">
+                      <Clock className="w-3.5 h-3.5" />
+                      <span>{item.dur}</span>
+                    </div>
+                    
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                      {item.desc}
+                    </p>
+
+                    {selectedQuestionCount === item.count && (
+                      <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-brand-600" />
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Info Waktu Standar */}
+            <div className="p-3 bg-slate-50 dark:bg-slate-750 rounded-2xl border border-slate-100 dark:border-slate-700 flex items-center justify-between text-xs">
+              <div className="flex items-center gap-2">
+                <Clock className="w-4 h-4 text-brand-600" />
+                <span className="font-bold text-slate-700 dark:text-slate-300">Waktu yang Disediakan:</span>
+              </div>
+              <div className="text-right">
+                <span className="font-extrabold text-brand-600 dark:text-brand-400">{durationInfo.label}</span>
+                <span className="text-[10px] text-slate-400 ml-1.5">({durationInfo.perQuestion})</span>
+              </div>
+            </div>
+
+            {/* Start Button */}
+            <button
+              onClick={handleStartTest}
+              className="w-full py-4 bg-brand-600 hover:bg-brand-700 text-white font-extrabold text-sm rounded-2xl shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 group"
+            >
+              <Play className="w-4 h-4 fill-white" />
+              <span>Mulai Tes Mekanika Sekarang</span>
+              <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 2. RUNNING SCREEN */}
+      {gameState === 'running' && currentQ && (
+        <div className="space-y-3 max-w-2xl mx-auto w-full">
           
-          {/* Top Header Card */}
+          {/* Top Header Card with Timer */}
           <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-2.5 shadow-xs flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span className="text-[11px] font-extrabold text-brand-700 dark:text-brand-300 bg-brand-50 dark:bg-brand-950/60 px-2 py-0.5 rounded-lg border border-brand-200 dark:border-brand-800">
@@ -586,21 +745,24 @@ export const MechanicalTest: React.FC = () => {
               </span>
             </div>
 
+            {/* Timer & Controls */}
             <div className="flex items-center gap-2">
-              <div className="w-24 sm:w-32 bg-slate-100 dark:bg-slate-700 rounded-full h-1.5 overflow-hidden">
-                <div 
-                  className="bg-brand-600 h-1.5 rounded-full transition-all duration-300"
-                  style={{ width: `${((currentIndex + 1) / questions.length) * 100}%` }}
-                />
+              <div className={`flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-mono font-extrabold border ${
+                isTimeLow 
+                  ? 'bg-red-50 dark:bg-red-950/60 text-red-600 dark:text-red-300 border-red-200 dark:border-red-800 animate-pulse' 
+                  : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-600'
+              }`}>
+                <Clock className={`w-3.5 h-3.5 ${isTimeLow ? 'text-red-500' : 'text-brand-600'}`} />
+                <span>{formatTime(timeLeft)}</span>
               </div>
 
               <button
-                onClick={() => handleReset(true)}
-                title="Acak 10 Soal Baru dari Bank Soal"
-                className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-brand-100 dark:hover:bg-brand-900/50 text-slate-600 dark:text-slate-300 hover:text-brand-600 transition-all flex items-center gap-1 text-[10px] font-bold"
+                onClick={handleResetToSetup}
+                className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-300 transition-all flex items-center gap-1 text-[10px] font-bold"
+                title="Keluar / Ganti Paket"
               >
-                <Shuffle className="w-3.5 h-3.5" />
-                <span className="hidden md:inline">Acak Soal</span>
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span className="hidden md:inline">Ganti Paket</span>
               </button>
             </div>
           </div>
@@ -694,9 +856,11 @@ export const MechanicalTest: React.FC = () => {
           </div>
 
         </div>
-      ) : (
-        /* Result Summary Screen */
-        <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-3xl p-6 shadow-xs text-center space-y-5">
+      )}
+
+      {/* 3. RESULT SUMMARY SCREEN */}
+      {gameState === 'completed' && (
+        <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-3xl p-6 shadow-xs text-center space-y-5 max-w-xl mx-auto w-full">
           <div className="w-14 h-14 rounded-2xl bg-brand-100 dark:bg-brand-900/60 text-brand-600 dark:text-brand-400 flex items-center justify-center mx-auto shadow-inner">
             <Award className="w-8 h-8" />
           </div>
@@ -717,19 +881,18 @@ export const MechanicalTest: React.FC = () => {
 
           <div className="space-y-2">
             <button
-              onClick={() => handleReset(true)}
+              onClick={handleRestartNewBatch}
               className="w-full py-3 bg-brand-600 hover:bg-brand-700 text-white font-extrabold text-xs rounded-2xl shadow-md transition-all flex items-center justify-center gap-2"
             >
               <Shuffle className="w-4 h-4" />
-              Latihan Lagi (10 Soal Acak Baru)
+              Latihan Lagi ({selectedQuestionCount} Soal Acak Baru)
             </button>
 
             <button
-              onClick={() => handleReset(false)}
+              onClick={handleResetToSetup}
               className="w-full py-2.5 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 font-bold text-xs rounded-2xl transition-all flex items-center justify-center gap-1.5"
             >
-              <RotateCcw className="w-3.5 h-3.5" />
-              Ulangi 10 Soal yang Sama
+              Pilih Paket Soal Lain
             </button>
           </div>
         </div>

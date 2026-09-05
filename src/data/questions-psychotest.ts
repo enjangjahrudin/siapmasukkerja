@@ -1003,4 +1003,20 @@ export const psychotestQuestionBank: BaseQuestion[] = Array.from({ length: 1000 
   return PSYCHOTEST_GENERATORS[genIdx](idx * 23 + 11);
 });
 
+// Standard locked duration per question count preset (Psychotest Logic & Reasoning)
+export function getPsychotestStandardDuration(questionCount: number): { seconds: number; label: string; perQuestion: string } {
+  switch (questionCount) {
+    case 10:
+      return { seconds: 8 * 60, label: '8 Menit', perQuestion: '48 detik / soal' };
+    case 20:
+      return { seconds: 15 * 60, label: '15 Menit', perQuestion: '45 detik / soal' };
+    case 30:
+      return { seconds: 22 * 60, label: '22 Menit', perQuestion: '44 detik / soal' };
+    case 50:
+      return { seconds: 35 * 60, label: '35 Menit', perQuestion: '42 detik / soal' };
+    default:
+      return { seconds: Math.round(questionCount * 48), label: `${Math.round((questionCount * 48) / 60)} Menit`, perQuestion: '48 detik / soal' };
+  }
+}
+
 export const psychotestQuestions: BaseQuestion[] = psychotestQuestionBank.slice(0, 10);
