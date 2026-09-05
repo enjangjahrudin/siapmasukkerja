@@ -101,23 +101,45 @@ function generateEdgeTTS(text, voiceKey) {
 }
 
 // ─── TikTok TTS — HTTP via Cloudflare Workers (no WebSocket, always accessible) ───
-// voice id_001 = Indonesian Male, id_002 = Indonesian Female
+// voice id_001 = Indonesian Male (100% logat asli Indonesia tanpa aksen bule/asing)
 async function generateTikTokTTS(text, voiceKey) {
   const voice = TIKTOK_TTS_VOICE_MAP[voiceKey] || 'id_001';
-  const safeText = text.slice(0, 300); // TikTok TTS max ~300 chars
-
-  // Primary: community proxy via Cloudflare Workers (very stable)
-  const resp = await fetch('https://tiktok-tts.weilnet.workers.dev/api/generation', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ text: safeText, voice }),
-    signal: AbortSignal.timeout(10000)
-  });
-
-  if (!resp.ok) throw new Error(`TikTok TTS proxy: ${resp.status}`);
-  const json = await resp.json();
-  if (json.success && json.data) {
-    return Buffer.from(json.data, 'base64');
+  if (text.length <= 280) {
+    const resp = await fetch('https://tiktok-tts.weilnet.workers.dev/api/generation', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text, voice }),
+      signal: AbortSignal.timeout(10000)
+    });
+    if (!resp.ok) throw new Error(`TikTok TTS proxy: ${resp.status}`);
+    const json = await resp.json();
+    if (json.success && json.data) {
+      return Buffer.from(json.data, 'base64');
+    }
+  } else {
+    const chunks = text.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [text];
+    const audioBuffers = [];
+    for (const chunk of chunks) {
+      const trimmed = chunk.trim();
+      if (!trimmed) continue;
+      try {
+        const resp = await fetch('https://tiktok-tts.weilnet.workers.dev/api/generation', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: trimmed.slice(0, 280), voice }),
+          signal: AbortSignal.timeout(10000)
+        });
+        if (resp.ok) {
+          const json = await resp.json();
+          if (json.success && json.data) {
+            audioBuffers.push(Buffer.from(json.data, 'base64'));
+          }
+        }
+      } catch (_) {}
+    }
+    if (audioBuffers.length > 0) {
+      return Buffer.concat(audioBuffers);
+    }
   }
   throw new Error('TikTok TTS: no audio data in response');
 }
@@ -1360,41 +1382,104 @@ app.post('/api/interview/evaluate-session', async (req, res) => {
       candidateName = 'Kandidat',
       targetRole = 'operator',
       interviewerPersona = 'Bapak Hendra',
-      transcript = [] // Array of { speaker: string, text: string }
+      transcript = [] // Array of { speaker: string, text: string, role?: string }
     } = req.body;
 
     const aiConfig = getAiConfig();
 
+    // 1. Rigorous Candidate Response Verification
+    const candidateTurns = Array.isArray(transcript)
+      ? transcript.filter(t => 
+          t.role === 'user' ||
+          (t.speaker && (
+            t.speaker === candidateName || 
+            t.speaker.toLowerCase().includes('anda') || 
+            t.speaker.toLowerCase().includes('kandidat')
+          ))
+        )
+      : [];
+
+    const candidateWordCount = candidateTurns
+      .map(t => t.text || '')
+      .join(' ')
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean).length;
+
+    // CASE 1: Candidate did not speak at all or disconnected immediately (< 4 words)
+    if (candidateTurns.length === 0 || candidateWordCount < 4) {
+      return res.json({
+        success: true,
+        isAiEvaluated: true,
+        evaluation: {
+          totalAcceptanceProbability: 0,
+          relevanceScore: 0,
+          articulationScore: 0,
+          etiquetteScore: 10,
+          jobFitScore: 0,
+          summary: 'Sesi wawancara diakhiri tanpa adanya jawaban atau respons suara dari kandidat. HRD tidak dapat memberikan nilai kelulusan karena Anda belum menjawab pertanyaan yang diajukan.',
+          strengths: ['Panggilan telepon berhasil tersambung ke ruang interview'],
+          weaknesses: [
+            'Kandidat tidak memberikan jawaban sama sekali atas pertanyaan HRD',
+            'Panggilan ditutup sebelum proses wawancara berlangsung'
+          ],
+          actionableFeedback: 'Nyalakan mikrofon Anda dan berbicaralah dengan lantang saat HRD selesai memberikan pertanyaan. Jangan menutup panggilan sebelum Anda menjawab agar kemampuan Anda dapat dinilai secara objektif.'
+        }
+      });
+    }
+
+    // CASE 2: Very minimal response / Abrupt disconnection early on (1 turn, < 15 words)
+    if (candidateTurns.length === 1 && candidateWordCount < 15) {
+      return res.json({
+        success: true,
+        isAiEvaluated: true,
+        evaluation: {
+          totalAcceptanceProbability: 15,
+          relevanceScore: 15,
+          articulationScore: 20,
+          etiquetteScore: 35,
+          jobFitScore: 10,
+          summary: 'Sesi wawancara diakhiri terlalu cepat. Kandidat hanya memberikan 1 jawaban yang sangat singkat lalu mengakhiri panggilan, sehingga tidak memenuhi standar minimum kelulusan asesmen HRD.',
+          strengths: ['Merespons pembuka di awal sesi wawancara'],
+          weaknesses: [
+            'Jawaban terputus dan sangat minim informasi',
+            'Sesi dihentikan sebelum pertanyaan kompetensi teknis & motivasi kerja digali'
+          ],
+          actionableFeedback: 'Ikuti sesi wawancara hingga selesai (minimal 6-10 pertanyaan). Jelaskan pengalaman, keterampilan teknis, dan kesiapan shift kerja Anda secara terstruktur menggunakan metode STAR.'
+        }
+      });
+    }
+
+    // Format full dialogue transcript
     const transcriptFormatted = Array.isArray(transcript) 
       ? transcript.map(t => `${t.speaker}: ${t.text}`).join('\n')
       : String(transcript);
 
     if (aiConfig.apiKey && transcriptFormatted.length > 20) {
-      const evalPrompt = `Anda adalah Tim Rekrutmen & Penilai Asesmen HRD Industri Manufaktur untuk posisi "${targetRole.toUpperCase()}".
+      const evalPrompt = `Anda adalah Tim Asesor Rekrutmen & Asesmen HRD Industri Manufaktur untuk posisi "${targetRole.toUpperCase()}".
 Berikut adalah transkrip rekaman percakapan suara wawancara antara HRD (${interviewerPersona}) dengan kandidat (${candidateName}):
 
 --- TRANSKRIP LENGKAP ---
 ${transcriptFormatted}
 --- AKHIR TRANSKRIP ---
 
-Tugas Anda:
-Lakukan evaluasi menyeluruh dan objektif terhadap performa wawancara kandidat berdasarkan standar rekrutmen pabrik / manufaktur.
-Nilai 4 aspek (skor 0 - 100):
-1. relevanceScore: Relevansi jawaban dengan pertanyaan dan metode STAR.
-2. articulationScore: Artikulasi bicara, ketegasan, dan kejelasan ide.
-3. etiquetteScore: Sikap, kesopanan, kerendahan hati, dan kepatuhan norma kerja.
-4. jobFitScore: Kesesuaian fisik/mental, pemahaman teknis/PKL, dan komitmen shift pabrik.
-Kembalikan HANYA format JSON valid tanpa tanda kutip markdown:
+ATURAN KRUSIAL PENILAIAN ASESMEN HRD:
+1. Hitung jumlah pertanyaan yang benar-benar dijawab oleh kandidat (${candidateName}). Wawancara standar pabrik membutuhkan minimal 6-10 pertanyaan untuk evaluasi kelulusan.
+2. Jika kandidat hanya menjawab 1-2 pertanyaan dari seluruh sesi, nilai totalAcceptanceProbability MAKSIMAL adalah 25% (STATUS: TIDAK LOLOS / GAGAL).
+3. Jika kandidat menjawab 3-5 pertanyaan, nilai MAKSIMAL adalah 55% (STATUS: BELUM MEMENUHI STANDAR / TIDAK LENGKAP).
+4. Skor kelulusan (>= 70%) HANYA boleh diberikan jika kandidat menjawab minimal 6 pertanyaan dengan relevansi STAR yang kuat, motivasi tinggi, dan pemahaman teknis/PKL yang baik.
+5. DILARANG MENGARANG ATAU BERHALUSINASI tentang jawaban yang tidak pernah diucapkan oleh kandidat. Evaluasi HANYA berdasarkan apa yang tertulis dalam transkrip di atas!
+6. Kembalikan HANYA format JSON valid tanpa tanda kutip markdown dan tanpa teks lain:
 {
-  "totalAcceptanceProbability": 78,
-  "relevanceScore": 75,
-  "articulationScore": 80,
-  "etiquetteScore": 85,
-  "jobFitScore": 72,
-  "summary": "Ringkasan kesimpulan performa wawancara (2-3 kalimat)",
-  "strengths": ["Poin kelebihan 1", "Poin kelebihan 2"],
-  "weaknesses": ["Poin yang perlu ditingkatkan 1", "Poin yang perlu ditingkatkan 2"],
-  "actionableFeedback": "Saran konkret untuk meningkatkan peluang lolos di interview nyata"
+  "totalAcceptanceProbability": <integer 0 - 100>,
+  "relevanceScore": <integer 0 - 100>,
+  "articulationScore": <integer 0 - 100>,
+  "etiquetteScore": <integer 0 - 100>,
+  "jobFitScore": <integer 0 - 100>,
+  "summary": "<Analisis performa kandidat secara objektif dan jujur 2-3 kalimat>",
+  "strengths": ["<Kelebihan riil jawaban kandidat>", "<Kelebihan riil lainnya>"],
+  "weaknesses": ["<Kekurangan atau kelemahan riil kandidat>", "<Kekurangan riil lainnya>"],
+  "actionableFeedback": "<Saran konkret langkah demi langkah agar kandidat dapat lolos wawancara nyata di pabrik>"
 }`;
 
       try {
@@ -1407,8 +1492,8 @@ Kembalikan HANYA format JSON valid tanpa tanda kutip markdown:
           body: JSON.stringify({
             model: aiConfig.model,
             messages: [{ role: 'system', content: evalPrompt }],
-            temperature: 0.5,
-            max_tokens: 500
+            temperature: 0.3,
+            max_tokens: 600
           })
         });
 
@@ -1417,6 +1502,12 @@ Kembalikan HANYA format JSON valid tanpa tanda kutip markdown:
           const raw = evalData?.choices?.[0]?.message?.content || '';
           const cleaned = raw.replace(/```json/g, '').replace(/```/g, '').trim();
           const parsed = JSON.parse(cleaned);
+
+          // Additional safety: ensure score respects turn count
+          if (candidateTurns.length <= 2 && parsed.totalAcceptanceProbability > 30) {
+            parsed.totalAcceptanceProbability = Math.min(30, parsed.totalAcceptanceProbability);
+          }
+
           return res.json({
             success: true,
             isAiEvaluated: true,
@@ -1428,11 +1519,22 @@ Kembalikan HANYA format JSON valid tanpa tanda kutip markdown:
       }
     }
 
-    // Heuristic Fallback
+    // Heuristic Fallback based on genuine candidate metrics
+    const baseScore = Math.min(92, Math.max(20, Math.round(15 + (candidateTurns.length * 8) + (candidateWordCount * 0.15))));
     res.json({
       success: true,
       isAiEvaluated: false,
-      message: 'Using client-side heuristic evaluation'
+      evaluation: {
+        totalAcceptanceProbability: baseScore,
+        relevanceScore: Math.min(95, baseScore),
+        articulationScore: Math.min(95, Math.max(20, baseScore - 5)),
+        etiquetteScore: Math.min(98, baseScore + 5),
+        jobFitScore: Math.min(95, baseScore),
+        summary: `Kandidat telah menyelesaikan ${candidateTurns.length} pertanyaan wawancara dengan ${candidateWordCount} kata terartikulasi.`,
+        strengths: ['Menunjukkan komitmen dan kesiapan merespons pertanyaan'],
+        weaknesses: ['Perlu mempertajam contoh konkret pengalaman kerja/PKL dengan metode STAR'],
+        actionableFeedback: 'Latihlah artikulasi secara teratur dan berikan jawaban yang lebih terstruktur mengenai kesiapan kerja Anda di lini industri.'
+      }
     });
   } catch (err) {
     console.error('[Evaluate Error]', err);
@@ -1441,31 +1543,12 @@ Kembalikan HANYA format JSON valid tanpa tanda kutip markdown:
 });
 
 // ----------------------------------------------------------------------------
-// AI INTERVIEW TTS PROXY — Suara Neural HRD
-// Priority:
-// 1. OpenAI Official TTS (tts-1: onyx / nova) jika OpenAI API Key tersedia
-// 2. TikTok TTS (id_001 = Indonesian Male) via Cloudflare
-// 3. Google Translate TTS (Indonesian Female)
-// 4. Microsoft Edge TTS (id-ID-ArdiNeural / GadisNeural)
-// 5. Client Web Speech API fallback
+// AI INTERVIEW TTS PROXY — Suara Asli Indonesia Tanpa Logat Bule
 // ----------------------------------------------------------------------------
-
-// Helper: generate audio via Google Translate TTS (Female Indonesian)
-async function generateGoogleTTS(text) {
-  const safeText = encodeURIComponent(text.slice(0, 200));
-  const resp = await fetch(`https://translate.google.com/translate_tts?ie=UTF-8&tl=id&client=tw-ob&q=${safeText}`, {
-    headers: {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      'Referer': 'https://translate.google.com/'
-    },
-    signal: AbortSignal.timeout(8000)
-  });
-  if (!resp.ok) throw new Error(`Google TTS status: ${resp.status}`);
-  const buf = await resp.arrayBuffer();
-  if (!buf || buf.byteLength === 0) throw new Error('Google TTS empty');
-  return Buffer.from(buf);
-}
-
+// Prioritas 1: TikTok ID Male (id_001) / Google ID Female — Suara asli Indonesia tulen
+// Prioritas 2: Microsoft Edge TTS (id-ID-ArdiNeural / GadisNeural)
+// Fallback: OpenAI Official TTS (tts-1)
+// ----------------------------------------------------------------------------
 app.post('/api/interview/speak', async (req, res) => {
   try {
     const { text = '', voice = 'onyx', speed = 0.95 } = req.body;
@@ -1473,11 +1556,64 @@ app.post('/api/interview/speak', async (req, res) => {
       return res.status(400).json({ success: false, message: 'Text is required.' });
     }
 
-    const aiConfig = getAiConfig();
-    const isMale = voice === 'onyx' || voice === 'echo' || voice === 'fable';
+    const isMale = voice === 'onyx' || voice === 'echo' || voice === 'fable' || voice === 'ardi';
 
-    // ── TIER 1: OPENAI OFFICIAL TTS (tts-1: onyx / nova / echo / fable) ──
-    // Kualitas tertinggi persis ChatGPT Voice asli
+    // ── TIER 1: NATIVE INDONESIAN VOICES (100% Logat Asli Indonesia, Bukan Bule) ──
+    // Pria: TikTok id_001 — Suara pria Indonesia asli, berwibawa & profesional
+    // Wanita: Google Translate id — Suara wanita Indonesia asli, jernih & ramah
+    if (isMale) {
+      try {
+        const audioBuffer = await generateTikTokTTS(text, voice);
+        if (audioBuffer && audioBuffer.length > 0) {
+          res.setHeader('Content-Type', 'audio/mpeg');
+          res.setHeader('X-TTS-Provider', 'tiktok-male-native-id');
+          res.setHeader('X-TTS-Voice', 'id_001');
+          return res.end(audioBuffer);
+        }
+      } catch (tiktokErr) {
+        console.warn('[TikTok Native ID TTS Error]', tiktokErr.message);
+      }
+    } else {
+      try {
+        const audioBuffer = await generateGoogleTTS(text);
+        if (audioBuffer && audioBuffer.length > 0) {
+          res.setHeader('Content-Type', 'audio/mpeg');
+          res.setHeader('X-TTS-Provider', 'google-female-native-id');
+          res.setHeader('X-TTS-Voice', 'id-female');
+          return res.end(audioBuffer);
+        }
+      } catch (gErr) {
+        console.warn('[Google Native ID TTS Error]', gErr.message);
+      }
+    }
+
+    // ── TIER 2: MICROSOFT EDGE NEURAL (id-ID-ArdiNeural / id-ID-GadisNeural) ──
+    try {
+      const audioBuffer = await generateEdgeTTS(text, voice);
+      if (audioBuffer && audioBuffer.length > 0) {
+        res.setHeader('Content-Type', 'audio/mpeg');
+        res.setHeader('X-TTS-Provider', 'microsoft-edge-id');
+        res.setHeader('X-TTS-Voice', EDGE_TTS_VOICE_MAP[voice] || (isMale ? 'id-ID-ArdiNeural' : 'id-ID-GadisNeural'));
+        return res.end(audioBuffer);
+      }
+    } catch (edgeErr) {
+      console.warn('[Edge Neural TTS Error]', edgeErr.message);
+    }
+
+    // ── TIER 3: CROSS-FALLBACK (Google for male, or TikTok for female) ──
+    try {
+      const audioBuffer = isMale ? await generateGoogleTTS(text) : await generateTikTokTTS(text, voice);
+      if (audioBuffer && audioBuffer.length > 0) {
+        res.setHeader('Content-Type', 'audio/mpeg');
+        res.setHeader('X-TTS-Provider', isMale ? 'google-fallback-id' : 'tiktok-fallback-id');
+        return res.end(audioBuffer);
+      }
+    } catch (crossErr) {
+      console.warn('[Cross Native TTS Error]', crossErr.message);
+    }
+
+    // ── TIER 4: OPENAI OFFICIAL TTS (tts-1) (Hanya fallback darurat jika penyedia suara lokal gagal) ──
+    const aiConfig = getAiConfig();
     if (aiConfig.hasOfficialTts) {
       try {
         const openAiVoice = voice || (isMale ? 'onyx' : 'nova');
@@ -1499,69 +1635,14 @@ app.post('/api/interview/speak', async (req, res) => {
         if (ttsRes.ok) {
           const contentType = ttsRes.headers.get('content-type') || 'audio/mpeg';
           res.setHeader('Content-Type', contentType);
-          res.setHeader('X-TTS-Provider', 'openai-official');
+          res.setHeader('X-TTS-Provider', 'openai-official-fallback');
           res.setHeader('X-TTS-Voice', openAiVoice);
           const audioBuffer = await ttsRes.arrayBuffer();
           return res.end(Buffer.from(audioBuffer));
-        } else {
-          const errText = await ttsRes.text();
-          console.warn('[OpenAI TTS Failed, falling back]', ttsRes.status, errText.slice(0, 150));
         }
       } catch (openAiErr) {
-        console.warn('[OpenAI TTS Exception, falling back]', openAiErr.message);
+        console.warn('[OpenAI TTS Fallback Exception]', openAiErr.message);
       }
-    }
-
-    // ── TIER 2: TIKTOK INDONESIAN MALE TTS (id_001) / GOOGLE FEMALE TTS ──
-    if (isMale) {
-      try {
-        const audioBuffer = await generateTikTokTTS(text, voice);
-        if (audioBuffer && audioBuffer.length > 0) {
-          res.setHeader('Content-Type', 'audio/mpeg');
-          res.setHeader('X-TTS-Provider', 'tiktok-male');
-          res.setHeader('X-TTS-Voice', 'id_001');
-          return res.end(audioBuffer);
-        }
-      } catch (tiktokErr) {
-        console.warn('[TikTok TTS Error]', tiktokErr.message);
-      }
-    } else {
-      try {
-        const audioBuffer = await generateGoogleTTS(text);
-        if (audioBuffer && audioBuffer.length > 0) {
-          res.setHeader('Content-Type', 'audio/mpeg');
-          res.setHeader('X-TTS-Provider', 'google-female');
-          res.setHeader('X-TTS-Voice', 'id-female');
-          return res.end(audioBuffer);
-        }
-      } catch (gErr) {
-        console.warn('[Google TTS Error]', gErr.message);
-      }
-    }
-
-    // ── TIER 3: MICROSOFT EDGE TTS (id-ID-ArdiNeural / GadisNeural) ──
-    try {
-      const audioBuffer = await generateEdgeTTS(text, voice);
-      if (audioBuffer && audioBuffer.length > 0) {
-        res.setHeader('Content-Type', 'audio/mpeg');
-        res.setHeader('X-TTS-Provider', 'microsoft-edge');
-        res.setHeader('X-TTS-Voice', EDGE_TTS_VOICE_MAP[voice] || 'id-ID-ArdiNeural');
-        return res.end(audioBuffer);
-      }
-    } catch (edgeErr) {
-      console.warn('[Edge TTS Error]', edgeErr.message);
-    }
-
-    // ── TIER 4: CROSS-FALLBACK (Google for male, or TikTok for female) ──
-    try {
-      const audioBuffer = isMale ? await generateGoogleTTS(text) : await generateTikTokTTS(text, voice);
-      if (audioBuffer && audioBuffer.length > 0) {
-        res.setHeader('Content-Type', 'audio/mpeg');
-        res.setHeader('X-TTS-Provider', isMale ? 'google-fallback' : 'tiktok-fallback');
-        return res.end(audioBuffer);
-      }
-    } catch (crossErr) {
-      console.warn('[Cross TTS Error]', crossErr.message);
     }
 
     // ── TIER 5: Fallback to client Web Speech API ──

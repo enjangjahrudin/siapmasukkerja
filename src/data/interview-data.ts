@@ -662,7 +662,7 @@ export async function evaluateInterviewSessionWithAi(
   candidateName: string,
   targetRole: TargetRole,
   interviewerPersona: string,
-  transcript: Array<{ speaker: string; text: string }>
+  transcript: Array<{ speaker: string; text: string; role?: string }>
 ): Promise<{
   totalAcceptanceProbability: number;
   relevanceScore: number;
@@ -675,6 +675,58 @@ export async function evaluateInterviewSessionWithAi(
   actionableFeedback: string;
   isAiEvaluated: boolean;
 }> {
+  // 1. Strict Candidate Response Verification
+  const candidateTurns = transcript.filter(t => 
+    t.role === 'user' ||
+    t.speaker === candidateName || 
+    t.speaker.toLowerCase().includes('anda') || 
+    t.speaker.toLowerCase().includes('kandidat')
+  );
+  const totalWords = candidateTurns
+    .map(t => t.text || '')
+    .join(' ')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean).length;
+
+  // Zero responses guard: Candidate didn't answer or hung up immediately
+  if (candidateTurns.length === 0 || totalWords < 4) {
+    return {
+      totalAcceptanceProbability: 0,
+      relevanceScore: 0,
+      articulationScore: 0,
+      etiquetteScore: 10,
+      jobFitScore: 0,
+      summary: 'Sesi wawancara diakhiri tanpa adanya jawaban atau respons suara dari kandidat. HRD belum dapat memberikan nilai kelulusan karena Anda belum menjawab pertanyaan yang diajukan.',
+      strengths: ['Panggilan telepon berhasil tersambung ke sistem'],
+      weaknesses: [
+        'Kandidat tidak memberikan jawaban atas pertanyaan yang diajukan oleh HRD',
+        'Panggilan telepon diakhiri sebelum proses wawancara berlangsung'
+      ],
+      actionableFeedback: 'Nyalakan mikrofon Anda dan berbicaralah saat HRD selesai memberikan pertanyaan. Jangan menutup panggilan sebelum Anda menjawab agar kemampuan Anda dapat dinilai secara objektif.',
+      isAiEvaluated: true
+    };
+  }
+
+  // Very minimal response: 1 short turn (< 15 words)
+  if (candidateTurns.length === 1 && totalWords < 15) {
+    return {
+      totalAcceptanceProbability: 15,
+      relevanceScore: 15,
+      articulationScore: 20,
+      etiquetteScore: 35,
+      jobFitScore: 10,
+      summary: 'Sesi wawancara diakhiri terlalu cepat. Anda hanya memberikan 1 jawaban yang sangat singkat lalu mengakhiri panggilan, sehingga belum memenuhi standar minimum asesmen HRD.',
+      strengths: ['Merespons pembuka di awal sesi wawancara'],
+      weaknesses: [
+        'Jawaban terputus dan belum memuat informasi kompetensi teknis',
+        'Sesi dihentikan sebelum aspek kesiapan kerja & shift pabrik dapat digali'
+      ],
+      actionableFeedback: 'Ikuti sesi wawancara hingga selesai (minimal 6-10 pertanyaan). Uraikan pengalaman PKL, keterampilan teknis, dan kesiapan shift kerja Anda secara mendalam menggunakan metode STAR.',
+      isAiEvaluated: true
+    };
+  }
+
   try {
     const res = await fetch('/api/interview/evaluate-session', {
       method: 'POST',
@@ -690,16 +742,17 @@ export async function evaluateInterviewSessionWithAi(
     if (res.ok) {
       const data = await res.json();
       if (data.isAiEvaluated && data.evaluation) {
+        const evalObj = data.evaluation;
         return {
-          totalAcceptanceProbability: data.evaluation.totalAcceptanceProbability || 78,
-          relevanceScore: data.evaluation.relevanceScore || 75,
-          articulationScore: data.evaluation.articulationScore || 80,
-          etiquetteScore: data.evaluation.etiquetteScore || 85,
-          jobFitScore: data.evaluation.jobFitScore || 72,
-          summary: data.evaluation.summary || 'Kandidat menunjukkan kesiapan kerja dan potensi yang baik dalam menjawab pertanyaan wawancara.',
-          strengths: data.evaluation.strengths || ['Komunikasi cukup lugas', 'Memiliki bekal dasar industri'],
-          weaknesses: data.evaluation.weaknesses || ['Perlu memperdalam istilah teknis K3'],
-          actionableFeedback: data.evaluation.actionableFeedback || 'Gunakan metode STAR untuk memperjelas hasil kerja konkret Anda.',
+          totalAcceptanceProbability: typeof evalObj.totalAcceptanceProbability === 'number' ? evalObj.totalAcceptanceProbability : 0,
+          relevanceScore: typeof evalObj.relevanceScore === 'number' ? evalObj.relevanceScore : 0,
+          articulationScore: typeof evalObj.articulationScore === 'number' ? evalObj.articulationScore : 0,
+          etiquetteScore: typeof evalObj.etiquetteScore === 'number' ? evalObj.etiquetteScore : 0,
+          jobFitScore: typeof evalObj.jobFitScore === 'number' ? evalObj.jobFitScore : 0,
+          summary: evalObj.summary || 'Sesi wawancara selesai.',
+          strengths: Array.isArray(evalObj.strengths) && evalObj.strengths.length > 0 ? evalObj.strengths : ['Menghadiri sesi wawancara'],
+          weaknesses: Array.isArray(evalObj.weaknesses) && evalObj.weaknesses.length > 0 ? evalObj.weaknesses : ['Tingkatkan penguasaan metode STAR'],
+          actionableFeedback: evalObj.actionableFeedback || 'Latihlah artikulasi dan sampaikan bukti konkret saat menjawab pertanyaan.',
           isAiEvaluated: true
         };
       }
@@ -708,21 +761,17 @@ export async function evaluateInterviewSessionWithAi(
     console.warn('[Evaluate Session API Error]', err);
   }
 
-  // Fallback Heuristic evaluation
-  const allText = transcript.map(t => t.text).join(' ').toLowerCase();
-  const wordCount = allText.split(/\s+/).filter(Boolean).length;
-  const turnsCount = transcript.filter(t => t.speaker === candidateName || t.speaker.includes('Anda')).length;
-
-  const score = Math.min(95, Math.max(55, Math.round(50 + (turnsCount * 6) + (wordCount * 0.1))));
+  // Fallback Heuristic evaluation based on actual candidate turns
+  const baseScore = Math.min(92, Math.max(15, Math.round(15 + (candidateTurns.length * 8) + (totalWords * 0.15))));
   return {
-    totalAcceptanceProbability: score,
-    relevanceScore: Math.min(95, score + 2),
-    articulationScore: Math.min(95, score - 3),
-    etiquetteScore: Math.min(98, score + 5),
-    jobFitScore: Math.min(95, score - 1),
-    summary: 'Sesi wawancara suara selesai dengan komunikasi yang aktif dan interaktif.',
+    totalAcceptanceProbability: baseScore,
+    relevanceScore: Math.min(95, baseScore),
+    articulationScore: Math.min(95, Math.max(15, baseScore - 5)),
+    etiquetteScore: Math.min(98, baseScore + 5),
+    jobFitScore: Math.min(95, baseScore),
+    summary: `Kandidat telah menyelesaikan wawancara dengan ${candidateTurns.length} pertanyaan terartikulasi.`,
     strengths: ['Aktif merespons setiap pertanyaan', 'Menunjukkan motivasi kerja tinggi'],
-    weaknesses: ['Perlu melatih intonasi suara agar lebih mantap saat wawancara offline'],
+    weaknesses: ['Perlu mempertajam contoh konkret pengalaman kerja dengan metode STAR'],
     actionableFeedback: 'Latihlah artikulasi secara rutin dan sampaikan contoh konkret dari pengalaman PKL Anda.',
     isAiEvaluated: false
   };

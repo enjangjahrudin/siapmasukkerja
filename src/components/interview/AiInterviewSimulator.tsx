@@ -577,7 +577,7 @@ export const AiInterviewSimulator: React.FC<AiInterviewSimulatorProps> = ({
         activeUser?.name || 'Kandidat',
         targetRole,
         persona.name,
-        currentTranscript.map(t => ({ speaker: t.speaker, text: t.text }))
+        currentTranscript.map(t => ({ speaker: t.speaker, text: t.text, role: t.role }))
       );
 
       setAiEvaluation(evalResult);
@@ -586,8 +586,12 @@ export const AiInterviewSimulator: React.FC<AiInterviewSimulatorProps> = ({
       setSessionState('evaluated');
       setConversationStatus('idle');
 
-      sounds.playCelebration();
-      confetti({ particleCount: 100, spread: 80 });
+      if (evalResult.totalAcceptanceProbability >= 70) {
+        sounds.playCelebration();
+        confetti({ particleCount: 100, spread: 80 });
+      } else {
+        sounds.playClick();
+      }
 
       // Save to local archive
       const newSession: SavedInterviewSession = {
