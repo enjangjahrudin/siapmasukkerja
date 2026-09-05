@@ -2,8 +2,10 @@ import React, { useState, useEffect, useRef } from 'react';
 import { TargetRole, InterviewRubric } from '../../types';
 import { 
   interviewQuestionsBank, 
-  evaluateUserInterviewResponse, 
+  recruiterPersonas,
+  RecruiterPersonaInfo,
   generateAdaptiveFollowUp,
+  evaluateInterviewSessionWithAi,
   InterviewQuestionItem 
 } from '../../data/interview-data';
 import { sounds } from '../../utils/sound-effects';
@@ -11,7 +13,6 @@ import {
   Mic, 
   MicOff, 
   Volume2, 
-  Play, 
   RotateCcw, 
   Award, 
   Sparkles, 
@@ -22,7 +23,6 @@ import {
   User,
   ShieldCheck,
   Zap,
-  Send,
   Coins,
   CreditCard,
   PhoneCall,
@@ -32,9 +32,12 @@ import {
   X,
   Flame,
   Check,
-  HelpCircle,
   Clock,
-  Sparkle
+  Subtitles,
+  VolumeX,
+  Keyboard,
+  Send,
+  FileText
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { useTheme } from '../../utils/theme-context';
@@ -52,23 +55,41 @@ interface AiInterviewSimulatorProps {
   setTargetRole: (role: TargetRole) => void;
 }
 
+interface TranscriptTurn {
+  id: string;
+  speaker: string;
+  role: 'assistant' | 'user';
+  text: string;
+  timestamp: string;
+}
+
 export const AiInterviewSimulator: React.FC<AiInterviewSimulatorProps> = ({
   targetRole,
   setTargetRole
 }) => {
   const { isDark } = useTheme();
+  const activeUser = getActiveSession();
+
+  // Recruiter Persona for chosen target role
+  const persona: RecruiterPersonaInfo = recruiterPersonas[targetRole] || recruiterPersonas.operator;
 
   // Session & Flow States
   const [sessionState, setSessionState] = useState<'idle' | 'interviewing' | 'evaluated'>('idle');
-  const [currentQIndex, setCurrentQIndex] = useState<number>(0);
+  const [turnCount, setTurnCount] = useState<number>(0);
   const [userInputText, setUserInputText] = useState<string>('');
   const [isRecording, setIsRecording] = useState<boolean>(false);
   const [isAiSpeaking, setIsAiSpeaking] = useState<boolean>(false);
-  const [interactionMode, setInteractionMode] = useState<'live' | 'manual'>('live'); // 'live' = continuous 2-way call
+  const [isMicMuted, setIsMicMuted] = useState<boolean>(false);
+  const [isSubtitlesVisible, setIsSubtitlesVisible] = useState<boolean>(true);
+  const [isKeyboardMode, setIsKeyboardMode] = useState<boolean>(false);
   const [conversationStatus, setConversationStatus] = useState<'ai_talking' | 'user_listening' | 'evaluating' | 'idle'>('idle');
   
   // Call Timer
   const [callSeconds, setCallSeconds] = useState<number>(0);
+
+  // Full Dialogue Transcript Stream
+  const [transcriptHistory, setTranscriptHistory] = useState<TranscriptTurn[]>([]);
+  const [latestAiDialogue, setLatestAiDialogue] = useState<string>('');
 
   // Tokens / Credit System State
   const [tokenBalance, setTokenBalance] = useState<number>(() => getUserInterviewTokens());
@@ -77,28 +98,25 @@ export const AiInterviewSimulator: React.FC<AiInterviewSimulatorProps> = ({
   const [topUpSuccessNotice, setTopUpSuccessNotice] = useState<string | null>(null);
   const [micPermissionBlocked, setMicPermissionBlocked] = useState<boolean>(false);
 
-  // Results
-  const [sessionResponses, setSessionResponses] = useState<{
-    question: InterviewQuestionItem;
-    userAnswer: string;
-    rubric: InterviewRubric;
-  }[]>([]);
+  // Evaluation Results
+  const [aiEvaluation, setAiEvaluation] = useState<{
+    totalAcceptanceProbability: number;
+    relevanceScore: number;
+    articulationScore: number;
+    etiquetteScore: number;
+    jobFitScore: number;
+    summary: string;
+    strengths: string[];
+    weaknesses: string[];
+    actionableFeedback: string;
+    isAiEvaluated: boolean;
+  } | null>(null);
+  const [isEvaluatingPostCall, setIsEvaluatingPostCall] = useState<boolean>(false);
 
   const recognitionRef = useRef<any>(null);
   const silenceTimerRef = useRef<any>(null);
   const callTimerRef = useRef<any>(null);
   const recognitionActiveRef = useRef<boolean>(false);
-
-  // Dynamic Contextual Questions State
-  const [dynamicQuestions, setDynamicQuestions] = useState<InterviewQuestionItem[]>(() => {
-    return interviewQuestionsBank[targetRole] || interviewQuestionsBank.operator;
-  });
-
-  useEffect(() => {
-    setDynamicQuestions(interviewQuestionsBank[targetRole] || interviewQuestionsBank.operator);
-  }, [targetRole]);
-
-  const currentQuestion = dynamicQuestions[currentQIndex] || (interviewQuestionsBank[targetRole] || interviewQuestionsBank.operator)[0];
 
   // Synchronize Token Balance with storage & events
   useEffect(() => {
@@ -133,7 +151,7 @@ export const AiInterviewSimulator: React.FC<AiInterviewSimulatorProps> = ({
     return `${m}:${s}`;
   };
 
-  // Initialize Web Speech Recognition if supported
+  // Initialize Web Speech Recognition
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -156,15 +174,15 @@ export const AiInterviewSimulator: React.FC<AiInterviewSimulatorProps> = ({
           if (transcript.trim()) {
             setUserInputText(transcript);
 
-            // If in continuous live call mode, reset silence detector
+            // Reset silence detector
             if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
             if (transcript.trim().split(/\s+/).length >= 4) {
-              // Auto-advance after 2.8s of silence if user has answered adequately
+              // Auto-commit after 2.5s of natural pause
               silenceTimerRef.current = setTimeout(() => {
                 if (recognitionActiveRef.current) {
-                  autoCommitLiveAnswer(transcript);
+                  handleCommitCandidateAnswer(transcript);
                 }
-              }, 2800);
+              }, 2500);
             }
           }
         };
@@ -197,8 +215,8 @@ export const AiInterviewSimulator: React.FC<AiInterviewSimulatorProps> = ({
     };
   }, []);
 
-  // AI Voice Synthesis (Text-to-Speech)
-  const speakQuestion = (text: string, onDoneCallback?: () => void) => {
+  // AI Voice Synthesis (Text-to-Speech) with Male/Female Pitch Calibration
+  const speakText = (text: string, onDoneCallback?: () => void) => {
     if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
       if (onDoneCallback) onDoneCallback();
       return;
@@ -208,28 +226,21 @@ export const AiInterviewSimulator: React.FC<AiInterviewSimulatorProps> = ({
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = 'id-ID';
 
-    const persona = currentQuestion?.interviewerPersona || '';
-    const isMalePersona = persona.toLowerCase().includes('bapak') || 
-                          persona.toLowerCase().includes('pak') || 
-                          persona.toLowerCase().includes('hendra') || 
-                          persona.toLowerCase().includes('dimas') || 
-                          persona.toLowerCase().includes('suryo') || 
-                          persona.toLowerCase().includes('anton');
+    const isMale = persona.gender === 'male';
+    // 0.78 pitch produces deep masculine baritone voice on Web Speech TTS
+    utterance.pitch = isMale ? 0.78 : 1.05;
+    utterance.rate = isMale ? 0.94 : 0.98;
 
-    // Adjust pitch: 0.76 - 0.80 yields deep masculine baritone voice on Web Speech TTS
-    utterance.pitch = isMalePersona ? 0.78 : 1.05;
-    utterance.rate = isMalePersona ? 0.94 : 0.98;
-
-    // Indonesian voice selection with gender matching
+    // Indonesian voice preference
     const voices = window.speechSynthesis.getVoices();
     let preferredVoice = voices.find(v => {
       const matchLang = v.lang.includes('id') || v.lang.includes('ID');
       const name = v.name.toLowerCase();
       if (!matchLang) return false;
-      if (isMalePersona) {
-        return name.includes('male') || name.includes('david') || name.includes('arun') || name.includes('budi') || name.includes('male');
+      if (isMale) {
+        return name.includes('male') || name.includes('david') || name.includes('arun') || name.includes('budi');
       } else {
-        return name.includes('female') || name.includes('gadis') || name.includes('siti') || name.includes('female');
+        return name.includes('female') || name.includes('gadis') || name.includes('siti');
       }
     });
 
@@ -247,18 +258,16 @@ export const AiInterviewSimulator: React.FC<AiInterviewSimulatorProps> = ({
       setIsAiSpeaking(false);
       if (onDoneCallback) {
         onDoneCallback();
-      } else if (interactionMode === 'live') {
-        // Automatically start listening after AI finishes speaking
-        startListeningToUser();
       } else {
-        setConversationStatus('user_listening');
+        // Automatically start listening to user
+        startListeningToUser();
       }
     };
 
     utterance.onerror = () => {
       setIsAiSpeaking(false);
       if (onDoneCallback) onDoneCallback();
-      else if (interactionMode === 'live') startListeningToUser();
+      else startListeningToUser();
     };
 
     window.speechSynthesis.speak(utterance);
@@ -266,6 +275,10 @@ export const AiInterviewSimulator: React.FC<AiInterviewSimulatorProps> = ({
 
   // Start listening to user voice automatically
   const startListeningToUser = () => {
+    if (isMicMuted) {
+      setConversationStatus('user_listening');
+      return;
+    }
     if (!recognitionRef.current) {
       setConversationStatus('user_listening');
       return;
@@ -275,7 +288,6 @@ export const AiInterviewSimulator: React.FC<AiInterviewSimulatorProps> = ({
     try {
       if (!recognitionActiveRef.current) {
         recognitionRef.current.start();
-        sounds.playClick();
       }
     } catch (e) {
       console.log('Mic start err:', e);
@@ -294,23 +306,14 @@ export const AiInterviewSimulator: React.FC<AiInterviewSimulatorProps> = ({
     setIsRecording(false);
   };
 
-  // Auto-commit in live voice call mode
-  const autoCommitLiveAnswer = (textToSubmit?: string) => {
-    const finalAnswer = (textToSubmit || userInputText).trim();
-    if (!finalAnswer) return;
-    stopListeningToUser();
-    processAnswerAndAdvance(finalAnswer);
-  };
-
-  // Start interview with Token Check
-  const startInterviewSession = () => {
+  // Start interview call session
+  const handleStartCall = () => {
     if (tokenBalance <= 0) {
       sounds.playWrong();
       setIsTopUpModalOpen(true);
       return;
     }
 
-    // Deduct 1 token
     const success = deductUserInterviewToken();
     if (!success) {
       setIsTopUpModalOpen(true);
@@ -318,94 +321,126 @@ export const AiInterviewSimulator: React.FC<AiInterviewSimulatorProps> = ({
     }
     setTokenBalance(getUserInterviewTokens());
 
-    const initialQuestions = interviewQuestionsBank[targetRole] || interviewQuestionsBank.operator;
-    setDynamicQuestions(initialQuestions);
-    setSessionState('interviewing');
-    setCurrentQIndex(0);
-    setUserInputText('');
-    setSessionResponses([]);
     sounds.playBeep();
+    setSessionState('interviewing');
+    setTurnCount(1);
+    setUserInputText('');
+    setTranscriptHistory([]);
+    setAiEvaluation(null);
 
-    // Begin conversation
+    const initialGreeting = persona.greeting;
+    setLatestAiDialogue(initialGreeting);
+
+    const initialTurn: TranscriptTurn = {
+      id: `turn-ai-0`,
+      speaker: persona.name,
+      role: 'assistant',
+      text: initialGreeting,
+      timestamp: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
+    };
+    setTranscriptHistory([initialTurn]);
+
     setTimeout(() => {
-      speakQuestion(initialQuestions[0].question);
-    }, 800);
+      speakText(initialGreeting);
+    }, 600);
   };
 
-  // Submit Answer & Transition to Next Question
-  const processAnswerAndAdvance = async (answerText: string) => {
-    setConversationStatus('evaluating');
+  // Candidate finished speaking turn -> submit to AI HRD
+  const handleCommitCandidateAnswer = async (textToSubmit?: string) => {
+    const answer = (textToSubmit || userInputText).trim();
+    if (!answer) return;
+
+    stopListeningToUser();
     sounds.playCorrect();
+    setConversationStatus('evaluating');
 
-    const evaluation = evaluateUserInterviewResponse(answerText, currentQuestion);
+    const candidateTurn: TranscriptTurn = {
+      id: `turn-cand-${turnCount}`,
+      speaker: activeUser?.name || 'Kandidat (Anda)',
+      role: 'user',
+      text: answer,
+      timestamp: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
+    };
 
-    const updatedResponses = [
-      ...sessionResponses,
-      {
-        question: currentQuestion,
-        userAnswer: answerText,
-        rubric: evaluation
-      }
-    ];
-    setSessionResponses(updatedResponses);
+    const updatedTranscript = [...transcriptHistory, candidateTurn];
+    setTranscriptHistory(updatedTranscript);
+    setUserInputText('');
 
-    const isLastQuestion = currentQIndex + 1 >= dynamicQuestions.length;
-
-    if (!isLastQuestion) {
-      const nextIdx = currentQIndex + 1;
-      const baseNextQuestion = (interviewQuestionsBank[targetRole] || interviewQuestionsBank.operator)[nextIdx];
-
-      // Dynamic Contextual Adaptive Dialogue Synthesis (Live Gemini / LLM or Instant Heuristic Engine)
-      const followUp = await generateAdaptiveFollowUp(answerText, targetRole, nextIdx, baseNextQuestion);
-
-      const nextList = [...dynamicQuestions];
-      nextList[nextIdx] = {
-        ...baseNextQuestion,
-        question: followUp.adaptiveQuestionText
-      };
-      setDynamicQuestions(nextList);
-
-      setCurrentQIndex(nextIdx);
-      setUserInputText('');
-
-      setTimeout(() => {
-        speakQuestion(followUp.fullSpokenDialogue);
-      }, 400);
-    } else {
-      // Completed all questions
-      stopListeningToUser();
-      const finalAvgScore = Math.round(
-        updatedResponses.reduce((sum, r) => sum + r.rubric.totalAcceptanceProbability, 0) / updatedResponses.length
-      );
-
-      // Speak natural closing remark before showing evaluation
-      speakQuestion(
-        'Terima kasih banyak sudah mengikuti sesi wawancara ini dengan sangat baik. Seluruh jawaban Anda telah kami catat dan analisis. Mari kita lihat laporan evaluasi kelulusan Anda.',
-        () => {
-          setSessionState('evaluated');
-          setConversationStatus('idle');
-          sounds.playCelebration();
-          confetti({ particleCount: 100, spread: 80 });
-
-          // Persist user test record and score
-          const user = getActiveSession();
-          if (user) {
-            updateActiveUserScore({ interviewScore: finalAvgScore });
-            recordUserTestResult({
-              testType: 'interview',
-              testName: `AI Interview — ${currentQuestion.interviewerPersona}`,
-              score: finalAvgScore,
-              totalQuestions: dynamicQuestions.length,
-              correctAnswers: updatedResponses.filter(r => r.rubric.totalAcceptanceProbability >= 70).length,
-              details: {
-                targetRole,
-                responses: updatedResponses
-              }
-            });
-          }
-        }
-      );
+    // If reached turn 5 or more, auto-wrap up gracefully
+    if (turnCount >= 5) {
+      handleEndCallAndEvaluate(updatedTranscript);
+      return;
     }
+
+    // Call dynamic follow-up AI generator with multi-turn history
+    const baseBank = interviewQuestionsBank[targetRole] || interviewQuestionsBank.operator;
+    const baseQuestion = baseBank[turnCount] || baseBank[baseBank.length - 1];
+
+    const followUp = await generateAdaptiveFollowUp(answer, targetRole, turnCount, baseQuestion);
+    const aiSpeech = followUp.fullSpokenDialogue;
+
+    setLatestAiDialogue(aiSpeech);
+    setTurnCount(prev => prev + 1);
+
+    const aiNextTurn: TranscriptTurn = {
+      id: `turn-ai-${turnCount}`,
+      speaker: persona.name,
+      role: 'assistant',
+      text: aiSpeech,
+      timestamp: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
+    };
+    setTranscriptHistory([...updatedTranscript, aiNextTurn]);
+
+    setTimeout(() => {
+      speakText(aiSpeech);
+    }, 300);
+  };
+
+  // Gracefully end call and compute AI Evaluation
+  const handleEndCallAndEvaluate = async (transcriptToEvaluate?: TranscriptTurn[]) => {
+    stopListeningToUser();
+    window.speechSynthesis.cancel();
+    setIsAiSpeaking(false);
+    setIsEvaluatingPostCall(true);
+
+    const currentTranscript = transcriptToEvaluate || transcriptHistory;
+
+    // Speak natural closing remark
+    speakText(persona.closing, async () => {
+      // Analyze entire transcript with Sumopod AI
+      const evalResult = await evaluateInterviewSessionWithAi(
+        activeUser?.name || 'Kandidat',
+        targetRole,
+        persona.name,
+        currentTranscript.map(t => ({ speaker: t.speaker, text: t.text }))
+      );
+
+      setAiEvaluation(evalResult);
+      setIsEvaluatingPostCall(false);
+      setSessionState('evaluated');
+      setConversationStatus('idle');
+
+      sounds.playCelebration();
+      confetti({ particleCount: 100, spread: 80 });
+
+      // Save score & history to User Database
+      if (activeUser) {
+        updateActiveUserScore({ interviewScore: evalResult.totalAcceptanceProbability });
+        recordUserTestResult({
+          testType: 'interview',
+          testName: `AI Voice Call — ${persona.name}`,
+          score: evalResult.totalAcceptanceProbability,
+          totalQuestions: currentTranscript.filter(t => t.role === 'user').length,
+          correctAnswers: evalResult.totalAcceptanceProbability >= 70 ? 1 : 0,
+          details: {
+            targetRole,
+            recruiterPersona: persona.name,
+            evaluation: evalResult,
+            transcript: currentTranscript
+          }
+        });
+      }
+    });
   };
 
   // Top Up Tokens Handler
@@ -421,30 +456,12 @@ export const AiInterviewSimulator: React.FC<AiInterviewSimulatorProps> = ({
     }, 1800);
   };
 
-  // Overall calculations for evaluated state
-  const totalProbability = sessionResponses.length > 0
-    ? Math.round(sessionResponses.reduce((sum, r) => sum + r.rubric.totalAcceptanceProbability, 0) / sessionResponses.length)
-    : 0;
-
-  const avgRelevance = sessionResponses.length > 0
-    ? Math.round(sessionResponses.reduce((sum, r) => sum + r.rubric.relevanceScore, 0) / sessionResponses.length)
-    : 0;
-  const avgArticulation = sessionResponses.length > 0
-    ? Math.round(sessionResponses.reduce((sum, r) => sum + r.rubric.articulationScore, 0) / sessionResponses.length)
-    : 0;
-  const avgEtiquette = sessionResponses.length > 0
-    ? Math.round(sessionResponses.reduce((sum, r) => sum + r.rubric.etiquetteScore, 0) / sessionResponses.length)
-    : 0;
-  const avgJobFit = sessionResponses.length > 0
-    ? Math.round(sessionResponses.reduce((sum, r) => sum + r.rubric.jobFitScore, 0) / sessionResponses.length)
-    : 0;
-
   return (
     <div className={`w-full max-w-4xl mx-auto space-y-3 select-none transition-colors ${
       isDark ? 'text-white' : 'text-slate-900'
     }`}>
       
-      {/* Top Banner & Token Balance Bar (Maximized Width) */}
+      {/* Top Banner & Token Balance Bar */}
       <div className={`border rounded-3xl p-4 sm:p-5 shadow-xs relative overflow-hidden transition-colors ${
         isDark 
           ? 'bg-gradient-to-r from-purple-950 via-slate-900 to-indigo-950 border-purple-900/60' 
@@ -454,18 +471,18 @@ export const AiInterviewSimulator: React.FC<AiInterviewSimulatorProps> = ({
           <div>
             <div className="flex items-center gap-2 mb-1.5">
               <span className="bg-amber-400 text-slate-950 text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full shadow-xs">
-                Fitur Premium AI
+                Fitur Unggulan Premium
               </span>
               <span className="text-xs font-semibold text-purple-200 flex items-center gap-1">
                 <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-                Live 2-Way Voice Interview
+                Live Voice Call AI HRD (Mode ChatGPT Voice)
               </span>
             </div>
             <h1 className="text-xl sm:text-2xl font-black tracking-tight text-white">
-              Simulasi Interview AI HRD & User Pabrik
+              Simulasi Panggilan Wawancara HRD Industri
             </h1>
             <p className="text-xs text-purple-200 mt-1 max-w-xl leading-relaxed">
-              Percakapan suara langsung dua arah tanpa jeda seperti panggilan video call asli dengan perekrut industri.
+              Panggilan suara langsung dua arah bebas jeda dengan Avatar HRD pabrik untuk menguji kesiapan mental & teknis kerja Anda.
             </p>
           </div>
 
@@ -484,7 +501,7 @@ export const AiInterviewSimulator: React.FC<AiInterviewSimulatorProps> = ({
                 sounds.playClick();
                 setIsTopUpModalOpen(true);
               }}
-              className="px-3.5 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-black text-xs rounded-2xl shadow-md shadow-amber-500/25 flex items-center gap-1.5 transition-all transform active:scale-95"
+              className="px-3.5 py-2.5 bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-300 hover:to-orange-400 text-slate-950 font-extrabold text-xs rounded-2xl shadow-md shadow-amber-500/20 flex items-center gap-1.5 transition-all transform active:scale-95"
             >
               <Zap className="w-3.5 h-3.5 fill-current" />
               <span>Top Up</span>
@@ -494,309 +511,339 @@ export const AiInterviewSimulator: React.FC<AiInterviewSimulatorProps> = ({
       </div>
 
       {/* =================================================================== */}
-      {/* 1. IDLE SCREEN / ROLE SELECTOR                                      */}
+      {/* 1. IDLE / PRE-INTERVIEW SETUP STATE                                */}
       {/* =================================================================== */}
       {sessionState === 'idle' && (
-        <div className={`border rounded-3xl p-4 sm:p-6 shadow-xs space-y-4 transition-colors ${
+        <div className={`border rounded-3xl p-5 sm:p-7 shadow-xs space-y-6 transition-colors ${
           isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
         }`}>
           
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-100 dark:border-slate-800">
-            <div>
-              <h2 className="text-sm sm:text-base font-black">
-                Pilih Target Posisi Pekerjaan Wawancara:
-              </h2>
-              <p className="text-xs text-slate-400 mt-0.5">
-                Setiap posisi memiliki persona HRD & bank pertanyaan standar seleksi kerja asli.
-              </p>
-            </div>
-
-            {/* Interaction Mode Switch (Live Voice Call vs Manual Typing) */}
-            <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700 self-start sm:self-auto">
-              <button
-                onClick={() => {
-                  sounds.playClick();
-                  setInteractionMode('live');
-                }}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${
-                  interactionMode === 'live'
-                    ? 'bg-purple-600 text-white shadow-xs'
-                    : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
-                }`}
-              >
-                <Radio className="w-3.5 h-3.5 text-red-400 animate-pulse" />
-                <span>Live Call (Suara Langsung)</span>
-              </button>
-              <button
-                onClick={() => {
-                  sounds.playClick();
-                  setInteractionMode('manual');
-                }}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${
-                  interactionMode === 'manual'
-                    ? 'bg-purple-600 text-white shadow-xs'
-                    : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
-                }`}
-              >
-                <MessageSquare className="w-3.5 h-3.5" />
-                <span>Mode Teks / Manual</span>
-              </button>
+          {/* Target Role Selector */}
+          <div>
+            <label className="text-xs font-black uppercase tracking-wider text-slate-400 block mb-3">
+              Pilih Target Posisi Wawancara:
+            </label>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+              {[
+                { id: 'operator', title: 'Operator Produksi', subtitle: 'Line Perakitan & Mesin', icon: '⚙️' },
+                { id: 'qc', title: 'Quality Control (QC)', subtitle: 'Inspeksi Mutu & Presisi', icon: '🔍' },
+                { id: 'maintenance', title: 'Maintenance & Teknisi', subtitle: 'Perawatan Mesin & K3', icon: '🔧' },
+                { id: 'logistics', title: 'Warehouse / Logistik', subtitle: 'Gudang, FIFO & Stok', icon: '📦' }
+              ].map(r => (
+                <button
+                  key={r.id}
+                  onClick={() => {
+                    sounds.playClick();
+                    setTargetRole(r.id as TargetRole);
+                  }}
+                  className={`p-3.5 rounded-2xl border text-left transition-all ${
+                    targetRole === r.id
+                      ? 'bg-purple-500/10 border-purple-500 ring-2 ring-purple-500/20 dark:bg-purple-950/40'
+                      : isDark
+                        ? 'bg-slate-800/40 border-slate-700/60 hover:bg-slate-800'
+                        : 'bg-slate-50 border-slate-200 hover:bg-slate-100'
+                  }`}
+                >
+                  <div className="text-2xl mb-1.5">{r.icon}</div>
+                  <h4 className="font-black text-xs text-slate-800 dark:text-slate-100">{r.title}</h4>
+                  <p className="text-[10px] text-slate-400 font-medium mt-0.5">{r.subtitle}</p>
+                </button>
+              ))}
             </div>
           </div>
 
-          {/* Role Cards Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {[
-              { id: 'operator', title: 'Operator Produksi', desc: 'Fokus kesiapan fisik, stamina shift malam, disiplin SOP, dan target kerja line perakitan.', hr: 'Bapak Hendra (Senior HRD Otomotif)' },
-              { id: 'qc', title: 'Quality Control (QC)', desc: 'Fokus ketelitian, ketegasan reject produk NG, alat ukur presisi, dan komitmen zero defect.', hr: 'Ibu Ratna (QA & QC Manager)' },
-              { id: 'maintenance', title: 'Maintenance & Teknisi', desc: 'Fokus kelistrikan dasar, pencegahan breakdown mesin, dan K3 LOTO.', hr: 'Bapak Suryo (Chief Engineering)' },
-              { id: 'logistics', title: 'Logistik & Gudang', desc: 'Fokus sistem FIFO, stock opname akurat, dan barcode scanning barang.', hr: 'Bapak Anton (Warehouse Lead)' }
-            ].map((role) => (
-              <div
-                key={role.id}
-                onClick={() => {
-                  sounds.playClick();
-                  setTargetRole(role.id as TargetRole);
-                }}
-                className={`p-4 rounded-2xl border-2 transition-all cursor-pointer relative ${
-                  targetRole === role.id
-                    ? 'border-purple-600 bg-purple-50/50 dark:bg-purple-950/30 shadow-md ring-2 ring-purple-500/20'
-                    : isDark 
-                      ? 'border-slate-800 hover:border-slate-700 bg-slate-800/40' 
-                      : 'border-slate-200 hover:border-slate-300 bg-slate-50/60'
-                }`}
-              >
-                <div className="flex items-center justify-between mb-1">
-                  <strong className="text-xs sm:text-sm font-black">{role.title}</strong>
-                  {targetRole === role.id && <CheckCircle2 className="w-4 h-4 text-purple-600 dark:text-purple-400 shrink-0" />}
-                </div>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mb-2 leading-relaxed">{role.desc}</p>
-                <span className="text-[10px] font-bold text-purple-700 dark:text-purple-300 bg-purple-100/70 dark:bg-purple-900/50 px-2 py-0.5 rounded-full border border-purple-200 dark:border-purple-800">
-                  Interviewer: {role.hr}
+          {/* Selected Recruiter Card Preview */}
+          <div className={`border rounded-2xl p-4 flex flex-col sm:flex-row items-center gap-4 ${
+            isDark ? 'bg-slate-800/60 border-slate-700/60' : 'bg-purple-50/70 border-purple-200'
+          }`}>
+            <div className="relative">
+              <img
+                src={persona.avatarUrl}
+                alt={persona.name}
+                className="w-20 h-20 rounded-full object-cover border-3 border-purple-500 shadow-md"
+              />
+              <span className="absolute bottom-0 right-0 w-5 h-5 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-900 flex items-center justify-center">
+                <span className="w-2 h-2 rounded-full bg-white animate-ping" />
+              </span>
+            </div>
+
+            <div className="text-center sm:text-left space-y-1">
+              <div className="flex items-center justify-center sm:justify-start gap-2">
+                <h3 className="text-base font-black text-slate-900 dark:text-white">{persona.name}</h3>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/60 text-purple-700 dark:text-purple-300">
+                  AI Recruiter
                 </span>
               </div>
-            ))}
+              <p className="text-xs font-semibold text-purple-600 dark:text-purple-300">{persona.roleTitle}</p>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">{persona.companyContext}</p>
+            </div>
           </div>
 
           {/* Quick Guidance Box */}
           <div className={`border rounded-2xl p-3.5 text-xs space-y-1.5 ${
-            isDark ? 'bg-slate-800/50 border-slate-700/60 text-slate-300' : 'bg-slate-50 border-slate-200 text-slate-700'
+            isDark ? 'bg-slate-800/40 border-slate-700/50 text-slate-300' : 'bg-slate-50 border-slate-200 text-slate-700'
           }`}>
             <strong className="block font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
               <Sparkles className="w-3.5 h-3.5" />
-              <span>Panduan Percakapan Langsung 2-Arah:</span>
+              <span>Panduan Panggilan Suara (Hands-Free):</span>
             </strong>
-            <div>1. Pastikan izin mikrofon browser aktif. AI HRD akan langsung menyapa dan mengajukan pertanyaan dengan suara.</div>
-            <div>2. Setelah AI selesai berbicara, sistem otomatis mendengarkan jawaban suara Anda secara bergantian (hands-free).</div>
-            <div>3. Setiap 1 sesi simulasi lengkap menggunakan 1 Kredit AI Interview.</div>
+            <div>1. AI HRD akan langsung menyapa Anda lewat audio suara saat panggilan tersambung.</div>
+            <div>2. Bicaralah secara alami melalui mikrofon HP/laptop Anda. Sistem otomatis mendeteksi ketika Anda selesai berbicara.</div>
+            <div>3. Percakapan mengalir santai layaknya panggilan telepon asli. Klik tombol merah di akhir untuk menerima laporan evaluasi.</div>
           </div>
 
           {/* Start Call CTA Button */}
           <button
-            onClick={startInterviewSession}
+            onClick={handleStartCall}
             className="w-full py-4 bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 hover:from-purple-500 hover:to-indigo-500 text-white font-black text-sm rounded-2xl shadow-lg shadow-purple-600/30 flex items-center justify-center gap-2.5 transition-all transform active:scale-98"
           >
             <PhoneCall className="w-5 h-5 fill-current animate-bounce" />
-            <span>Mulai Panggilan Interview Langsung (1 Kredit)</span>
+            <span>Mulai Panggilan Voice Call dengan {persona.name} (1 Kredit)</span>
           </button>
 
         </div>
       )}
 
       {/* =================================================================== */}
-      {/* 2. LIVE TWO-WAY VOICE CALL / INTERVIEW IN PROGRESS (NO JEDDA)      */}
+      {/* 2. LIVE CHATGPT-STYLE VOICE CALL INTERFACE (FULL IMMERSIVE ROOM)    */}
       {/* =================================================================== */}
-      {sessionState === 'interviewing' && currentQuestion && (
-        <div className="space-y-3">
+      {sessionState === 'interviewing' && (
+        <div className="space-y-3 animate-in fade-in duration-300">
           
-          {/* Live Call Header Bar */}
+          {/* Live Top Call Status Bar */}
           <div className={`border rounded-2xl p-3 sm:p-4 shadow-xs flex items-center justify-between transition-colors ${
             isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
           }`}>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2.5">
               <span className="relative flex h-3 w-3">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
                 <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500" />
               </span>
               <div>
                 <span className="text-xs font-black text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-                  Panggilan Aktif • {formatTime(callSeconds)}
+                  Panggilan Suara Langsung • {formatTime(callSeconds)}
                 </span>
-                <span className="text-[10px] text-slate-400 block">
-                  Pertanyaan {currentQIndex + 1} dari {dynamicQuestions.length} ({targetRole.toUpperCase()})
+                <span className="text-[10px] text-slate-400 block font-medium">
+                  {persona.name} — {persona.roleTitle}
                 </span>
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
+            {/* Quick Toggle Controls */}
+            <div className="flex items-center gap-1.5">
               <button
-                onClick={() => speakQuestion(currentQuestion.question)}
-                disabled={isAiSpeaking}
-                className={`p-2 sm:px-3 sm:py-1.5 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition-all ${
-                  isAiSpeaking
-                    ? 'bg-amber-500/20 text-amber-400 border-amber-500/30'
-                    : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 border-slate-200 dark:border-slate-700'
+                onClick={() => setIsSubtitlesVisible(!isSubtitlesVisible)}
+                className={`p-2 rounded-xl border text-xs font-bold flex items-center gap-1 transition-all ${
+                  isSubtitlesVisible
+                    ? 'bg-purple-500/20 text-purple-400 border-purple-500/40'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700'
                 }`}
-                title="Ulangi Suara Pertanyaan"
+                title="Tampilkan/Sembunyikan Teks Subtitle"
               >
-                <Volume2 className="w-4 h-4" />
-                <span className="hidden sm:inline">Ulangi Pertanyaan</span>
+                <Subtitles className="w-4 h-4" />
+                <span className="hidden sm:inline">{isSubtitlesVisible ? 'Teks ON' : 'Teks OFF'}</span>
               </button>
 
               <button
-                onClick={() => {
-                  stopListeningToUser();
-                  window.speechSynthesis.cancel();
-                  setSessionState('idle');
-                  sounds.playClick();
-                }}
-                className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-1 transition-all"
-                title="Akhiri Panggilan"
+                onClick={() => speakText(latestAiDialogue)}
+                disabled={isAiSpeaking}
+                className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
+                title="Ulangi Suara HRD"
               >
-                <PhoneOff className="w-3.5 h-3.5" />
-                <span>Akhiri</span>
+                <Volume2 className="w-4 h-4" />
               </button>
             </div>
           </div>
 
-          {/* Main Conversational Stage (Call Interface Screen) */}
-          <div className="bg-gradient-to-b from-slate-900 via-indigo-950 to-slate-950 text-white rounded-3xl p-5 sm:p-8 shadow-2xl border border-indigo-900/60 relative overflow-hidden flex flex-col items-center justify-between min-h-[380px] sm:min-h-[440px]">
+          {/* Main ChatGPT-style Immersive Stage with HRD Animated Avatar */}
+          <div className="bg-gradient-to-b from-slate-950 via-slate-900 to-indigo-950 text-white rounded-3xl p-6 sm:p-10 shadow-2xl border border-indigo-900/60 relative overflow-hidden flex flex-col items-center justify-between min-h-[440px] sm:min-h-[500px]">
             
-            {/* Ambient Background Aura Glow */}
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-purple-600/20 rounded-full blur-3xl pointer-events-none" />
+            {/* Ambient Aura Background */}
+            <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 rounded-full blur-3xl pointer-events-none transition-all duration-700 ${
+              isAiSpeaking 
+                ? 'bg-purple-600/30 scale-125' 
+                : conversationStatus === 'user_listening' 
+                  ? 'bg-emerald-500/25 scale-110' 
+                  : 'bg-indigo-600/15'
+            }`} />
 
-            {/* Persona Avatar & Ripple Visualizer */}
-            <div className="flex flex-col items-center text-center space-y-3 relative z-10 pt-2">
+            {/* Recruiter Identity & Status */}
+            <div className="text-center relative z-10 space-y-1">
+              <h2 className="text-lg sm:text-xl font-black text-white tracking-tight">
+                {persona.name}
+              </h2>
+              <p className="text-xs text-purple-300 font-medium">{persona.roleTitle}</p>
+            </div>
+
+            {/* Center Animated HRD Avatar with Acoustic Pulsing Ripples */}
+            <div className="relative my-6 z-10 flex items-center justify-center">
               
-              <div className="relative">
-                {/* Rippling circles when AI is talking */}
-                {isAiSpeaking && (
-                  <>
-                    <div className="absolute inset-0 rounded-full bg-purple-500/30 animate-ping" />
-                    <div className="absolute -inset-3 rounded-full bg-indigo-500/20 animate-pulse" />
-                  </>
-                )}
+              {/* Concentric Audio Ripples when AI is Speaking */}
+              {isAiSpeaking && (
+                <>
+                  <div className="absolute -inset-10 rounded-full bg-purple-500/15 animate-ping opacity-60" />
+                  <div className="absolute -inset-6 rounded-full bg-indigo-500/25 animate-pulse" />
+                  <div className="absolute -inset-2 rounded-full bg-purple-400/30 animate-pulse" />
+                </>
+              )}
 
-                {/* Rippling circles when user is speaking */}
-                {isRecording && (
-                  <div className="absolute -inset-4 rounded-full bg-emerald-500/20 animate-pulse" />
-                )}
+              {/* Concentric Audio Ripples when Candidate is Speaking */}
+              {isRecording && !isAiSpeaking && (
+                <>
+                  <div className="absolute -inset-8 rounded-full bg-emerald-400/20 animate-ping opacity-75" />
+                  <div className="absolute -inset-4 rounded-full bg-teal-500/30 animate-pulse" />
+                </>
+              )}
 
-                <div className={`w-20 h-20 sm:w-24 sm:h-24 rounded-full flex items-center justify-center text-white shadow-2xl border-4 transition-all ${
-                  isAiSpeaking 
-                    ? 'border-purple-400 bg-gradient-to-tr from-purple-600 to-indigo-600 scale-105' 
-                    : isRecording 
-                      ? 'border-emerald-400 bg-gradient-to-tr from-emerald-600 to-teal-600 scale-105' 
-                      : 'border-slate-700 bg-slate-800'
-                }`}>
-                  <Bot className="w-10 h-10 sm:w-12 sm:h-12" />
-                </div>
+              {/* Avatar Image Frame */}
+              <div className={`relative w-36 h-36 sm:w-44 sm:h-44 rounded-full overflow-hidden border-4 shadow-2xl transition-all duration-500 ${
+                isAiSpeaking
+                  ? 'border-purple-400 ring-8 ring-purple-500/30 scale-105'
+                  : isRecording
+                    ? 'border-emerald-400 ring-8 ring-emerald-500/30 scale-105'
+                    : 'border-slate-700'
+              }`}>
+                <img
+                  src={persona.avatarUrl}
+                  alt={persona.name}
+                  className="w-full h-full object-cover"
+                />
               </div>
 
-              <div>
-                <h3 className="text-base sm:text-lg font-black text-white">
-                  {currentQuestion.interviewerPersona}
-                </h3>
-                <span className="text-[11px] text-purple-300 font-semibold bg-purple-950/80 px-2.5 py-0.5 rounded-full border border-purple-800 mt-1 inline-block">
-                  Pewawancara AI Rekrutmen Industri
+            </div>
+
+            {/* Live Interactive Status Pill */}
+            <div className="relative z-10">
+              {isAiSpeaking && (
+                <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-purple-500/20 border border-purple-500/40 text-purple-200 text-xs font-bold animate-pulse">
+                  <Volume2 className="w-4 h-4 text-purple-400 animate-bounce" />
+                  <span>{persona.name} sedang berbicara...</span>
+                </div>
+              )}
+
+              {conversationStatus === 'user_listening' && !isAiSpeaking && (
+                <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-bold animate-pulse">
+                  <Radio className="w-4 h-4 text-emerald-400 animate-ping" />
+                  <span>Mendengarkan Anda... Silakan berbicara</span>
+                </div>
+              )}
+
+              {conversationStatus === 'evaluating' && (
+                <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-300 text-xs font-bold">
+                  <Sparkles className="w-4 h-4 text-amber-400 animate-spin" />
+                  <span>{persona.name} sedang menyimak...</span>
+                </div>
+              )}
+            </div>
+
+            {/* Live Floating Dialogue Bubble / Subtitles */}
+            {isSubtitlesVisible && (
+              <div className="w-full max-w-xl bg-black/60 backdrop-blur-md border border-white/10 rounded-2xl p-4 my-4 relative z-10 text-center space-y-1.5 animate-in fade-in">
+                <span className="text-[10px] uppercase font-black tracking-wider text-slate-400 block">
+                  {isAiSpeaking ? `${persona.name}:` : 'Suara Anda:'}
                 </span>
-              </div>
-
-              {/* Dynamic Conversational Status Pill */}
-              <div className="pt-1">
-                {isAiSpeaking && (
-                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/20 border border-purple-500/40 text-purple-200 text-xs font-bold animate-pulse">
-                    <Volume2 className="w-3.5 h-3.5 text-purple-400" />
-                    <span>🗣️ HRD sedang berbicara...</span>
-                  </div>
-                )}
-
-                {conversationStatus === 'user_listening' && (
-                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-bold animate-pulse">
-                    <Radio className="w-3.5 h-3.5 text-emerald-400 animate-ping" />
-                    <span>🎙️ Giliran Anda berbicara (Mendengarkan)...</span>
-                  </div>
-                )}
-
-                {conversationStatus === 'evaluating' && (
-                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-300 text-xs font-bold">
-                    <Sparkles className="w-3.5 h-3.5 text-amber-400 animate-spin" />
-                    <span>🧠 AI sedang menganalisa jawaban Anda...</span>
-                  </div>
-                )}
-              </div>
-
-            </div>
-
-            {/* Live Spoken Captions & Subtitles Box */}
-            <div className="w-full max-w-xl bg-black/60 backdrop-blur-md border border-white/10 rounded-2xl p-4 my-3 relative z-10 text-center space-y-2">
-              <span className="text-[10px] uppercase tracking-wider font-extrabold text-slate-400 block">
-                {isAiSpeaking ? 'Pertanyaan HRD:' : 'Transkrip Suara Anda:'}
-              </span>
-              
-              <p className="text-xs sm:text-sm font-medium text-slate-100 leading-relaxed italic min-h-[3rem] flex items-center justify-center">
-                {isAiSpeaking 
-                  ? `"${currentQuestion.question}"` 
-                  : userInputText.trim() 
-                    ? `"${userInputText}"` 
-                    : 'Silakan berbicara langsung melalui mikrofon perangkat Anda...'}
-              </p>
-            </div>
-
-            {/* Mic Permission Blocked / Overlay Guidance Banner */}
-            {micPermissionBlocked && (
-              <div className="w-full max-w-xl bg-amber-500/20 border border-amber-500/60 text-amber-200 text-xs p-3.5 rounded-2xl space-y-1.5 text-left mb-3 relative z-10 animate-in fade-in">
-                <div className="font-extrabold flex items-center gap-1.5 text-amber-300 text-xs">
-                  <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
-                  <span>Izin Mikrofon Terhalang Keamanan HP (Overlay Terdeteksi)</span>
-                </div>
-                <p className="text-[11px] leading-relaxed text-amber-100">
-                  Sistem Android memblokir dialog izin jika ada balon chat (Messenger/WA) atau tombol melayang.
+                <p className="text-xs sm:text-sm font-medium text-slate-100 leading-relaxed italic min-h-[2.5rem] flex items-center justify-center">
+                  {isAiSpeaking 
+                    ? `"${latestAiDialogue}"` 
+                    : userInputText.trim() 
+                      ? `"${userInputText}"` 
+                      : 'Bicaralah langsung ke mikrofon, suara Anda akan tertangkap otomatis...'}
                 </p>
-                <div className="text-[11px] font-medium text-amber-200 space-y-0.5 pt-1 border-t border-amber-500/30">
-                  <div>👉 <strong>Solusi Cepat:</strong> Ketuk ikon gembok di sebelah URL <code>siapkerja.buatdigital.id</code> &gt; <strong>Izin</strong> &gt; pilih <strong>Izinkan Mikrofon</strong>.</div>
-                  <div>👉 Atau tutup balon chat / floating app yang sedang aktif di HP Anda.</div>
+              </div>
+            )}
+
+            {/* Keyboard Input Drawer (Optional for typing if in noisy room) */}
+            {isKeyboardMode && (
+              <div className="w-full max-w-xl bg-slate-900/90 border border-slate-700 rounded-2xl p-3 my-2 relative z-10 space-y-2">
+                <div className="flex items-center justify-between text-[11px] text-slate-400 font-bold">
+                  <span>Ketik Jawaban Manual:</span>
+                  <button onClick={() => setIsKeyboardMode(false)} className="text-slate-400 hover:text-white">
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={userInputText}
+                    onChange={(e) => setUserInputText(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && userInputText.trim()) {
+                        handleCommitCandidateAnswer();
+                      }
+                    }}
+                    placeholder="Ketik jawaban Anda lalu tekan Kirim..."
+                    className="flex-1 text-xs px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-white placeholder-slate-500 outline-none focus:border-purple-500"
+                  />
+                  <button
+                    onClick={() => handleCommitCandidateAnswer()}
+                    disabled={!userInputText.trim()}
+                    className="px-4 py-2 bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white font-bold text-xs rounded-xl flex items-center gap-1"
+                  >
+                    <Send className="w-3.5 h-3.5" />
+                    <span>Kirim</span>
+                  </button>
                 </div>
               </div>
             )}
 
-            {/* Bottom Call Action Controls */}
-            <div className="w-full flex flex-col sm:flex-row items-center justify-center gap-2.5 relative z-10">
+            {/* Bottom In-Call Control Bar */}
+            <div className="w-full max-w-md pt-3 flex items-center justify-around relative z-10 border-t border-white/10 mt-2">
               
-              {/* Primary Action Button */}
+              {/* Mic Mute / Unmute */}
+              <button
+                onClick={() => {
+                  sounds.playClick();
+                  if (isMicMuted) {
+                    setIsMicMuted(false);
+                    startListeningToUser();
+                  } else {
+                    setIsMicMuted(true);
+                    stopListeningToUser();
+                  }
+                }}
+                className={`w-12 h-12 rounded-full flex items-center justify-center transition-all ${
+                  isMicMuted
+                    ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40'
+                    : 'bg-white/10 hover:bg-white/20 text-white border border-white/20'
+                }`}
+                title={isMicMuted ? 'Nyalakan Mikrofon' : 'Mute Mikrofon'}
+              >
+                {isMicMuted ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+              </button>
+
+              {/* Selesai Bicara (Manual Commit Button) */}
               {conversationStatus === 'user_listening' && (
                 <button
-                  onClick={() => autoCommitLiveAnswer()}
+                  onClick={() => handleCommitCandidateAnswer()}
                   disabled={!userInputText.trim()}
-                  className="w-full sm:w-auto px-7 py-3 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 disabled:opacity-50 text-slate-950 font-black text-xs rounded-2xl shadow-lg shadow-emerald-500/25 flex items-center justify-center gap-2 transition-all transform active:scale-95"
+                  className="px-5 py-3 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-40 text-slate-950 font-black text-xs rounded-full shadow-lg shadow-emerald-500/30 flex items-center gap-1.5 transition-all transform active:scale-95"
                 >
                   <Check className="w-4 h-4" />
-                  <span>Selesai Bicara (Lanjut)</span>
+                  <span>Selesai Bicara</span>
                 </button>
               )}
 
-              {/* Manual Mic Toggle if user wants to toggle recording */}
-              {interactionMode === 'manual' && (
-                <div className="w-full space-y-2">
-                  <textarea
-                    rows={3}
-                    value={userInputText}
-                    onChange={(e) => setUserInputText(e.target.value)}
-                    placeholder="Atau ketik jawaban Anda di sini jika tidak menggunakan mikrofon..."
-                    className="w-full text-xs p-3 rounded-xl bg-slate-800 border border-slate-700 text-white placeholder-slate-400 outline-none focus:border-purple-500"
-                  />
-                  <div className="flex justify-end">
-                    <button
-                      onClick={() => autoCommitLiveAnswer()}
-                      disabled={!userInputText.trim()}
-                      className="px-5 py-2.5 bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-1.5"
-                    >
-                      <Send className="w-3.5 h-3.5" />
-                      <span>Kirim Jawaban</span>
-                    </button>
-                  </div>
-                </div>
-              )}
+              {/* Keyboard Mode Button */}
+              <button
+                onClick={() => {
+                  sounds.playClick();
+                  setIsKeyboardMode(!isKeyboardMode);
+                }}
+                className="w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 text-white border border-white/20 flex items-center justify-center transition-all"
+                title="Ketik Jawaban Manual"
+              >
+                <Keyboard className="w-5 h-5" />
+              </button>
+
+              {/* Red End Call Button */}
+              <button
+                onClick={() => handleEndCallAndEvaluate()}
+                disabled={isEvaluatingPostCall}
+                className="w-14 h-14 rounded-full bg-red-600 hover:bg-red-500 text-white shadow-xl shadow-red-600/40 flex items-center justify-center transition-all transform active:scale-95"
+                title="Akhiri Panggilan & Dapatkan Skor Evaluasi"
+              >
+                <PhoneOff className="w-6 h-6" />
+              </button>
 
             </div>
 
@@ -806,229 +853,213 @@ export const AiInterviewSimulator: React.FC<AiInterviewSimulatorProps> = ({
       )}
 
       {/* =================================================================== */}
-      {/* 3. EVALUATION REPORT & PREDICTED PROBABILITY SCREEN                 */}
+      {/* 3. POST-CALL EVALUATION & SCORECARD REPORT                         */}
       {/* =================================================================== */}
-      {sessionState === 'evaluated' && (
-        <div className="space-y-4">
+      {sessionState === 'evaluated' && aiEvaluation && (
+        <div className="space-y-4 animate-in fade-in duration-300">
           
-          {/* Grand Score Card */}
-          <div className="bg-gradient-to-br from-slate-900 via-indigo-950 to-purple-950 text-white rounded-3xl p-5 sm:p-8 shadow-xl text-center relative overflow-hidden border border-purple-900/60">
-            <div className="w-16 h-16 rounded-full bg-gradient-to-tr from-amber-400 to-orange-400 text-slate-950 flex items-center justify-center mx-auto mb-2 shadow-lg font-black text-xl">
-              {totalProbability}%
-            </div>
+          {/* Main Scorecard Header */}
+          <div className="bg-gradient-to-b from-slate-900 via-indigo-950 to-slate-950 text-white rounded-3xl p-6 sm:p-8 text-center shadow-xl border border-indigo-900/60 relative overflow-hidden space-y-4">
             
-            <span className="text-[11px] uppercase tracking-widest text-purple-300 font-bold">
-              Hasil Evaluasi AI Interview
-            </span>
-            <h2 className="text-xl sm:text-2xl font-black mt-1">
-              Probabilitas Kelulusan Interview: {totalProbability}%
-            </h2>
-            <p className="text-xs text-purple-200 mt-1 max-w-md mx-auto leading-relaxed">
-              {totalProbability >= 80 
-                ? '🌟 Peluang Sangat Tinggi! Pola jawaban dan pemahaman SOP Anda sangat memuaskan standar perekrut pabrik.' 
-                : '💡 Potensi Baik. Pelajari catatan evaluasi dan contoh jawaban rekomendasi di bawah untuk meningkatkan skor kelulusan.'}
-            </p>
+            <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-amber-400/20 border border-amber-400/40 text-amber-300 text-xs font-bold">
+              <Award className="w-4 h-4" />
+              <span>HASIL EVALUASI LIVE VOICE INTERVIEW</span>
+            </div>
 
-            {/* 4 Pillars Breakdown */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mt-5 pt-5 border-t border-white/10 text-center">
-              <div className="bg-white/5 rounded-2xl p-2.5 border border-white/10">
-                <span className="text-[10px] text-purple-200 uppercase font-bold">1. Relevansi STAR</span>
-                <div className="text-lg font-black text-amber-300 mt-0.5">{avgRelevance}%</div>
+            <div className="flex flex-col items-center">
+              <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-gradient-to-tr from-amber-400 to-orange-500 text-slate-950 font-black text-3xl sm:text-4xl flex items-center justify-center shadow-2xl border-4 border-white/20 my-2">
+                {aiEvaluation.totalAcceptanceProbability}%
               </div>
-              <div className="bg-white/5 rounded-2xl p-2.5 border border-white/10">
-                <span className="text-[10px] text-purple-200 uppercase font-bold">2. Artikulasi</span>
-                <div className="text-lg font-black text-sky-300 mt-0.5">{avgArticulation}%</div>
-              </div>
-              <div className="bg-white/5 rounded-2xl p-2.5 border border-white/10">
-                <span className="text-[10px] text-purple-200 uppercase font-bold">3. Sikap & Etika</span>
-                <div className="text-lg font-black text-emerald-300 mt-0.5">{avgEtiquette}%</div>
-              </div>
-              <div className="bg-white/5 rounded-2xl p-2.5 border border-white/10">
-                <span className="text-[10px] text-purple-200 uppercase font-bold">4. Kesesuaian Role</span>
-                <div className="text-lg font-black text-purple-300 mt-0.5">{avgJobFit}%</div>
-              </div>
+              <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">
+                Probabilitas Kelulusan Interview: {aiEvaluation.totalAcceptanceProbability}%
+              </h2>
+              <p className="text-xs text-purple-200 mt-1 max-w-lg leading-relaxed">
+                {aiEvaluation.summary}
+              </p>
+            </div>
+
+            {/* 4 Pillars Grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-2">
+              {[
+                { title: '1. Relevansi STAR', score: aiEvaluation.relevanceScore },
+                { title: '2. Artikulasi', score: aiEvaluation.articulationScore },
+                { title: '3. Sikap & Etika', score: aiEvaluation.etiquetteScore },
+                { title: '4. Kesesuaian Role', score: aiEvaluation.jobFitScore }
+              ].map((p, idx) => (
+                <div key={idx} className="bg-white/5 border border-white/10 rounded-2xl p-3 text-center">
+                  <span className="text-[10px] font-bold uppercase text-purple-300 block">{p.title}</span>
+                  <span className="text-lg font-black text-amber-400 mt-1 block">{p.score}%</span>
+                </div>
+              ))}
+            </div>
+
+          </div>
+
+          {/* Feedback & Improvement Notes */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            
+            {/* Strengths */}
+            <div className={`border rounded-2xl p-4 space-y-2 ${
+              isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
+            }`}>
+              <h4 className="text-xs font-black text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5 uppercase">
+                <CheckCircle2 className="w-4 h-4" />
+                <span>Kelebihan Jawaban Anda:</span>
+              </h4>
+              <ul className="space-y-1.5 text-xs text-slate-700 dark:text-slate-300">
+                {aiEvaluation.strengths.map((str, i) => (
+                  <li key={i} className="flex items-start gap-1.5">
+                    <span className="text-emerald-500 font-bold">•</span>
+                    <span>{str}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* Weaknesses & Actionable Feedback */}
+            <div className={`border rounded-2xl p-4 space-y-2 ${
+              isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
+            }`}>
+              <h4 className="text-xs font-black text-amber-600 dark:text-amber-400 flex items-center gap-1.5 uppercase">
+                <Sparkles className="w-4 h-4" />
+                <span>Saran Peningkatan dari HRD:</span>
+              </h4>
+              <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed font-medium">
+                {aiEvaluation.actionableFeedback}
+              </p>
+            </div>
+
+          </div>
+
+          {/* Full Conversation Transcript Box */}
+          <div className={`border rounded-2xl p-4 space-y-3 ${
+            isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
+          }`}>
+            <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-2.5">
+              <span className="text-xs font-black uppercase text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                <FileText className="w-4 h-4 text-purple-500" />
+                <span>Transkrip Rekaman Percakapan ({transcriptHistory.length} Ucapan)</span>
+              </span>
+            </div>
+
+            <div className="space-y-2.5 max-h-80 overflow-y-auto pr-1">
+              {transcriptHistory.map((turn) => (
+                <div
+                  key={turn.id}
+                  className={`p-3 rounded-2xl text-xs space-y-1 ${
+                    turn.role === 'assistant'
+                      ? 'bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-900/60'
+                      : 'bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700'
+                  }`}
+                >
+                  <div className="flex items-center justify-between font-bold">
+                    <span className={turn.role === 'assistant' ? 'text-purple-700 dark:text-purple-300' : 'text-slate-800 dark:text-slate-200'}>
+                      {turn.speaker}
+                    </span>
+                    <span className="text-[10px] text-slate-400 font-normal">{turn.timestamp}</span>
+                  </div>
+                  <p className="text-slate-700 dark:text-slate-300 leading-relaxed">
+                    "{turn.text}"
+                  </p>
+                </div>
+              ))}
             </div>
           </div>
 
-          {/* Detailed Question Review Cards */}
-          <div className="space-y-3">
-            <h3 className="text-xs font-black uppercase tracking-wider text-slate-400">
-              Detail Transkrip & Masukan per Pertanyaan:
-            </h3>
-
-            {sessionResponses.map((res, i) => (
-              <div 
-                key={i} 
-                className={`border rounded-2xl p-4 shadow-xs space-y-2.5 transition-colors ${
-                  isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-bold text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/60 px-2.5 py-0.5 rounded-full border border-purple-200 dark:border-purple-800">
-                    Pertanyaan #{i + 1}
-                  </span>
-                  <span className="text-xs font-black text-emerald-600 dark:text-emerald-400">
-                    Skor: {res.rubric.totalAcceptanceProbability}%
-                  </span>
-                </div>
-
-                <div className="text-xs font-extrabold leading-snug">
-                  HRD: "{res.question.question}"
-                </div>
-
-                <div className={`p-3 rounded-xl border text-xs italic leading-relaxed ${
-                  isDark ? 'bg-slate-800/60 border-slate-700 text-slate-200' : 'bg-slate-50 border-slate-200 text-slate-700'
-                }`}>
-                  <strong>Jawaban Anda:</strong> "{res.userAnswer}"
-                </div>
-
-                {/* Feedback Box */}
-                <div className="bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/80 rounded-xl p-3 text-xs space-y-2">
-                  <div>
-                    <strong className="text-amber-900 dark:text-amber-200 block font-bold">💡 Saran Perbaikan Jawaban:</strong>
-                    <p className="text-amber-950 dark:text-amber-100">{res.rubric.actionableFeedback}</p>
-                  </div>
-                  <div>
-                    <strong className="text-emerald-800 dark:text-emerald-300 block font-bold">✨ Contoh Jawaban Ideal:</strong>
-                    <p className="text-emerald-950 dark:text-emerald-100 bg-white/80 dark:bg-slate-900/80 p-2.5 rounded-lg border border-emerald-200 dark:border-emerald-800 font-medium">
-                      "{res.rubric.idealAnswer}"
-                    </p>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-
+          {/* New Simulation Button */}
           <button
             onClick={() => {
               sounds.playClick();
               setSessionState('idle');
             }}
-            className="w-full py-3.5 bg-slate-900 hover:bg-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 text-white font-bold text-xs rounded-2xl shadow-xs transition-colors flex items-center justify-center gap-2"
+            className="w-full py-4 bg-gradient-to-r from-slate-900 to-indigo-950 hover:from-slate-800 hover:to-indigo-900 text-white font-black text-sm rounded-2xl shadow-lg border border-indigo-800 flex items-center justify-center gap-2 transition-all"
           >
             <RotateCcw className="w-4 h-4" />
-            <span>Lakukan Simulasi Interview Baru</span>
+            <span>Lakukan Simulasi Wawancara Baru</span>
           </button>
 
         </div>
       )}
 
       {/* =================================================================== */}
-      {/* 4. TOP UP KREDIT / TOKEN MODAL                                      */}
+      {/* 4. TOP UP TOKEN MODAL                                              */}
       {/* =================================================================== */}
       {isTopUpModalOpen && (
-        <div 
-          onClick={() => setIsTopUpModalOpen(false)}
-          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 animate-in fade-in overflow-y-auto cursor-pointer"
-        >
-          <div 
-            onClick={(e) => e.stopPropagation()}
-            className={`w-full max-w-md rounded-3xl border shadow-2xl p-5 sm:p-6 relative my-auto overflow-hidden cursor-default transition-colors ${
-              isDark ? 'bg-slate-900 border-slate-700 text-white' : 'bg-white border-slate-200 text-slate-900'
-            }`}
-          >
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in">
+          <div className={`w-full max-w-md border rounded-3xl p-5 sm:p-6 shadow-2xl relative space-y-4 ${
+            isDark ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200 text-slate-900'
+          }`}>
             
-            {/* Modal Header */}
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-xl bg-amber-500 text-slate-950 flex items-center justify-center font-black">
-                  <Coins className="w-4 h-4" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-black">Top Up Kredit AI Interview</h3>
-                  <span className="text-[10px] text-slate-400 block">Saldo Saat Ini: {tokenBalance} Sesi</span>
-                </div>
-              </div>
+            <button
+              onClick={() => {
+                sounds.playClick();
+                setIsTopUpModalOpen(false);
+              }}
+              className="absolute top-4 right-4 p-1.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-white"
+            >
+              <X className="w-4 h-4" />
+            </button>
 
-              <button
-                onClick={() => setIsTopUpModalOpen(false)}
-                className="p-1.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-slate-700 dark:hover:text-white"
-              >
-                <X className="w-4 h-4" />
-              </button>
+            <div className="text-center space-y-1">
+              <div className="w-12 h-12 rounded-2xl bg-amber-400/20 text-amber-500 flex items-center justify-center mx-auto mb-2">
+                <Coins className="w-6 h-6 fill-amber-400" />
+              </div>
+              <h3 className="text-lg font-black tracking-tight">Top Up Saldo Kredit AI Interview</h3>
+              <p className="text-xs text-slate-400">
+                Pilih paket sesi simulasi live interview dengan AI Recruiter industri manufaktur.
+              </p>
             </div>
 
-            {/* Success alert notice */}
             {topUpSuccessNotice && (
-              <div className="mt-3 p-3 bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 rounded-xl text-xs font-bold animate-in fade-in">
+              <div className="p-3 bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs rounded-xl font-bold text-center">
                 {topUpSuccessNotice}
               </div>
             )}
 
-            {/* Package Choices */}
-            <div className="py-4 space-y-2.5">
-              
-              {/* Package 1 */}
-              <div className={`p-3.5 rounded-2xl border transition-all flex items-center justify-between ${
-                isDark ? 'bg-slate-800/60 border-slate-700' : 'bg-slate-50 border-slate-200'
-              }`}>
-                <div>
-                  <div className="flex items-center gap-1.5">
-                    <strong className="text-xs font-black">1 Sesi Simulasi AI</strong>
-                    <span className="text-[9px] bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 px-1.5 py-0.5 rounded font-bold">Starter</span>
-                  </div>
-                  <span className="text-[11px] text-slate-400 block mt-0.5">1x Wawancara Lengkap + Skor Evaluasi</span>
-                  <div className="text-xs font-extrabold text-amber-500 mt-1">Rp 10.000</div>
-                </div>
-
-                <button
-                  onClick={() => handleTopUpTokens(1, 'Paket Starter 1 Sesi')}
-                  className="px-3.5 py-2 bg-purple-600 hover:bg-purple-500 text-white font-black text-xs rounded-xl shadow-xs transition-all"
+            {/* Pricing Packages */}
+            <div className="space-y-2.5">
+              {[
+                { id: 1, amount: 3, price: 'Rp 15.000', badge: 'Paket Basic', desc: '3 Sesi Panggilan Wawancara AI' },
+                { id: 2, amount: 10, price: 'Rp 35.000', badge: 'Paling Populer ⭐', desc: '10 Sesi Panggilan + Evaluasi Lengkap', isPopular: true },
+                { id: 3, amount: 30, price: 'Rp 75.000', badge: 'Paket Intensif Lolos', desc: '30 Sesi Panggilan + Rekaman Transkrip' }
+              ].map(pkg => (
+                <div
+                  key={pkg.id}
+                  onClick={() => setSelectedTopUpPackage(pkg.id)}
+                  className={`p-3.5 rounded-2xl border cursor-pointer transition-all flex items-center justify-between ${
+                    selectedTopUpPackage === pkg.id
+                      ? 'border-amber-400 bg-amber-400/10 ring-2 ring-amber-400/20'
+                      : isDark
+                        ? 'border-slate-800 bg-slate-800/40 hover:bg-slate-800'
+                        : 'border-slate-200 bg-slate-50 hover:bg-slate-100'
+                  }`}
                 >
-                  Pilih
-                </button>
-              </div>
-
-              {/* Package 2 */}
-              <div className={`p-3.5 rounded-2xl border-2 transition-all flex items-center justify-between relative overflow-hidden ${
-                isDark ? 'bg-purple-950/30 border-purple-600/80' : 'bg-purple-50/60 border-purple-500'
-              }`}>
-                <div className="absolute -right-6 -top-6 w-16 h-16 bg-purple-500/10 rounded-full blur-md" />
-                <div>
-                  <div className="flex items-center gap-1.5">
-                    <strong className="text-xs font-black">3 Sesi Simulasi AI</strong>
-                    <span className="text-[9px] bg-purple-600 text-white px-1.5 py-0.5 rounded-full font-black">Hemat 17%</span>
+                  <div className="space-y-0.5">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs font-black">{pkg.amount} Sesi Interview</span>
+                      <span className={`text-[9px] font-extrabold px-2 py-0.5 rounded-full ${
+                        pkg.isPopular ? 'bg-amber-400 text-slate-950' : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
+                      }`}>
+                        {pkg.badge}
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-slate-400">{pkg.desc}</p>
                   </div>
-                  <span className="text-[11px] text-slate-400 block mt-0.5">3x Sesi Latihan Wawancara + Tips Jawaban</span>
-                  <div className="text-xs font-extrabold text-amber-500 mt-1">Rp 25.000</div>
-                </div>
 
-                <button
-                  onClick={() => handleTopUpTokens(3, 'Paket Pro 3 Sesi')}
-                  className="px-3.5 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-black text-xs rounded-xl shadow-xs transition-all"
-                >
-                  Pilih
-                </button>
-              </div>
-
-              {/* Package 3 */}
-              <div className={`p-3.5 rounded-2xl border-2 transition-all flex items-center justify-between relative overflow-hidden ${
-                isDark ? 'bg-amber-950/20 border-amber-500/80' : 'bg-amber-50/60 border-amber-500'
-              }`}>
-                <div>
-                  <div className="flex items-center gap-1.5">
-                    <strong className="text-xs font-black">10 Sesi AI VIP</strong>
-                    <span className="text-[9px] bg-amber-500 text-slate-950 px-1.5 py-0.5 rounded-full font-black">Paling Populer</span>
+                  <div className="text-right">
+                    <span className="text-xs font-black text-amber-500 block">{pkg.price}</span>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleTopUpTokens(pkg.amount, pkg.badge);
+                      }}
+                      className="mt-1 px-3 py-1 bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-[10px] rounded-lg shadow-xs"
+                    >
+                      Beli Sekarang
+                    </button>
                   </div>
-                  <span className="text-[11px] text-slate-400 block mt-0.5">Latihan intensif hingga lolos interview</span>
-                  <div className="text-xs font-extrabold text-amber-500 mt-1">Rp 50.000 <span className="text-[10px] text-slate-400 line-through">Rp 100.000</span></div>
                 </div>
-
-                <button
-                  onClick={() => handleTopUpTokens(10, 'Paket VIP 10 Sesi')}
-                  className="px-3.5 py-2 bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 font-black text-xs rounded-xl shadow-xs transition-all"
-                >
-                  Pilih
-                </button>
-              </div>
-
-            </div>
-
-            {/* WA Support Info */}
-            <div className={`p-3 rounded-xl border text-[11px] text-slate-400 text-center ${
-              isDark ? 'bg-slate-800/40 border-slate-700/50' : 'bg-slate-50 border-slate-200'
-            }`}>
-              Memerlukan bantuan pembayaran manual atau voucher sekolah? Hubungi Admin via WhatsApp.
+              ))}
             </div>
 
           </div>

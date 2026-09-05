@@ -1018,7 +1018,7 @@ app.post('/api/interview/generate-followup', async (req, res) => {
       interviewerPersona = 'Bapak Hendra (Senior HRD Otomotif)', 
       userAnswer = '', 
       questionIndex = 1,
-      conversationHistory = []
+      conversationHistory = [] // Array of { role: 'user' | 'assistant', content: string }
     } = req.body;
 
     const sumopodKey = process.env.SUMOPOD_API_KEY || process.env.OPENAI_API_KEY;
@@ -1031,21 +1031,36 @@ app.post('/api/interview/generate-followup', async (req, res) => {
 
     // 1. Prioritize Sumopod.com / OpenAI-compatible API Gateway
     if (sumopodKey) {
-      const systemPrompt = `Anda adalah pewawancara AI HRD & User industri profesional: "${interviewerPersona}".
+      const systemPrompt = `Anda adalah pewawancara AI HRD & User industri manufaktur profesional: "${interviewerPersona}".
 Target posisi yang dilamar kandidat: "${targetRole.toUpperCase()} (Pabrik / Manufaktur Industri)".
-Karakter Anda: Profesional, ramah, tegas, mengutamakan keselamatan kerja (K3), kedisiplinan, ketelitian, dan kesiapan fisik/mental pabrik.
+Karakter Anda: Profesional, ramah, tegas, berwibawa, mengutamakan keselamatan kerja (K3), kedisiplinan, ketelitian, dan kesiapan fisik/mental pabrik.
 
-Instruksi Tugas:
-1. Dengarkan dan respon jawaban kandidat untuk pertanyaan ke-${questionIndex} secara natural (acknowledgement 1 kalimat singkat yang mengapresiasi atau mengomentari poin spesifik jawaban kandidat).
-2. Sambungkan dengan pertanyaan lanjutan berikutnya (tahap ${questionIndex + 1}) yang mendalam, relevan dengan jawaban kandidat dan posisi ${targetRole}.
-3. Bahasa Indonesia lisan yang sangat alami, formal namun luwes seperti wawancara tatap muka asli (panjang total ucapan sekitar 40-55 kata agar pas untuk disuarakan text-to-speech).
+Instruksi Wawancara:
+1. Anda sedang melakukan panggilan suara langsung (Live Voice Call) dengan kandidat.
+2. Tanggapi apa yang baru saja diceritakan kandidat secara alami dan apresiatif (1 kalimat tanggapan verbal).
+3. Sambungkan langsung dengan pertanyaan berikutnya yang mendalam, kontekstual, dan menguji kesiapan nyata kandidat untuk posisi ${targetRole}.
+4. Gunakan bahasa Indonesia lisan yang sangat alami, ringkas, santai namun formal (panjang total ucapan sekitar 35-50 kata agar nyaman didengar lewat audio suara).
 
-Kembalikan HANYA format JSON valid tanpa tanda markdown (tanpa \`\`\`json):
+Kembalikan HANYA format JSON valid tanpa markdown (\`\`\`json):
 {
-  "acknowledgement": "Tanggapan verbal alami terhadap jawaban kandidat",
-  "nextQuestion": "Pertanyaan lanjutan yang tersambung logis",
-  "fullSpoken": "Gabungan tanggapan dan pertanyaan lanjutan untuk diucapkan secara langsung"
+  "acknowledgement": "Tanggapan verbal alami atas jawaban kandidat",
+  "nextQuestion": "Pertanyaan lanjutan yang mengalir",
+  "fullSpoken": "Gabungan tanggapan dan pertanyaan lanjutan untuk diucapkan langsung"
 }`;
+
+      // Build multi-turn messages array
+      const messages = [{ role: 'system', content: systemPrompt }];
+      if (Array.isArray(conversationHistory) && conversationHistory.length > 0) {
+        conversationHistory.slice(-8).forEach(msg => {
+          if (msg && msg.role && msg.content) {
+            messages.push({ role: msg.role === 'assistant' ? 'assistant' : 'user', content: String(msg.content) });
+          }
+        });
+      }
+      messages.push({ 
+        role: 'user', 
+        content: `Jawaban kandidat pada giliran ke-${questionIndex}: "${userAnswer || 'Saya siap dan sangat termotivasi.'}"` 
+      });
 
       try {
         const aiRes = await fetch(`${sumopodBaseUrl}/chat/completions`, {
@@ -1056,10 +1071,7 @@ Kembalikan HANYA format JSON valid tanpa tanda markdown (tanpa \`\`\`json):
           },
           body: JSON.stringify({
             model: sumopodModel,
-            messages: [
-              { role: 'system', content: systemPrompt },
-              { role: 'user', content: `Jawaban kandidat pada pertanyaan ke-${questionIndex}: "${userAnswer || 'Saya siap dan memiliki komitmen tinggi.'}"` }
-            ],
+            messages,
             temperature: 0.7,
             max_tokens: 300
           })
@@ -1094,12 +1106,12 @@ Kembalikan HANYA format JSON valid tanpa tanda markdown (tanpa \`\`\`json):
     if (geminiKey) {
       const systemPrompt = `Anda adalah pewawancara AI profesional: "${interviewerPersona}".
 Target posisi yang dilamar: "${targetRole.toUpperCase()} (Pabrik / Manufaktur Industri)".
-Kandidat baru saja menjawab pertanyaan ke-${questionIndex} dengan jawaban suara: "${userAnswer}".
+Kandidat baru saja menjawab: "${userAnswer}".
 
 Tugas Anda sebagai HRD pabrik profesional:
 1. Berikan tanggapan verbal alami singkat (1 kalimat) yang langsung merespons apa yang diceritakan kandidat.
-2. Sambungkan dengan pertanyaan lanjutan berikutnya (tahap ${questionIndex + 1}) yang mendalam, realistis, dan menguji kesiapan nyata kandidat untuk posisi ${targetRole}.
-3. Bahasa Indonesia yang digunakan harus profesional, tegas, ramah, dan mengalir seperti percakapan lisan tatap muka asli (total 40-55 kata).
+2. Sambungkan dengan pertanyaan lanjutan berikutnya yang mendalam dan realistis untuk posisi ${targetRole}.
+3. Total panjang ucapan 35-50 kata.
 
 Kembalikan respon HANYA dalam format JSON murni tanpa markdown:
 {
@@ -1141,6 +1153,102 @@ Kembalikan respon HANYA dalam format JSON murni tanpa markdown:
     });
   } catch (err) {
     console.error('[Interview Gen Error]', err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ----------------------------------------------------------------------------
+// POST-CALL COMPREHENSIVE AI EVALUATION ENDPOINT
+// ----------------------------------------------------------------------------
+app.post('/api/interview/evaluate-session', async (req, res) => {
+  try {
+    const {
+      candidateName = 'Kandidat',
+      targetRole = 'operator',
+      interviewerPersona = 'Bapak Hendra (Senior HRD Otomotif)',
+      transcript = [] // Array of { speaker: string, text: string }
+    } = req.body;
+
+    const sumopodKey = process.env.SUMOPOD_API_KEY || process.env.OPENAI_API_KEY;
+    let sumopodBaseUrl = (process.env.SUMOPOD_BASE_URL || 'https://ai.sumopod.com/v1').replace(/\/+$/, '');
+    if (sumopodBaseUrl.includes('api.sumopod.com')) {
+      sumopodBaseUrl = 'https://ai.sumopod.com/v1';
+    }
+    const sumopodModel = process.env.SUMOPOD_MODEL || process.env.OPENAI_MODEL || 'gpt-4o-mini';
+
+    const transcriptFormatted = Array.isArray(transcript) 
+      ? transcript.map(t => `${t.speaker}: ${t.text}`).join('\n')
+      : String(transcript);
+
+    if (sumopodKey && transcriptFormatted.length > 20) {
+      const evalPrompt = `Anda adalah Tim Rekrutmen & Penilai Asesmen HRD Industri Manufaktur untuk posisi "${targetRole.toUpperCase()}".
+Berikut adalah transkrip rekaman percakapan suara wawancara antara HRD (${interviewerPersona}) dengan kandidat (${candidateName}):
+
+--- TRANSKRIP LENGKAP ---
+${transcriptFormatted}
+--- AKHIR TRANSKRIP ---
+
+Tugas Anda:
+Lakukan evaluasi menyeluruh dan objektif terhadap performa wawancara kandidat berdasarkan standar rekrutmen pabrik / manufaktur.
+Nilai 4 aspek (skor 0 - 100):
+1. relevanceScore: Relevansi jawaban dengan pertanyaan dan metode STAR.
+2. articulationScore: Artikulasi bicara, ketegasan, dan kejelasan ide.
+3. etiquetteScore: Sikap, kesopanan, kerendahan hati, dan kepatuhan norma kerja.
+4. jobFitScore: Kesesuaian fisik/mental, pemahaman teknis/PKL, dan komitmen shift pabrik.
+Hitung totalAcceptanceProbability (rata-rata terbobot 0 - 100%).
+
+Kembalikan HANYA format JSON valid tanpa markdown (\`\`\`json):
+{
+  "totalAcceptanceProbability": 78,
+  "relevanceScore": 75,
+  "articulationScore": 80,
+  "etiquetteScore": 85,
+  "jobFitScore": 72,
+  "summary": "Ringkasan kesimpulan performa wawancara (2-3 kalimat)",
+  "strengths": ["Poin kelebihan 1", "Poin kelebihan 2"],
+  "weaknesses": ["Poin yang perlu ditingkatkan 1", "Poin yang perlu ditingkatkan 2"],
+  "actionableFeedback": "Saran konkret untuk meningkatkan peluang lolos di interview nyata"
+}`;
+
+      try {
+        const evalRes = await fetch(`${sumopodBaseUrl}/chat/completions`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${sumopodKey}`
+          },
+          body: JSON.stringify({
+            model: sumopodModel,
+            messages: [{ role: 'system', content: evalPrompt }],
+            temperature: 0.5,
+            max_tokens: 500
+          })
+        });
+
+        if (evalRes.ok) {
+          const evalData = await evalRes.json();
+          const raw = evalData?.choices?.[0]?.message?.content || '';
+          const cleaned = raw.replace(/```json/g, '').replace(/```/g, '').trim();
+          const parsed = JSON.parse(cleaned);
+          return res.json({
+            success: true,
+            isAiEvaluated: true,
+            evaluation: parsed
+          });
+        }
+      } catch (err) {
+        console.warn('[Evaluate Session Exception]', err.message);
+      }
+    }
+
+    // Heuristic Fallback
+    res.json({
+      success: true,
+      isAiEvaluated: false,
+      message: 'Using client-side heuristic evaluation'
+    });
+  } catch (err) {
+    console.error('[Evaluate Error]', err);
     res.status(500).json({ success: false, message: err.message });
   }
 });

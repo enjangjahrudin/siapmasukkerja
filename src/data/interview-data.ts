@@ -1,5 +1,59 @@
 import { TargetRole, InterviewRubric } from '../types';
 
+export interface RecruiterPersonaInfo {
+  id: string;
+  name: string;
+  roleTitle: string;
+  companyContext: string;
+  avatarUrl: string;
+  gender: 'male' | 'female';
+  greeting: string;
+  closing: string;
+}
+
+export const recruiterPersonas: Record<TargetRole, RecruiterPersonaInfo> = {
+  operator: {
+    id: 'hendra',
+    name: 'Bapak Hendra',
+    roleTitle: 'Senior HRD & Talent Recruiter Otomotif',
+    companyContext: 'Divisi Rekrutmen Manufaktur & Perakitan',
+    avatarUrl: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=400&auto=format&fit=crop&q=80',
+    gender: 'male',
+    greeting: 'Halo, selamat pagi. Terima kasih sudah hadir tepat waktu untuk panggilan interview hari ini. Bagaimana kabarnya? Silakan perkenalkan diri Anda secara singkat, ceritakan latar belakang sekolah dan pengalaman PKL Anda.',
+    closing: 'Terima kasih banyak atas waktunya. Seluruh penjelasan Anda kami catat dengan baik. Mari kita lihat evaluasi sesi wawancara Anda.'
+  },
+  qc: {
+    id: 'ratna',
+    name: 'Ibu Ratna',
+    roleTitle: 'Quality Assurance & QC Manager',
+    companyContext: 'Divisi Standar Mutu & Inspeksi Presisi',
+    avatarUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=400&auto=format&fit=crop&q=80',
+    gender: 'female',
+    greeting: 'Selamat pagi. Terima kasih atas kehadirannya. Silakan perkenalkan diri Anda dan ceritakan pemahaman Anda mengenai peran Quality Control (QC) di pabrik manufaktur.',
+    closing: 'Terima kasih atas penjelasan yang detail. Saya melihat ketelitian dan komitmen mutu yang baik. Mari kita lihat laporan hasil wawancara Anda.'
+  },
+  maintenance: {
+    id: 'suryo',
+    name: 'Bapak Suryo',
+    roleTitle: 'Chief Engineering & Maintenance Lead',
+    companyContext: 'Divisi Perawatan Mesin & Otomasi Pabrik',
+    avatarUrl: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=400&auto=format&fit=crop&q=80',
+    gender: 'male',
+    greeting: 'Selamat pagi. Silakan perkenalkan diri Anda dan ceritakan keahlian dasar kelistrikan dan mekanik mesin yang Anda kuasai.',
+    closing: 'Terima kasih, pemahaman teknis dan kepedulian K3 Anda sangat krusial di pabrik kami. Mari kita review hasil asesmen teknis ini.'
+  },
+  logistics: {
+    id: 'anton',
+    name: 'Bapak Anton',
+    roleTitle: 'Warehouse & Supply Chain Lead',
+    companyContext: 'Divisi Logistik, Pergudangan & Distribusi',
+    avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&auto=format&fit=crop&q=80',
+    gender: 'male',
+    greeting: 'Selamat pagi. Silakan perkenalkan diri Anda dan ceritakan pengalaman Anda dalam manajemen barang di gudang atau pergudangan sekolah/PKL.',
+    closing: 'Terima kasih. Ketelitian pencatatan stok dan disiplin FIFO adalah kunci kelancaran rantai pasok kita. Silakan lihat hasil evaluasi Anda.'
+  }
+};
+
 export interface InterviewQuestionItem {
   id: string;
   role: TargetRole;
@@ -410,5 +464,79 @@ export async function generateAdaptiveFollowUp(
     adaptiveQuestionText: adaptiveQuestion,
     fullSpokenDialogue,
     isAiLiveGenerated: false
+  };
+}
+
+/**
+ * Post-Call Comprehensive Session Evaluator
+ * Calls /api/interview/evaluate-session to analyze entire transcript with Sumopod AI
+ */
+export async function evaluateInterviewSessionWithAi(
+  candidateName: string,
+  targetRole: TargetRole,
+  interviewerPersona: string,
+  transcript: Array<{ speaker: string; text: string }>
+): Promise<{
+  totalAcceptanceProbability: number;
+  relevanceScore: number;
+  articulationScore: number;
+  etiquetteScore: number;
+  jobFitScore: number;
+  summary: string;
+  strengths: string[];
+  weaknesses: string[];
+  actionableFeedback: string;
+  isAiEvaluated: boolean;
+}> {
+  try {
+    const res = await fetch('/api/interview/evaluate-session', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        candidateName,
+        targetRole,
+        interviewerPersona,
+        transcript
+      })
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      if (data.isAiEvaluated && data.evaluation) {
+        return {
+          totalAcceptanceProbability: data.evaluation.totalAcceptanceProbability || 78,
+          relevanceScore: data.evaluation.relevanceScore || 75,
+          articulationScore: data.evaluation.articulationScore || 80,
+          etiquetteScore: data.evaluation.etiquetteScore || 85,
+          jobFitScore: data.evaluation.jobFitScore || 72,
+          summary: data.evaluation.summary || 'Kandidat menunjukkan kesiapan kerja dan potensi yang baik dalam menjawab pertanyaan wawancara.',
+          strengths: data.evaluation.strengths || ['Komunikasi cukup lugas', 'Memiliki bekal dasar industri'],
+          weaknesses: data.evaluation.weaknesses || ['Perlu memperdalam istilah teknis K3'],
+          actionableFeedback: data.evaluation.actionableFeedback || 'Gunakan metode STAR untuk memperjelas hasil kerja konkret Anda.',
+          isAiEvaluated: true
+        };
+      }
+    }
+  } catch (err) {
+    console.warn('[Evaluate Session API Error]', err);
+  }
+
+  // Fallback Heuristic evaluation
+  const allText = transcript.map(t => t.text).join(' ').toLowerCase();
+  const wordCount = allText.split(/\s+/).filter(Boolean).length;
+  const turnsCount = transcript.filter(t => t.speaker === candidateName || t.speaker.includes('Anda')).length;
+
+  const score = Math.min(95, Math.max(55, Math.round(50 + (turnsCount * 6) + (wordCount * 0.1))));
+  return {
+    totalAcceptanceProbability: score,
+    relevanceScore: Math.min(95, score + 2),
+    articulationScore: Math.min(95, score - 3),
+    etiquetteScore: Math.min(98, score + 5),
+    jobFitScore: Math.min(95, score - 1),
+    summary: 'Sesi wawancara suara selesai dengan komunikasi yang aktif dan interaktif.',
+    strengths: ['Aktif merespons setiap pertanyaan', 'Menunjukkan motivasi kerja tinggi'],
+    weaknesses: ['Perlu melatih intonasi suara agar lebih mantap saat wawancara offline'],
+    actionableFeedback: 'Latihlah artikulasi secara rutin dan sampaikan contoh konkret dari pengalaman PKL Anda.',
+    isAiEvaluated: false
   };
 }
