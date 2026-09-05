@@ -2,7 +2,7 @@ import { TargetRole } from '../types';
 
 export interface UserTestRecord {
   id: string;
-  testType: 'math' | 'multiplication' | 'kraepelin' | 'qc' | 'psychotest' | 'mechanical' | 'spatial' | 'arithmetic' | 'wartegg' | 'tryout';
+  testType: 'math' | 'multiplication' | 'kraepelin' | 'qc' | 'psychotest' | 'mechanical' | 'spatial' | 'arithmetic' | 'wartegg' | 'tryout' | 'interview';
   testName: string;
   score: number; // 0 - 100
   totalQuestions?: number;

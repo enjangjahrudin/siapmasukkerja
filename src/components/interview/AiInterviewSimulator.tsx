@@ -207,13 +207,36 @@ export const AiInterviewSimulator: React.FC<AiInterviewSimulatorProps> = ({
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = 'id-ID';
-    utterance.rate = 0.98; // Natural pace
-    utterance.pitch = 1.0;
 
-    // Indonesian voice preference
+    const persona = currentQuestion?.interviewerPersona || '';
+    const isMalePersona = persona.toLowerCase().includes('bapak') || 
+                          persona.toLowerCase().includes('pak') || 
+                          persona.toLowerCase().includes('hendra') || 
+                          persona.toLowerCase().includes('dimas') || 
+                          persona.toLowerCase().includes('suryo') || 
+                          persona.toLowerCase().includes('anton');
+
+    // Adjust pitch: 0.76 - 0.80 yields deep masculine baritone voice on Web Speech TTS
+    utterance.pitch = isMalePersona ? 0.78 : 1.05;
+    utterance.rate = isMalePersona ? 0.94 : 0.98;
+
+    // Indonesian voice selection with gender matching
     const voices = window.speechSynthesis.getVoices();
-    const idVoice = voices.find(v => v.lang.includes('id') || v.lang.includes('ID'));
-    if (idVoice) utterance.voice = idVoice;
+    let preferredVoice = voices.find(v => {
+      const matchLang = v.lang.includes('id') || v.lang.includes('ID');
+      const name = v.name.toLowerCase();
+      if (!matchLang) return false;
+      if (isMalePersona) {
+        return name.includes('male') || name.includes('david') || name.includes('arun') || name.includes('budi') || name.includes('male');
+      } else {
+        return name.includes('female') || name.includes('gadis') || name.includes('siti') || name.includes('female');
+      }
+    });
+
+    if (!preferredVoice) {
+      preferredVoice = voices.find(v => v.lang.includes('id') || v.lang.includes('ID'));
+    }
+    if (preferredVoice) utterance.voice = preferredVoice;
 
     utterance.onstart = () => {
       setIsAiSpeaking(true);
@@ -369,7 +392,7 @@ export const AiInterviewSimulator: React.FC<AiInterviewSimulatorProps> = ({
           if (user) {
             updateActiveUserScore({ interviewScore: finalAvgScore });
             recordUserTestResult({
-              testType: 'psychotest',
+              testType: 'interview',
               testName: `AI Interview — ${currentQuestion.interviewerPersona}`,
               score: finalAvgScore,
               totalQuestions: dynamicQuestions.length,
