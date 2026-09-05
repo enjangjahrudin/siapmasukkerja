@@ -16,16 +16,16 @@ export const interviewQuestionsBank: Record<TargetRole, InterviewQuestionItem[]>
       id: 'op-1',
       role: 'operator',
       question: 'Halo, selamat pagi. Silakan perkenalkan diri Anda secara singkat, ceritakan latar belakang pendidikan dan pengalaman praktik kerja (PKL) Anda.',
-      interviewerPersona: 'Bapak Hendra (HRD PT Astra Group)',
+      interviewerPersona: 'Bapak Hendra (Senior HRD Industri Otomotif)',
       expectedKeywords: ['nama', 'smk', 'jurusan', 'pkl', 'disiplin', 'perakitan', 'mesin', 'tanggung jawab'],
       followUpPrompt: 'Bagus. Dari pengalaman PKL tersebut, hal tersulit apa yang pernah Anda hadapi dan bagaimana Anda mengatasinya?',
-      idealAnswer: 'Selamat pagi Bapak Hendra. Nama saya Ahmad Fauzi, lulusan SMK Negeri 1 Jurusan Teknik Mesin. Selama masa sekolah, saya aktif dalam kegiatan bengkel dan menyelesaikan Praktik Kerja Lapangan (PKL) di PT X selama 6 bulan di bagian line perakitan mesin. Saya terbiasa dengan target produksi harian, disiplin waktu, dan penerapan K3 di tempat kerja. Saya sangat termotivasi untuk bergabung dan berkontribusi sebagai Operator Produksi di perusahaan ini.'
+      idealAnswer: 'Selamat pagi Bapak Hendra. Nama saya Ahmad Fauzi, lulusan SMK Negeri 1 Jurusan Teknik Mesin. Selama masa sekolah, saya aktif dalam kegiatan bengkel dan menyelesaikan Praktik Kerja Lapangan (PKL) selama 6 bulan di bagian line perakitan mesin. Saya terbiasa dengan target produksi harian, disiplin waktu, dan penerapan K3 di tempat kerja. Saya sangat termotivasi untuk bergabung dan berkontribusi sebagai Operator Produksi di perusahaan ini.'
     },
     {
       id: 'op-2',
       role: 'operator',
       question: 'Di posisi Operator Produksi, Anda akan menghadapi pekerjaan berulang (repetitif), target harian yang ketat, dan sistem shift termasuk shift malam. Bagaimana kesiapan fisik dan mental Anda?',
-      interviewerPersona: 'Bapak Hendra (HRD PT Astra Group)',
+      interviewerPersona: 'Bapak Hendra (Senior HRD Industri Otomotif)',
       expectedKeywords: ['siap', 'shift', 'malam', 'fisik', 'kebugaran', 'fokus', 'lembur', 'olahraga', 'sop'],
       followUpPrompt: 'Bagaimana cara Anda menjaga stamina agar tetap fokus dan tidak mengantuk saat shift 3?',
       idealAnswer: 'Saya sangat siap fisik dan mental untuk bekerja dalam sistem shift maupun lembur sesuai kebutuhan produksi. Di masa sekolah dan PKL, saya terbiasa dengan aktivitas fisik aktif dan rutin menjaga kebugaran dengan berolahraga. Untuk shift malam, saya menerapkan pola istirahat teratur di siang hari, menjaga asupan cairan, dan selalu mematuhi SOP keselamatan kerja agar tetap fokus dan terhindar dari kecelakaan kerja.'
@@ -34,7 +34,7 @@ export const interviewQuestionsBank: Record<TargetRole, InterviewQuestionItem[]>
       id: 'op-3',
       role: 'operator',
       question: 'Jika saat Anda sedang bekerja di line produksi, mesin yang Anda operasikan tiba-tiba mengeluarkan suara tidak normal atau hasil rakitan tidak presisi, apa tindakan pertama yang akan Anda lakukan?',
-      interviewerPersona: 'Pak Dimas (User Supervisor Produksi)',
+      interviewerPersona: 'Bapak Dimas (Supervisor Produksi Manufaktur)',
       expectedKeywords: ['stop', 'matikan', 'lapor', 'leader', 'foreman', 'andon', 'sop', 'jangan dipaksa'],
       followUpPrompt: 'Mengapa Anda tidak mencoba memperbaiki mesin tersebut sendiri?',
       idealAnswer: 'Tindakan pertama saya adalah segera menghentikan mesin (menekan tombol stop/andon) untuk mencegah kerusakan lebih parah atau kecelakaan kerja. Kemudian, saya akan segera melaporkan kondisi tersebut kepada Team Leader atau Foreman dan mencatat kronologinya. Saya tidak akan mencoba membongkar mesin sendiri di luar wewenang karena itu melanggar SOP keselamatan dan penanganan teknis.'
@@ -45,7 +45,7 @@ export const interviewQuestionsBank: Record<TargetRole, InterviewQuestionItem[]>
       id: 'qc-1',
       role: 'qc',
       question: 'Selamat pagi. Silakan jelaskan pemahaman Anda mengenai tugas seorang Quality Control (QC) dan mengapa posisi ini sangat penting di sebuah pabrik manufaktur?',
-      interviewerPersona: 'Ibu Ratna (HRD & QA Manager PT Epson)',
+      interviewerPersona: 'Ibu Ratna (QA & Quality Control Manager)',
       expectedKeywords: ['standar', 'spesifikasi', 'cacat', 'defect', 'zero defect', 'inspeksi', 'kepuasan pelanggan', 'sop'],
       followUpPrompt: 'Alat ukur presisi apa saja yang sudah pernah Anda gunakan saat sekolah atau PKL?',
       idealAnswer: 'Selamat pagi Ibu Ratna. Bagi saya, Quality Control adalah garda terdepan penjamin mutu produk sebelum sampai ke tangan konsumen. Tugas utama QC adalah memastikan seluruh bahan baku, proses di line produksi, hingga barang jadi (finished goods) memenuhi standar spesifikasi dan toleransi gambar kerja (drawing). QC sangat penting untuk mencegah produk cacat (NG) lolos ke pasar, menjaga reputasi perusahaan, dan memastikan efisiensi biaya produksi.'
@@ -54,7 +54,7 @@ export const interviewQuestionsBank: Record<TargetRole, InterviewQuestionItem[]>
       id: 'qc-2',
       role: 'qc',
       question: 'Misalkan Anda menemukan satu batch produk mengalami penyimpangan dimensi (Reject), namun bagian produksi mendesak agar produk tersebut diloloskan karena mengejar target pengiriman hari ini. Bagaimana sikap Anda?',
-      interviewerPersona: 'Ibu Ratna (HRD & QA Manager PT Epson)',
+      interviewerPersona: 'Ibu Ratna (QA & Quality Control Manager)',
       expectedKeywords: ['tegas', 'tahan', 'hold', 'tolak', 'sop', 'lapor', 'leader', 'komunikasi baik', 'tidak kompromi'],
       followUpPrompt: 'Bagaimana cara Anda menyampaikannya ke supervisor produksi agar tidak terjadi konflik personal?',
       idealAnswer: 'Saya akan tetap tegas berpegang teguh pada standar kualitas dan SOP yang berlaku dengan menahan (HOLD) batch tersebut dan memberi label status Reject / NG. Saya akan menyampaikan data hasil pengukuran secara objektif dan sopan kepada Foreman QC dan Supervisor Produksi. Kualitas tidak dapat dikompromikan demi target semata, karena meloloskan barang reject akan menimbulkan klaim konsumen dan kerugian yang jauh lebih besar bagi perusahaan.'
@@ -65,7 +65,7 @@ export const interviewQuestionsBank: Record<TargetRole, InterviewQuestionItem[]>
       id: 'maint-1',
       role: 'maintenance',
       question: 'Silakan ceritakan keahlian dasar kelistrikan dan mekanik yang Anda kuasai, serta pemahaman Anda tentang Preventive Maintenance.',
-      interviewerPersona: 'Bapak Suryo (Chief Engineer PT Yamaha)',
+      interviewerPersona: 'Bapak Suryo (Chief Engineering & Maintenance)',
       expectedKeywords: ['preventive', 'pencegahan', 'perawatan', 'multimeter', 'wiring', 'motor', 'pelumasan', 'troubleshooting'],
       followUpPrompt: 'Apa langkah pertama Anda dalam melakukan isolasi sumber tegangan (LOTO)?',
       idealAnswer: 'Saya memiliki kompetensi dasar dalam membaca diagram kelistrikan (wiring diagram), penggunaan alat ukur seperti multimeter dan tang ampere, serta perawatan mekanikal dasar seperti pelumasan bearing dan penggantian belt. Preventive Maintenance adalah perawatan berkala terjadwal untuk mencegah terjadinya kerusakan mendadak pada mesin (breakdown), sehingga usia pakai mesin optimal dan downtime produksi minimal.'
@@ -76,7 +76,7 @@ export const interviewQuestionsBank: Record<TargetRole, InterviewQuestionItem[]>
       id: 'log-1',
       role: 'logistics',
       question: 'Ceritakan pengalaman Anda dalam manajemen barang, stock opname, dan penerapan metode FIFO di gudang.',
-      interviewerPersona: 'Bapak Anton (Logistics & Supply Chain Manager)',
+      interviewerPersona: 'Bapak Anton (Warehouse & Logistics Lead)',
       expectedKeywords: ['fifo', 'first in first out', 'stock', 'opname', 'akurasi', 'barcode', 'labeling', 'tata letak'],
       followUpPrompt: 'Bagaimana Anda memastikan barang yang keluar dari gudang tidak mengalami selisih data sistem dengan fisik?',
       idealAnswer: 'Saya memahami konsep FIFO (First In First Out), di mana barang yang pertama kali masuk ke gudang harus menjadi barang pertama yang dikeluarkan ke line perakitan atau pengiriman untuk mencegah kedaluwarsa atau penumpukan stok lama. Saya terbiasa dengan pencatatan kartu stok, scan barcode, dan pelaksanaan stock opname fisik secara teliti agar data sistem selalu cocok 100% dengan fisik di rak gudang.'

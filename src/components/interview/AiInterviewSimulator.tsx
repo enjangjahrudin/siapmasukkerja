@@ -505,9 +505,9 @@ export const AiInterviewSimulator: React.FC<AiInterviewSimulatorProps> = ({
           {/* Role Cards Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {[
-              { id: 'operator', title: 'Operator Produksi', desc: 'Fokus kesiapan fisik, stamina shift malam, disiplin SOP, dan target kerja line perakitan.', hr: 'Bapak Hendra (HRD PT Astra Group)' },
-              { id: 'qc', title: 'Quality Control (QC)', desc: 'Fokus ketelitian, ketegasan reject produk NG, alat ukur presisi, dan komitmen zero defect.', hr: 'Ibu Ratna (QA Manager PT Epson)' },
-              { id: 'maintenance', title: 'Maintenance & Teknisi', desc: 'Fokus kelistrikan dasar, pencegahan breakdown mesin, dan K3 LOTO.', hr: 'Bapak Suryo (Chief Eng. PT Yamaha)' },
+              { id: 'operator', title: 'Operator Produksi', desc: 'Fokus kesiapan fisik, stamina shift malam, disiplin SOP, dan target kerja line perakitan.', hr: 'Bapak Hendra (Senior HRD Otomotif)' },
+              { id: 'qc', title: 'Quality Control (QC)', desc: 'Fokus ketelitian, ketegasan reject produk NG, alat ukur presisi, dan komitmen zero defect.', hr: 'Ibu Ratna (QA & QC Manager)' },
+              { id: 'maintenance', title: 'Maintenance & Teknisi', desc: 'Fokus kelistrikan dasar, pencegahan breakdown mesin, dan K3 LOTO.', hr: 'Bapak Suryo (Chief Engineering)' },
               { id: 'logistics', title: 'Logistik & Gudang', desc: 'Fokus sistem FIFO, stock opname akurat, dan barcode scanning barang.', hr: 'Bapak Anton (Warehouse Lead)' }
             ].map((role) => (
               <div
