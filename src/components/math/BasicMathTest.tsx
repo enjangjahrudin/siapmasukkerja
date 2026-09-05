@@ -5,6 +5,7 @@ import {
 } from '../../data/questions-basic-math';
 import { BaseQuestion } from '../../types';
 import { sounds } from '../../utils/sound-effects';
+import { recordUserTestResult } from '../../utils/auth-storage';
 import { 
   Calculator, 
   ChevronRight, 
@@ -73,6 +74,19 @@ export const BasicMathTest: React.FC = () => {
     if (timerRef.current) clearInterval(timerRef.current);
     sounds.playCelebration();
     confetti({ particleCount: 80, spread: 70 });
+
+    const correctCount = Object.entries(selectedAnswers).filter(
+      ([idx, ans]) => questions[Number(idx)] && questions[Number(idx)].correctAnswer === ans
+    ).length;
+    const scorePercent = questions.length > 0 ? Math.round((correctCount / questions.length) * 100) : 0;
+
+    recordUserTestResult({
+      testType: 'math',
+      testName: `Matematika Dasar (${questions.length} Soal)`,
+      score: scorePercent,
+      totalQuestions: questions.length,
+      correctAnswers: correctCount
+    });
   };
 
   const currentQ = questions[currentIndex] || questions[0];

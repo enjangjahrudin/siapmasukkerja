@@ -5,6 +5,7 @@ import {
   evaluateSequentialMultiplication 
 } from '../../data/multiplication-data';
 import { sounds } from '../../utils/sound-effects';
+import { recordUserTestResult } from '../../utils/auth-storage';
 import { 
   Clock, 
   Award, 
@@ -72,6 +73,19 @@ export const MultiplicationBlitzTest: React.FC = () => {
     if (timerRef.current) clearInterval(timerRef.current);
     sounds.playCelebration();
     confetti({ particleCount: 85, spread: 70 });
+
+    const totalAnswered = history.length;
+    const correctAnswers = history.filter(h => h.isCorrect).length;
+    const accuracy = totalAnswered > 0 ? Math.round((correctAnswers / totalAnswered) * 100) : 0;
+
+    recordUserTestResult({
+      testType: 'multiplication',
+      testName: `Tabel Perkalian Blitz (${totalAnswered} Butir)`,
+      score: accuracy,
+      totalQuestions: totalAnswered,
+      correctAnswers,
+      details: { completed: totalAnswered, correct: correctAnswers, accuracy }
+    });
   };
 
   const handleDigitPress = (digit: number) => {

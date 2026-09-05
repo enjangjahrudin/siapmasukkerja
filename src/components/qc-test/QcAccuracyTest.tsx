@@ -7,6 +7,7 @@ import {
 } from '../../data/questions-qc';
 import { BaseQuestion } from '../../types';
 import { sounds } from '../../utils/sound-effects';
+import { recordUserTestResult } from '../../utils/auth-storage';
 import { 
   CheckCircle2, 
   XCircle, 
@@ -84,6 +85,17 @@ export const QcAccuracyTest: React.FC = () => {
     if (timerRef.current) clearInterval(timerRef.current);
     sounds.playCelebration();
     confetti({ particleCount: 70, spread: 60 });
+
+    const totalAns = correctCount + wrongCount;
+    const acc = totalAns > 0 ? Math.round((correctCount / totalAns) * 100) : 0;
+
+    recordUserTestResult({
+      testType: 'qc',
+      testName: `Pencocokan Cepat QC (${totalAns} Butir)`,
+      score: acc,
+      totalQuestions: totalAns,
+      correctAnswers: correctCount
+    });
   };
 
   const handleMatchAnswer = (userChoiceSame: boolean) => {
@@ -135,6 +147,19 @@ export const QcAccuracyTest: React.FC = () => {
       setIsMcFinished(true);
       sounds.playCelebration();
       confetti({ particleCount: 70, spread: 60 });
+
+      const correctMcCount = Object.entries(mcAnswers).filter(
+        ([idx, ans]) => mcQuestions[Number(idx)] && mcQuestions[Number(idx)].correctAnswer === ans
+      ).length;
+      const mcScorePercent = mcQuestions.length > 0 ? Math.round((correctMcCount / mcQuestions.length) * 100) : 0;
+
+      recordUserTestResult({
+        testType: 'qc',
+        testName: `Teori QC & Toleransi (${mcQuestions.length} Soal)`,
+        score: mcScorePercent,
+        totalQuestions: mcQuestions.length,
+        correctAnswers: correctMcCount
+      });
     }
   };
 

@@ -1,5 +1,16 @@
 import { TargetRole } from '../types';
 
+export interface UserTestRecord {
+  id: string;
+  testType: 'math' | 'multiplication' | 'kraepelin' | 'qc' | 'psychotest' | 'mechanical' | 'spatial' | 'arithmetic' | 'wartegg' | 'tryout';
+  testName: string;
+  score: number; // 0 - 100
+  totalQuestions?: number;
+  correctAnswers?: number;
+  completedAt: string;
+  details?: Record<string, any>;
+}
+
 export interface RegisteredUser {
   id: string;
   name: string;
@@ -20,9 +31,16 @@ export interface RegisteredUser {
   qcAccuracy?: number;
   mathScore?: number;
   multiplicationScore?: { completed: number; correct: number; accuracy: number };
+  psychotestScore?: number;
+  mechanicalScore?: number;
+  spatialScore?: number;
+  arithmeticScore?: number;
   interviewScore?: number;
+  averageAccuracy?: number;
+  passingPrediction?: number;
   overallStatus: 'Lolos Unggul' | 'Lolos Standar' | 'Perlu Latihan';
   completedTestsCount: number;
+  testHistory?: UserTestRecord[];
   lastActive: string;
   isAdmin?: boolean;
 }
@@ -609,5 +627,144 @@ export const changeUserPassword = async (
     }
     return { success: false, message: err.message || 'Gagal mengubah kata sandi.' };
   }
+};
+
+/**
+ * Calculate Realtime Statistics (Tests Completed, True Average Accuracy, Dynamic Passing Probability)
+ */
+export const calculateUserRealtimeStats = (user: RegisteredUser): {
+  completedTestsCount: number;
+  averageAccuracy: number;
+  passingPrediction: number;
+  overallStatus: 'Lolos Unggul' | 'Lolos Standar' | 'Perlu Latihan';
+} => {
+  const history = user.testHistory || [];
+  const testCount = history.length > 0 ? history.length : (user.completedTestsCount || 0);
+
+  if (testCount === 0 && history.length === 0) {
+    return {
+      completedTestsCount: 0,
+      averageAccuracy: 0,
+      passingPrediction: 0,
+      overallStatus: 'Perlu Latihan'
+    };
+  }
+
+  // 1. Calculate weighted / arithmetic average accuracy from history if available
+  let avgAccuracy = 0;
+  if (history.length > 0) {
+    const validScores = history.map(h => h.score).filter(s => typeof s === 'number' && !isNaN(s));
+    if (validScores.length > 0) {
+      avgAccuracy = Math.round(validScores.reduce((a, b) => a + b, 0) / validScores.length);
+    }
+  } else {
+    // Fallback based on saved individual scores
+    const availableScores: number[] = [];
+    if (user.mathScore !== undefined) availableScores.push(user.mathScore);
+    if (user.qcAccuracy !== undefined) availableScores.push(user.qcAccuracy);
+    if (user.psychotestScore !== undefined) availableScores.push(user.psychotestScore);
+    if (user.mechanicalScore !== undefined) availableScores.push(user.mechanicalScore);
+    if (user.multiplicationScore?.accuracy !== undefined) availableScores.push(user.multiplicationScore.accuracy);
+    if (user.kraepelinScore?.janker !== undefined) availableScores.push(Math.round(user.kraepelinScore.janker));
+    
+    if (availableScores.length > 0) {
+      avgAccuracy = Math.round(availableScores.reduce((a, b) => a + b, 0) / availableScores.length);
+    }
+  }
+
+  // 2. Dynamic Industrial Recruitment Passing Prediction (%)
+  // Based on score benchmarks:
+  // >= 80%: 88% - 98% prediction (Lolos Unggul)
+  // 65% - 79%: 70% - 87% prediction (Lolos Standar)
+  // < 65%: < 65% prediction (Perlu Latihan)
+  let passingPred = 0;
+  if (avgAccuracy > 0) {
+    if (avgAccuracy >= 80) {
+      passingPred = Math.min(99, Math.round(avgAccuracy * 1.05));
+    } else if (avgAccuracy >= 60) {
+      passingPred = Math.round(avgAccuracy * 0.95);
+    } else {
+      passingPred = Math.round(avgAccuracy * 0.85);
+    }
+  }
+
+  // 3. Overall Status
+  let status: 'Lolos Unggul' | 'Lolos Standar' | 'Perlu Latihan' = 'Perlu Latihan';
+  if (avgAccuracy >= 80) {
+    status = 'Lolos Unggul';
+  } else if (avgAccuracy >= 65) {
+    status = 'Lolos Standar';
+  }
+
+  return {
+    completedTestsCount: testCount,
+    averageAccuracy: avgAccuracy,
+    passingPrediction: passingPred,
+    overallStatus: status
+  };
+};
+
+/**
+ * Centralized Real-time Test Result Recorder across all test modules
+ */
+export const recordUserTestResult = async (
+  record: Omit<UserTestRecord, 'id' | 'completedAt'>
+): Promise<RegisteredUser | null> => {
+  const current = getActiveSession();
+  if (!current) return null;
+
+  const newRecord: UserTestRecord = {
+    ...record,
+    id: `rec-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
+    completedAt: new Date().toISOString()
+  };
+
+  const existingHistory = Array.isArray(current.testHistory) ? current.testHistory : [];
+  const updatedHistory = [newRecord, ...existingHistory].slice(0, 50); // Keep last 50 records
+
+  // Update specific scores
+  const updatedUser: RegisteredUser = {
+    ...current,
+    testHistory: updatedHistory,
+    completedTestsCount: (current.completedTestsCount || 0) + 1,
+    lastActive: 'Baru saja'
+  };
+
+  if (record.testType === 'math') updatedUser.mathScore = record.score;
+  if (record.testType === 'qc') updatedUser.qcAccuracy = record.score;
+  if (record.testType === 'psychotest') updatedUser.psychotestScore = record.score;
+  if (record.testType === 'mechanical') updatedUser.mechanicalScore = record.score;
+  if (record.testType === 'spatial') updatedUser.spatialScore = record.score;
+  if (record.testType === 'arithmetic') updatedUser.arithmeticScore = record.score;
+  if (record.testType === 'kraepelin' && record.details) updatedUser.kraepelinScore = record.details as any;
+  if (record.testType === 'multiplication' && record.details) updatedUser.multiplicationScore = record.details as any;
+
+  // Recalculate stats
+  const stats = calculateUserRealtimeStats(updatedUser);
+  updatedUser.averageAccuracy = stats.averageAccuracy;
+  updatedUser.passingPrediction = stats.passingPrediction;
+  updatedUser.overallStatus = stats.overallStatus;
+
+  // Persist locally
+  setActiveSession(updatedUser);
+  saveUser(updatedUser);
+
+  // Dispatch custom window event for instant UI re-render
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('siapkerja_user_updated', { detail: updatedUser }));
+  }
+
+  // Sync to API backend (fire and forget / optimistic)
+  try {
+    fetch(`${API_BASE_URL}/user/record-test`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: current.id, record: newRecord, stats })
+    }).catch(() => {});
+  } catch (e) {
+    // offline
+  }
+
+  return updatedUser;
 };
 

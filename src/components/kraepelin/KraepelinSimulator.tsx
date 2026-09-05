@@ -6,6 +6,7 @@ import {
 } from '../../data/kraepelin-data';
 import { KraepelinAnalysis } from '../../types';
 import { sounds } from '../../utils/sound-effects';
+import { recordUserTestResult } from '../../utils/auth-storage';
 import { 
   Play, 
   RotateCcw, 
@@ -110,6 +111,14 @@ export const KraepelinSimulator: React.FC<KraepelinSimulatorProps> = ({ onFinish
       particleCount: 80,
       spread: 70,
       origin: { y: 0.6 }
+    });
+
+    // Record real-time statistics
+    recordUserTestResult({
+      testType: 'kraepelin',
+      testName: `${mode === 'kraepelin' ? 'Tes Kraepelin' : 'Tes Pauli'} (${totalColumns} Kolom)`,
+      score: Math.min(100, Math.round(calc.janker)),
+      details: { panker: calc.panker, janker: calc.janker, grade: calc.statusGrade }
     });
 
     if (onFinishTest) onFinishTest(calc);

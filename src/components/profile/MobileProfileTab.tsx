@@ -37,7 +37,9 @@ import {
   getActiveSession, 
   fetchUserProfile,
   updateUserProfile, 
-  changeUserPassword 
+  changeUserPassword,
+  calculateUserRealtimeStats,
+  UserTestRecord
 } from '../../utils/auth-storage';
 
 interface MobileProfileTabProps {
@@ -58,6 +60,21 @@ export const MobileProfileTab: React.FC<MobileProfileTabProps> = ({
   const { theme, toggleTheme, isDark } = useTheme();
   const [currentUserData, setCurrentUserData] = useState<RegisteredUser | null>(() => getActiveSession());
   const activeUser = currentUserData || getActiveSession();
+
+  // Listen to live test completion events
+  useEffect(() => {
+    const handleUserUpdated = (e: any) => {
+      if (e.detail) {
+        setCurrentUserData(e.detail);
+        if (onUpdateUser) onUpdateUser(e.detail);
+      }
+    };
+
+    window.addEventListener('siapkerja_user_updated', handleUserUpdated);
+    return () => {
+      window.removeEventListener('siapkerja_user_updated', handleUserUpdated);
+    };
+  }, [onUpdateUser]);
 
   // Fetch fresh profile from MySQL backend on mount
   useEffect(() => {
@@ -800,33 +817,75 @@ export const MobileProfileTab: React.FC<MobileProfileTabProps> = ({
         </div>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-3 gap-2 text-center">
-        <div className={`border rounded-2xl p-3 shadow-xs transition-colors ${
-          isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
-        }`}>
-          <span className="text-[10px] text-slate-400 uppercase font-bold block">Tes Diikuti</span>
-          <strong className={`text-base font-black mt-0.5 block ${isDark ? 'text-white' : 'text-slate-900'}`}>
-            {activeUser?.completedTestsCount || 14}x
-          </strong>
-        </div>
-        <div className={`border rounded-2xl p-3 shadow-xs transition-colors ${
-          isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
-        }`}>
-          <span className="text-[10px] text-slate-400 uppercase font-bold block">Akurasi Rata2</span>
-          <strong className="text-base font-black text-emerald-500 mt-0.5 block">
-            {activeUser?.qcAccuracy ? `${activeUser.qcAccuracy}%` : '88%'}
-          </strong>
-        </div>
-        <div className={`border rounded-2xl p-3 shadow-xs transition-colors ${
-          isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
-        }`}>
-          <span className="text-[10px] text-slate-400 uppercase font-bold block">Prediksi Lolos</span>
-          <strong className="text-base font-black text-sky-400 mt-0.5 block">
-            {activeUser?.interviewScore ? `${activeUser.interviewScore}%` : '91%'}
-          </strong>
-        </div>
-      </div>
+      {/* Realtime Stats Grid */}
+      {(() => {
+        const stats = calculateUserRealtimeStats(activeUser || ({} as RegisteredUser));
+        return (
+          <div className="space-y-2">
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <div className={`border rounded-2xl p-3 shadow-xs transition-colors ${
+                isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
+              }`}>
+                <span className="text-[10px] text-slate-400 uppercase font-bold block">Tes Diikuti</span>
+                <strong className={`text-base font-black mt-0.5 block ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                  {stats.completedTestsCount}x
+                </strong>
+              </div>
+
+              <div className={`border rounded-2xl p-3 shadow-xs transition-colors ${
+                isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
+              }`}>
+                <span className="text-[10px] text-slate-400 uppercase font-bold block">Akurasi Rata2</span>
+                <strong className={`text-base font-black mt-0.5 block ${stats.averageAccuracy > 0 ? 'text-emerald-500' : 'text-slate-400'}`}>
+                  {stats.averageAccuracy > 0 ? `${stats.averageAccuracy}%` : '0%'}
+                </strong>
+              </div>
+
+              <div className={`border rounded-2xl p-3 shadow-xs transition-colors ${
+                isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
+              }`}>
+                <span className="text-[10px] text-slate-400 uppercase font-bold block">Prediksi Lolos</span>
+                <strong className={`text-base font-black mt-0.5 block ${stats.passingPrediction > 0 ? 'text-sky-400' : 'text-slate-400'}`}>
+                  {stats.passingPrediction > 0 ? `${stats.passingPrediction}%` : '0%'}
+                </strong>
+              </div>
+            </div>
+
+            {/* Riwayat Tes Terakhir Jika Ada */}
+            {activeUser?.testHistory && activeUser.testHistory.length > 0 && (
+              <div className={`border rounded-2xl p-3 shadow-xs transition-colors ${
+                isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
+              }`}>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Riwayat Tes Terakhir</span>
+                  <span className="text-[10px] text-brand-500 font-bold">{activeUser.testHistory.length} Selesai</span>
+                </div>
+                <div className="space-y-1.5 max-h-36 overflow-y-auto">
+                  {activeUser.testHistory.slice(0, 4).map((rec: UserTestRecord) => (
+                    <div key={rec.id} className="flex items-center justify-between text-xs p-1.5 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-700/50">
+                      <div>
+                        <span className="font-bold text-slate-800 dark:text-slate-200 block text-[11px]">{rec.testName}</span>
+                        <span className="text-[9px] text-slate-400 font-medium">
+                          {new Date(rec.completedAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} • {new Date(rec.completedAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
+                        </span>
+                      </div>
+                      <span className={`font-black text-xs px-2 py-0.5 rounded-md ${
+                        rec.score >= 80 
+                          ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300' 
+                          : rec.score >= 60 
+                            ? 'bg-sky-100 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300' 
+                            : 'bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300'
+                      }`}>
+                        {rec.score}%
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Appearance Theme Selector */}
       <div className={`border rounded-3xl p-4 shadow-xs space-y-2.5 transition-colors ${

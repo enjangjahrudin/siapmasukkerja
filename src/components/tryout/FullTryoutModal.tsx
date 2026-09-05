@@ -5,6 +5,7 @@ import { getRandomQcMcSet } from '../../data/questions-qc';
 import { getRandomSpatialSet } from '../../data/questions-spatial';
 import { BaseQuestion } from '../../types';
 import { sounds } from '../../utils/sound-effects';
+import { recordUserTestResult } from '../../utils/auth-storage';
 import { 
   Award, 
   Clock, 
@@ -66,6 +67,19 @@ export const FullTryoutModal: React.FC<FullTryoutModalProps> = ({ isOpen, onClos
     if (timerRef.current) clearInterval(timerRef.current);
     sounds.playCelebration();
     confetti({ particleCount: 90, spread: 70 });
+
+    const correctCount = Object.entries(answers).filter(
+      ([idx, ans]) => allQuestions[Number(idx)]?.correctAnswer === ans
+    ).length;
+    const scorePercent = allQuestions.length > 0 ? Math.round((correctCount / allQuestions.length) * 100) : 0;
+
+    recordUserTestResult({
+      testType: 'tryout',
+      testName: `Simulasi CAT Tryout (${allQuestions.length} Soal)`,
+      score: scorePercent,
+      totalQuestions: allQuestions.length,
+      correctAnswers: correctCount
+    });
   };
 
   if (!isOpen) return null;

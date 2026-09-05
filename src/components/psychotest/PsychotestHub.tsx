@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { getPsychotestBatch, getPsychotestStandardDuration } from '../../data/questions-psychotest';
 import { BaseQuestion } from '../../types';
 import { sounds } from '../../utils/sound-effects';
+import { recordUserTestResult } from '../../utils/auth-storage';
 import { 
   Brain, 
   ChevronRight, 
@@ -67,6 +68,19 @@ export const PsychotestHub: React.FC = () => {
     if (timerRef.current) clearInterval(timerRef.current);
     sounds.playCelebration();
     confetti({ particleCount: 80, spread: 70 });
+
+    const correctCount = Object.entries(selectedAnswers).filter(
+      ([idx, ans]) => questions[Number(idx)]?.correctAnswer === ans
+    ).length;
+    const scorePercent = questions.length > 0 ? Math.round((correctCount / questions.length) * 100) : 0;
+
+    recordUserTestResult({
+      testType: 'psychotest',
+      testName: `Psikotes & Penalaran (${questions.length} Soal)`,
+      score: scorePercent,
+      totalQuestions: questions.length,
+      correctAnswers: correctCount
+    });
   };
 
   const currentQ = questions[currentIndex] || questions[0];

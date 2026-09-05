@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { getRandomMechanicalSet, mechanicalQuestionBank, getMechanicalStandardDuration } from '../../data/questions-mechanical';
 import { BaseQuestion } from '../../types';
 import { sounds } from '../../utils/sound-effects';
+import { recordUserTestResult } from '../../utils/auth-storage';
 import { 
   ChevronRight, 
   RotateCcw, 
@@ -65,6 +66,19 @@ export const MechanicalTest: React.FC = () => {
     if (timerRef.current) clearInterval(timerRef.current);
     sounds.playCelebration();
     confetti({ particleCount: 75, spread: 60 });
+
+    const correctCount = Object.entries(selectedAnswers).filter(
+      ([idx, ans]) => questions[Number(idx)] && questions[Number(idx)].correctAnswer === ans
+    ).length;
+    const scorePercent = questions.length > 0 ? Math.round((correctCount / questions.length) * 100) : 0;
+
+    recordUserTestResult({
+      testType: 'mechanical',
+      testName: `Mekanika Bennett (${questions.length} Soal)`,
+      score: scorePercent,
+      totalQuestions: questions.length,
+      correctAnswers: correctCount
+    });
   };
 
   const currentQ = questions[currentIndex] || questions[0];
