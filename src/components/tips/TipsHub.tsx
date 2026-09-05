@@ -74,8 +74,8 @@ export const TipsHub: React.FC = () => {
     };
   }, []);
 
-  // Active Article Reader State
-  const [selectedArticle, setSelectedArticle] = useState<TipArticle | null>(tipsAndTricksData[0]);
+  // Active Article Reader State (null by default so popup opens only on user click)
+  const [selectedArticle, setSelectedArticle] = useState<TipArticle | null>(null);
 
   // Active Video Player Modal / Inline State
   const [activePlayingVideo, setActivePlayingVideo] = useState<EducationVideo | null>(null);
@@ -457,8 +457,13 @@ export const TipsHub: React.FC = () => {
       {/* POP-UP MODAL: DETAIL ARTIKEL PANDUAN LENGKAP                        */}
       {/* =================================================================== */}
       {selectedArticle && activeHubMode === 'articles' && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 animate-in fade-in overflow-y-auto">
-          <div className={`w-full max-w-2xl max-h-[92vh] rounded-3xl border shadow-2xl flex flex-col justify-between relative my-auto overflow-hidden ${
+        <div 
+          onClick={() => setSelectedArticle(null)}
+          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 animate-in fade-in overflow-y-auto cursor-pointer"
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className={`w-full max-w-2xl max-h-[92vh] rounded-3xl border shadow-2xl flex flex-col justify-between relative my-auto overflow-hidden cursor-default ${
             isDark ? 'bg-slate-900 border-slate-700 text-white' : 'bg-white border-slate-200 text-slate-900'
           }`}>
             
@@ -540,8 +545,13 @@ export const TipsHub: React.FC = () => {
       {/* IN-APP EMBEDDED VIDEO PLAYER MODAL (ZERO-TAB SWITCHING)             */}
       {/* =================================================================== */}
       {activePlayingVideo && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 animate-in fade-in overflow-y-auto">
-          <div className={`w-full rounded-3xl border shadow-2xl flex flex-col justify-between relative my-auto transition-all ${
+        <div 
+          onClick={() => setActivePlayingVideo(null)}
+          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 animate-in fade-in overflow-y-auto cursor-pointer"
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className={`w-full rounded-3xl border shadow-2xl flex flex-col justify-between relative my-auto transition-all cursor-default ${
             activePlayingVideo.orientation === 'portrait' ? 'max-w-md max-h-[92vh]' : 'max-w-3xl max-h-[92vh]'
           } ${
             isDark ? 'bg-slate-900 border-slate-700 text-white' : 'bg-white border-slate-200 text-slate-900'
