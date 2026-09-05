@@ -231,7 +231,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGoToRegister, onGoTo
               'PT Mayora Indah', 
               'PT Indofood', 
               'PT KAI',
-              'PT Toyota Boshoku',
+              'PT Toyota Motor (TMMIN)',
               'PT Honda Prospect Motor'
             ].map((comp, idx) => (
               <span key={idx} className={`text-[10px] font-semibold px-2 py-0.5 rounded-md border ${
