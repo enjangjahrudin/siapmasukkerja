@@ -35,9 +35,13 @@ import {
   Clock,
   Subtitles,
   VolumeX,
-  Keyboard,
   Send,
-  FileText
+  FileText,
+  History,
+  ArrowLeft,
+  Calendar,
+  Trash2,
+  Keyboard
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { useTheme } from '../../utils/theme-context';
@@ -62,6 +66,18 @@ interface TranscriptTurn {
   text: string;
   timestamp: string;
 }
+
+export interface SavedInterviewSession {
+  id: string;
+  completedAt: string;
+  targetRole: TargetRole;
+  recruiterPersona: string;
+  score: number;
+  totalQuestions: number;
+  evaluation: any;
+  transcript?: TranscriptTurn[];
+}
+
 
 export const AiInterviewSimulator: React.FC<AiInterviewSimulatorProps> = ({
   targetRole,
@@ -113,6 +129,49 @@ export const AiInterviewSimulator: React.FC<AiInterviewSimulatorProps> = ({
   } | null>(null);
   const [isEvaluatingPostCall, setIsEvaluatingPostCall] = useState<boolean>(false);
 
+  // Idle Navigation Tab: Setup vs History
+  const [activeSetupTab, setActiveSetupTab] = useState<'setup' | 'history'>('setup');
+  const [interviewSessions, setInterviewSessions] = useState<SavedInterviewSession[]>([]);
+  const [reviewingSessionMeta, setReviewingSessionMeta] = useState<SavedInterviewSession | null>(null);
+
+  // Helper: Retrieve all stored interview sessions across activeUser testHistory & local storage
+  const getStoredInterviewSessions = (): SavedInterviewSession[] => {
+    const sessions: SavedInterviewSession[] = [];
+    const user = getActiveSession();
+    if (user && Array.isArray(user.testHistory)) {
+      user.testHistory
+        .filter(rec => (rec.testType === 'interview' || rec.testName?.toLowerCase().includes('voice call') || rec.testName?.toLowerCase().includes('interview')) && rec.details)
+        .forEach(rec => {
+          sessions.push({
+            id: rec.id,
+            completedAt: rec.completedAt,
+            targetRole: (rec.details?.targetRole || targetRole || 'operator') as TargetRole,
+            recruiterPersona: rec.details?.recruiterPersona || rec.testName?.replace('AI Voice Call — ', '') || 'Bapak Hendra',
+            score: rec.score,
+            totalQuestions: rec.totalQuestions || 5,
+            evaluation: rec.details?.evaluation,
+            transcript: rec.details?.transcript || []
+          });
+        });
+    }
+
+    try {
+      const raw = localStorage.getItem('siapkerja_interview_sessions');
+      if (raw) {
+        const localSessions: SavedInterviewSession[] = JSON.parse(raw);
+        if (Array.isArray(localSessions)) {
+          localSessions.forEach(ls => {
+            if (!sessions.some(s => s.id === ls.id)) {
+              sessions.push(ls);
+            }
+          });
+        }
+      }
+    } catch (e) {}
+
+    return sessions.sort((a, b) => new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime());
+  };
+
   const recognitionRef = useRef<any>(null);
   const silenceTimerRef = useRef<any>(null);
   const callTimerRef = useRef<any>(null);
@@ -128,6 +187,18 @@ export const AiInterviewSimulator: React.FC<AiInterviewSimulatorProps> = ({
     window.addEventListener('siapkerja_tokens_updated', handleTokenUpdate);
     return () => {
       window.removeEventListener('siapkerja_tokens_updated', handleTokenUpdate);
+    };
+  }, []);
+
+  // Synchronize Interview History on Mount & Updates
+  useEffect(() => {
+    setInterviewSessions(getStoredInterviewSessions());
+    const handleHistorySync = () => {
+      setInterviewSessions(getStoredInterviewSessions());
+    };
+    window.addEventListener('siapkerja_user_updated', handleHistorySync);
+    return () => {
+      window.removeEventListener('siapkerja_user_updated', handleHistorySync);
     };
   }, []);
 
@@ -511,11 +582,34 @@ export const AiInterviewSimulator: React.FC<AiInterviewSimulatorProps> = ({
 
       setAiEvaluation(evalResult);
       setIsEvaluatingPostCall(false);
+      setReviewingSessionMeta(null);
       setSessionState('evaluated');
       setConversationStatus('idle');
 
       sounds.playCelebration();
       confetti({ particleCount: 100, spread: 80 });
+
+      // Save to local archive
+      const newSession: SavedInterviewSession = {
+        id: 'iv_' + Date.now(),
+        completedAt: new Date().toISOString(),
+        targetRole,
+        recruiterPersona: persona.name,
+        score: evalResult.totalAcceptanceProbability,
+        totalQuestions: currentTranscript.filter(t => t.role === 'user').length,
+        evaluation: evalResult,
+        transcript: currentTranscript
+      };
+
+      try {
+        const raw = localStorage.getItem('siapkerja_interview_sessions');
+        const existing: SavedInterviewSession[] = raw ? JSON.parse(raw) : [];
+        const updated = [newSession, ...existing.filter(s => s.id !== newSession.id)];
+        localStorage.setItem('siapkerja_interview_sessions', JSON.stringify(updated.slice(0, 50)));
+        setInterviewSessions(getStoredInterviewSessions());
+      } catch (e) {
+        console.error('Failed to save session locally', e);
+      }
 
       // Save score & history to User Database
       if (activeUser) {
@@ -535,6 +629,29 @@ export const AiInterviewSimulator: React.FC<AiInterviewSimulatorProps> = ({
         });
       }
     });
+  };
+
+  // Open historical session review
+  const handleOpenHistorySession = (session: SavedInterviewSession) => {
+    sounds.playClick();
+    setReviewingSessionMeta(session);
+    setAiEvaluation(session.evaluation);
+    setTranscriptHistory(session.transcript || []);
+    setSessionState('evaluated');
+  };
+
+  // Delete historical session
+  const handleDeleteHistorySession = (sessionId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      const raw = localStorage.getItem('siapkerja_interview_sessions');
+      if (raw) {
+        const existing: SavedInterviewSession[] = JSON.parse(raw);
+        const updated = existing.filter(s => s.id !== sessionId);
+        localStorage.setItem('siapkerja_interview_sessions', JSON.stringify(updated));
+      }
+    } catch (err) {}
+    setInterviewSessions(prev => prev.filter(s => s.id !== sessionId));
   };
 
   // Top Up Tokens Handler
@@ -612,88 +729,283 @@ export const AiInterviewSimulator: React.FC<AiInterviewSimulatorProps> = ({
           isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
         }`}>
           
-          {/* Target Role Selector */}
-          <div>
-            <label className="text-xs font-black uppercase tracking-wider text-slate-400 block mb-3">
-              Pilih Target Posisi Wawancara:
-            </label>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-              {[
-                { id: 'operator', title: 'Operator Produksi', subtitle: 'Line Perakitan & Mesin', icon: '⚙️' },
-                { id: 'qc', title: 'Quality Control (QC)', subtitle: 'Inspeksi Mutu & Presisi', icon: '🔍' },
-                { id: 'maintenance', title: 'Maintenance & Teknisi', subtitle: 'Perawatan Mesin & K3', icon: '🔧' },
-                { id: 'logistics', title: 'Warehouse / Logistik', subtitle: 'Gudang, FIFO & Stok', icon: '📦' }
-              ].map(r => (
-                <button
-                  key={r.id}
-                  onClick={() => {
-                    sounds.playClick();
-                    setTargetRole(r.id as TargetRole);
-                  }}
-                  className={`p-3.5 rounded-2xl border text-left transition-all ${
-                    targetRole === r.id
-                      ? 'bg-purple-500/10 border-purple-500 ring-2 ring-purple-500/20 dark:bg-purple-950/40'
-                      : isDark
-                        ? 'bg-slate-800/40 border-slate-700/60 hover:bg-slate-800'
-                        : 'bg-slate-50 border-slate-200 hover:bg-slate-100'
-                  }`}
-                >
-                  <div className="text-2xl mb-1.5">{r.icon}</div>
-                  <h4 className="font-black text-xs text-slate-800 dark:text-slate-100">{r.title}</h4>
-                  <p className="text-[10px] text-slate-400 font-medium mt-0.5">{r.subtitle}</p>
-                </button>
-              ))}
-            </div>
+          {/* Segmented Tab: Mulai Panggilan Baru vs Riwayat Sesi */}
+          <div className={`p-1.5 rounded-2xl flex items-center gap-1.5 border ${
+            isDark ? 'bg-slate-800/80 border-slate-700/60' : 'bg-slate-100 border-slate-200'
+          }`}>
+            <button
+              onClick={() => {
+                sounds.playClick();
+                setActiveSetupTab('setup');
+              }}
+              className={`flex-1 py-2.5 px-4 rounded-xl font-black text-xs flex items-center justify-center gap-2 transition-all ${
+                activeSetupTab === 'setup'
+                  ? 'bg-purple-600 text-white shadow-md'
+                  : isDark ? 'text-slate-400 hover:text-white' : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <PhoneCall className="w-4 h-4" />
+              <span>Mulai Panggilan Baru</span>
+            </button>
+            <button
+              onClick={() => {
+                sounds.playClick();
+                setActiveSetupTab('history');
+              }}
+              className={`flex-1 py-2.5 px-4 rounded-xl font-black text-xs flex items-center justify-center gap-2 transition-all ${
+                activeSetupTab === 'history'
+                  ? 'bg-purple-600 text-white shadow-md'
+                  : isDark ? 'text-slate-400 hover:text-white' : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <History className="w-4 h-4" />
+              <span>Riwayat Sesi ({interviewSessions.length})</span>
+            </button>
           </div>
 
-          {/* Selected Recruiter Card Preview */}
-          <div className={`border rounded-2xl p-4 flex flex-col sm:flex-row items-center gap-4 ${
-            isDark ? 'bg-slate-800/60 border-slate-700/60' : 'bg-purple-50/70 border-purple-200'
-          }`}>
-            <div className="relative">
-              <img
-                src={persona.avatarUrl}
-                alt={persona.name}
-                className="w-20 h-20 rounded-full object-cover border-3 border-purple-500 shadow-md"
-              />
-              <span className="absolute bottom-0 right-0 w-5 h-5 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-900 flex items-center justify-center">
-                <span className="w-2 h-2 rounded-full bg-white animate-ping" />
-              </span>
-            </div>
-
-            <div className="text-center sm:text-left space-y-1">
-              <div className="flex items-center justify-center sm:justify-start gap-2">
-                <h3 className="text-base font-black text-slate-900 dark:text-white">{persona.name}</h3>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/60 text-purple-700 dark:text-purple-300">
-                  AI Recruiter
-                </span>
+          {/* TAB 1: SETUP INTERVIEW */}
+          {activeSetupTab === 'setup' && (
+            <div className="space-y-6 animate-in fade-in duration-200">
+              {/* Target Role Selector */}
+              <div>
+                <label className="text-xs font-black uppercase tracking-wider text-slate-400 block mb-3">
+                  Pilih Target Posisi Wawancara:
+                </label>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                  {[
+                    { id: 'operator', title: 'Operator Produksi', subtitle: 'Line Perakitan & Mesin', icon: '⚙️' },
+                    { id: 'qc', title: 'Quality Control (QC)', subtitle: 'Inspeksi Mutu & Presisi', icon: '🔍' },
+                    { id: 'maintenance', title: 'Maintenance & Teknisi', subtitle: 'Perawatan Mesin & K3', icon: '🔧' },
+                    { id: 'logistics', title: 'Warehouse / Logistik', subtitle: 'Gudang, FIFO & Stok', icon: '📦' }
+                  ].map(r => (
+                    <button
+                      key={r.id}
+                      onClick={() => {
+                        sounds.playClick();
+                        setTargetRole(r.id as TargetRole);
+                      }}
+                      className={`p-3.5 rounded-2xl border text-left transition-all ${
+                        targetRole === r.id
+                          ? 'bg-purple-500/10 border-purple-500 ring-2 ring-purple-500/20 dark:bg-purple-950/40'
+                          : isDark
+                            ? 'bg-slate-800/40 border-slate-700/60 hover:bg-slate-800'
+                            : 'bg-slate-50 border-slate-200 hover:bg-slate-100'
+                      }`}
+                    >
+                      <div className="text-2xl mb-1.5">{r.icon}</div>
+                      <h4 className="font-black text-xs text-slate-800 dark:text-slate-100">{r.title}</h4>
+                      <p className="text-[10px] text-slate-400 font-medium mt-0.5">{r.subtitle}</p>
+                    </button>
+                  ))}
+                </div>
               </div>
-              <p className="text-xs font-semibold text-purple-600 dark:text-purple-300">{persona.roleTitle}</p>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400">{persona.companyContext}</p>
+
+              {/* Selected Recruiter Card Preview */}
+              <div className={`border rounded-2xl p-4 flex flex-col sm:flex-row items-center gap-4 ${
+                isDark ? 'bg-slate-800/60 border-slate-700/60' : 'bg-purple-50/70 border-purple-200'
+              }`}>
+                <div className="relative">
+                  <img
+                    src={persona.avatarUrl}
+                    alt={persona.name}
+                    className="w-20 h-20 rounded-full object-cover border-3 border-purple-500 shadow-md"
+                  />
+                  <span className="absolute bottom-0 right-0 w-5 h-5 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-900 flex items-center justify-center">
+                    <span className="w-2 h-2 rounded-full bg-white animate-ping" />
+                  </span>
+                </div>
+
+                <div className="text-center sm:text-left space-y-1">
+                  <div className="flex items-center justify-center sm:justify-start gap-2">
+                    <h3 className="text-base font-black text-slate-900 dark:text-white">{persona.name}</h3>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/60 text-purple-700 dark:text-purple-300">
+                      AI Recruiter
+                    </span>
+                  </div>
+                  <p className="text-xs font-semibold text-purple-600 dark:text-purple-300">{persona.roleTitle}</p>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">{persona.companyContext}</p>
+                </div>
+              </div>
+
+              {/* Quick Guidance Box */}
+              <div className={`border rounded-2xl p-3.5 text-xs space-y-1.5 ${
+                isDark ? 'bg-slate-800/40 border-slate-700/50 text-slate-300' : 'bg-slate-50 border-slate-200 text-slate-700'
+              }`}>
+                <strong className="block font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>Panduan Panggilan Suara (Hands-Free):</span>
+                </strong>
+                <div>1. AI HRD akan langsung menyapa Anda lewat audio suara saat panggilan tersambung.</div>
+                <div>2. Bicaralah secara alami melalui mikrofon HP/laptop Anda. Sistem otomatis mendeteksi ketika Anda selesai berbicara.</div>
+                <div>3. Percakapan mengalir santai layaknya panggilan telepon asli. Klik tombol merah di akhir untuk menerima laporan evaluasi.</div>
+              </div>
+
+              {/* Start Call CTA Button */}
+              <button
+                onClick={handleStartCall}
+                className="w-full py-4 bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 hover:from-purple-500 hover:to-indigo-500 text-white font-black text-sm rounded-2xl shadow-lg shadow-purple-600/30 flex items-center justify-center gap-2.5 transition-all transform active:scale-98"
+              >
+                <PhoneCall className="w-5 h-5 fill-current animate-bounce" />
+                <span>Mulai Panggilan Voice Call dengan {persona.name} (1 Kredit)</span>
+              </button>
             </div>
-          </div>
+          )}
 
-          {/* Quick Guidance Box */}
-          <div className={`border rounded-2xl p-3.5 text-xs space-y-1.5 ${
-            isDark ? 'bg-slate-800/40 border-slate-700/50 text-slate-300' : 'bg-slate-50 border-slate-200 text-slate-700'
-          }`}>
-            <strong className="block font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>Panduan Panggilan Suara (Hands-Free):</span>
-            </strong>
-            <div>1. AI HRD akan langsung menyapa Anda lewat audio suara saat panggilan tersambung.</div>
-            <div>2. Bicaralah secara alami melalui mikrofon HP/laptop Anda. Sistem otomatis mendeteksi ketika Anda selesai berbicara.</div>
-            <div>3. Percakapan mengalir santai layaknya panggilan telepon asli. Klik tombol merah di akhir untuk menerima laporan evaluasi.</div>
-          </div>
+          {/* TAB 2: RIWAYAT SESI INTERVIEW */}
+          {activeSetupTab === 'history' && (
+            <div className="space-y-4 animate-in fade-in duration-200">
+              {interviewSessions.length === 0 ? (
+                <div className="text-center py-12 px-4 space-y-4">
+                  <div className="w-16 h-16 rounded-full bg-purple-500/10 text-purple-500 flex items-center justify-center mx-auto">
+                    <History className="w-8 h-8 opacity-70" />
+                  </div>
+                  <div className="space-y-1 max-w-sm mx-auto">
+                    <h3 className="font-black text-sm text-slate-800 dark:text-slate-100">
+                      Belum Ada Riwayat Interview
+                    </h3>
+                    <p className="text-xs text-slate-400 leading-relaxed">
+                      Selesaikan simulasi wawancara suara pertamamu untuk melihat analisis skor, masukan evaluasi HRD, dan rekaman transkrip lengkap di sini!
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      sounds.playClick();
+                      setActiveSetupTab('setup');
+                    }}
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs shadow-md transition-all"
+                  >
+                    <PhoneCall className="w-4 h-4" />
+                    <span>Mulai Panggilan Interview Pertama</span>
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 px-1">
+                    <span>Total <strong>{interviewSessions.length}</strong> sesi latihan wawancara tersimpan:</span>
+                    <span className="text-[11px]">Klik kartu untuk meninjau skor & transkrip</span>
+                  </div>
 
-          {/* Start Call CTA Button */}
-          <button
-            onClick={handleStartCall}
-            className="w-full py-4 bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 hover:from-purple-500 hover:to-indigo-500 text-white font-black text-sm rounded-2xl shadow-lg shadow-purple-600/30 flex items-center justify-center gap-2.5 transition-all transform active:scale-98"
-          >
-            <PhoneCall className="w-5 h-5 fill-current animate-bounce" />
-            <span>Mulai Panggilan Voice Call dengan {persona.name} (1 Kredit)</span>
-          </button>
+                  <div className="space-y-3 max-h-[500px] overflow-y-auto pr-1">
+                    {interviewSessions.map((session) => {
+                      const sessionRolePersona = recruiterPersonas[session.targetRole] || recruiterPersonas.operator;
+                      const dateObj = new Date(session.completedAt);
+                      const formattedDate = isNaN(dateObj.getTime())
+                        ? session.completedAt
+                        : dateObj.toLocaleDateString('id-ID', {
+                            day: 'numeric',
+                            month: 'short',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          });
+
+                      const isPassed = session.score >= 70;
+
+                      return (
+                        <div
+                          key={session.id}
+                          onClick={() => handleOpenHistorySession(session)}
+                          className={`border rounded-2xl p-4 transition-all cursor-pointer hover:shadow-md ${
+                            isDark
+                              ? 'bg-slate-800/60 border-slate-700/70 hover:border-purple-500/60 hover:bg-slate-800'
+                              : 'bg-slate-50/80 border-slate-200 hover:border-purple-400 hover:bg-white'
+                          }`}
+                        >
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                            <div className="flex items-center gap-3">
+                              <img
+                                src={sessionRolePersona.avatarUrl}
+                                alt={session.recruiterPersona}
+                                className="w-12 h-12 rounded-full object-cover border-2 border-purple-500/60 shrink-0"
+                              />
+                              <div>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <h4 className="font-black text-sm text-slate-800 dark:text-slate-100">
+                                    {session.recruiterPersona}
+                                  </h4>
+                                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300">
+                                    {sessionRolePersona.roleTitle}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-2 text-[11px] text-slate-400 mt-1">
+                                  <span className="flex items-center gap-1">
+                                    <Calendar className="w-3 h-3" />
+                                    {formattedDate}
+                                  </span>
+                                  <span>•</span>
+                                  <span>{session.totalQuestions || session.transcript?.filter(t => t.role === 'user').length || 5} Pertanyaan</span>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0">
+                              <div className="text-right">
+                                <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-black border ${
+                                  isPassed
+                                    ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30'
+                                    : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30'
+                                }`}>
+                                  <Award className="w-3.5 h-3.5" />
+                                  <span>Skor: {session.score}%</span>
+                                </span>
+                                <span className="block text-[10px] text-slate-400 font-medium mt-0.5">
+                                  {isPassed ? '✅ Probabilitas Lolos Tinggi' : '⚠️ Perlu Penguatan Jawaban'}
+                                </span>
+                              </div>
+
+                              <button
+                                onClick={(e) => handleDeleteHistorySession(session.id, e)}
+                                title="Hapus riwayat sesi ini"
+                                className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-xl transition-all"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Evaluation Summary snippet */}
+                          {session.evaluation?.summary && (
+                            <div className={`mt-3 pt-3 border-t text-xs line-clamp-2 leading-relaxed ${
+                              isDark ? 'border-slate-700/50 text-slate-300' : 'border-slate-200 text-slate-600'
+                            }`}>
+                              "{session.evaluation.summary}"
+                            </div>
+                          )}
+
+                          {/* 4 pillar scores preview if present */}
+                          {session.evaluation?.relevanceScore && (
+                            <div className="grid grid-cols-4 gap-1.5 mt-3 pt-2 text-[10px] text-center border-t border-dashed border-slate-200 dark:border-slate-700/50">
+                              <div>
+                                <span className="text-slate-400 block">STAR</span>
+                                <strong className="text-purple-600 dark:text-purple-400">{session.evaluation.relevanceScore}%</strong>
+                              </div>
+                              <div>
+                                <span className="text-slate-400 block">Artikulasi</span>
+                                <strong className="text-purple-600 dark:text-purple-400">{session.evaluation.articulationScore}%</strong>
+                              </div>
+                              <div>
+                                <span className="text-slate-400 block">Etika</span>
+                                <strong className="text-purple-600 dark:text-purple-400">{session.evaluation.etiquetteScore}%</strong>
+                              </div>
+                              <div>
+                                <span className="text-slate-400 block">Role Fit</span>
+                                <strong className="text-purple-600 dark:text-purple-400">{session.evaluation.jobFitScore}%</strong>
+                              </div>
+                            </div>
+                          )}
+
+                          <div className="mt-3 flex items-center justify-end text-xs font-bold text-purple-600 dark:text-purple-400 gap-1">
+                            <span>Buka Detail Evaluasi & Transkrip</span>
+                            <ChevronRight className="w-3.5 h-3.5" />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
 
         </div>
       )}
@@ -996,6 +1308,53 @@ export const AiInterviewSimulator: React.FC<AiInterviewSimulatorProps> = ({
       {sessionState === 'evaluated' && aiEvaluation && (
         <div className="space-y-4 animate-in fade-in duration-300">
           
+          {/* Historical Review Mode Banner */}
+          {reviewingSessionMeta && (
+            <div className={`border rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+              isDark ? 'bg-purple-950/40 border-purple-900/60' : 'bg-purple-50 border-purple-200'
+            }`}>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => {
+                    sounds.playClick();
+                    setSessionState('idle');
+                    setActiveSetupTab('history');
+                  }}
+                  className="p-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white transition-all flex items-center gap-1.5 text-xs font-bold shrink-0 shadow-sm"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                  <span>Kembali ke Riwayat</span>
+                </button>
+                <div>
+                  <div className="text-xs font-black text-purple-700 dark:text-purple-300 flex items-center gap-1.5">
+                    <History className="w-3.5 h-3.5" />
+                    <span>Meninjau Arsip Riwayat Sesi Interview</span>
+                  </div>
+                  <div className="text-xs text-slate-600 dark:text-slate-300 font-medium mt-0.5">
+                    Pewawancara: <strong className="text-slate-900 dark:text-white">{reviewingSessionMeta.recruiterPersona}</strong> • {
+                      (() => {
+                        const d = new Date(reviewingSessionMeta.completedAt);
+                        return isNaN(d.getTime()) ? reviewingSessionMeta.completedAt : d.toLocaleDateString('id-ID', {
+                          day: 'numeric',
+                          month: 'long',
+                          year: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        });
+                      })()
+                    }
+                  </div>
+                </div>
+              </div>
+
+              <div className="text-right self-end sm:self-auto">
+                <span className="text-xs font-black text-purple-600 dark:text-purple-300">
+                  {reviewingSessionMeta.totalQuestions || transcriptHistory.filter(t => t.role === 'user').length || 5} Pertanyaan Tercatat
+                </span>
+              </div>
+            </div>
+          )}
+
           {/* Main Scorecard Header */}
           <div className="bg-gradient-to-b from-slate-900 via-indigo-950 to-slate-950 text-white rounded-3xl p-6 sm:p-8 text-center shadow-xl border border-indigo-900/60 relative overflow-hidden space-y-4">
             
@@ -1104,17 +1463,38 @@ export const AiInterviewSimulator: React.FC<AiInterviewSimulatorProps> = ({
             </div>
           </div>
 
-          {/* New Simulation Button */}
-          <button
-            onClick={() => {
-              sounds.playClick();
-              setSessionState('idle');
-            }}
-            className="w-full py-4 bg-gradient-to-r from-slate-900 to-indigo-950 hover:from-slate-800 hover:to-indigo-900 text-white font-black text-sm rounded-2xl shadow-lg border border-indigo-800 flex items-center justify-center gap-2 transition-all"
-          >
-            <RotateCcw className="w-4 h-4" />
-            <span>Lakukan Simulasi Wawancara Baru</span>
-          </button>
+          {/* Navigation Action Buttons */}
+          <div className="flex flex-col sm:flex-row gap-3 pt-1">
+            <button
+              onClick={() => {
+                sounds.playClick();
+                setReviewingSessionMeta(null);
+                setSessionState('idle');
+                setActiveSetupTab('history');
+              }}
+              className={`flex-1 py-4 px-4 rounded-2xl font-black text-xs flex items-center justify-center gap-2 border transition-all ${
+                isDark 
+                  ? 'bg-slate-800/80 border-slate-700 text-slate-200 hover:bg-slate-800' 
+                  : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-50'
+              }`}
+            >
+              <History className="w-4 h-4 text-purple-500" />
+              <span>Lihat Semua Riwayat Sesi ({interviewSessions.length})</span>
+            </button>
+
+            <button
+              onClick={() => {
+                sounds.playClick();
+                setReviewingSessionMeta(null);
+                setSessionState('idle');
+                setActiveSetupTab('setup');
+              }}
+              className="flex-1 py-4 px-4 bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 hover:from-purple-500 hover:to-indigo-500 text-white font-black text-xs rounded-2xl shadow-lg shadow-purple-600/30 flex items-center justify-center gap-2 transition-all transform active:scale-98"
+            >
+              <RotateCcw className="w-4 h-4" />
+              <span>Mulai Simulasi Wawancara Baru</span>
+            </button>
+          </div>
 
         </div>
       )}
