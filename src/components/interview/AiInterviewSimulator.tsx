@@ -240,16 +240,56 @@ export const AiInterviewSimulator: React.FC<AiInterviewSimulatorProps> = ({
         };
 
         recognition.onresult = (event: any) => {
-          let interimTranscript = '';
-          let finalTranscript = '';
+          // Robust Speech Recognition Assembler (Handles Android Chrome continuous duplication bug)
+          const parts: string[] = [];
+          
           for (let i = 0; i < event.results.length; ++i) {
-            if (event.results[i].isFinal) {
-              finalTranscript += event.results[i][0].transcript + ' ';
-            } else {
-              interimTranscript += event.results[i][0].transcript;
+            const item = event.results[i];
+            if (!item || !item[0]) continue;
+            const chunk = item[0].transcript ? item[0].transcript.trim() : '';
+            if (!chunk) continue;
+
+            if (parts.length > 0) {
+              const prev = parts[parts.length - 1];
+              const prevLower = prev.toLowerCase();
+              const currLower = chunk.toLowerCase();
+
+              // If current chunk contains previous chunk or starts with it (Android Chrome cumulative bug),
+              // replace previous chunk with the fuller current chunk!
+              if (currLower.startsWith(prevLower) || currLower.includes(prevLower)) {
+                parts[parts.length - 1] = chunk;
+                continue;
+              }
+              // If previous chunk already contains the current chunk, skip it
+              if (prevLower.includes(currLower) || prevLower.endsWith(currLower)) {
+                continue;
+              }
+              // If there is overlapping suffix/prefix (e.g. prev ends with "selamat", curr starts with "selamat pagi")
+              const prevWords = prev.split(/\s+/);
+              const currWords = chunk.split(/\s+/);
+              let overlap = 0;
+              for (let len = Math.min(prevWords.length, currWords.length); len > 0; len--) {
+                const prevSlice = prevWords.slice(-len).join(' ').toLowerCase();
+                const currSlice = currWords.slice(0, len).join(' ').toLowerCase();
+                if (prevSlice === currSlice) {
+                  overlap = len;
+                  break;
+                }
+              }
+              if (overlap > 0) {
+                // Merge without duplicating the overlapping words
+                parts[parts.length - 1] = `${prev} ${currWords.slice(overlap).join(' ')}`;
+                continue;
+              }
             }
+            parts.push(chunk);
           }
-          const fullText = (finalTranscript + interimTranscript).trim();
+
+          let fullText = parts.join(' ').trim();
+          
+          // Additional cleanup: Remove consecutive duplicate words or identical 2-4 word phrases
+          fullText = fullText.replace(/\b(\w+(?:\s+\w+){0,3})\s+\1\b/gi, '$1').trim();
+
           if (fullText) {
             setUserInputText(fullText);
 

@@ -1543,11 +1543,11 @@ ATURAN KRUSIAL PENILAIAN ASESMEN HRD:
 });
 
 // ----------------------------------------------------------------------------
-// AI INTERVIEW TTS PROXY — Suara Asli Indonesia Tanpa Logat Bule
+// AI INTERVIEW TTS PROXY — Suara Persona HRD
 // ----------------------------------------------------------------------------
-// Prioritas 1: TikTok ID Male (id_001) / Google ID Female — Suara asli Indonesia tulen
-// Prioritas 2: Microsoft Edge TTS (id-ID-ArdiNeural / GadisNeural)
-// Fallback: OpenAI Official TTS (tts-1)
+// Prioritas 1: OpenAI Official TTS (tts-1: onyx untuk pria / nova untuk wanita) via API Key OpenAI
+// Prioritas 2: TikTok TTS (id_001) / Microsoft Edge Neural (id-ID-ArdiNeural) untuk pria
+// Prioritas 3: Google Translate / Microsoft Edge Neural (id-ID-GadisNeural) untuk wanita
 // ----------------------------------------------------------------------------
 app.post('/api/interview/speak', async (req, res) => {
   try {
@@ -1556,67 +1556,19 @@ app.post('/api/interview/speak', async (req, res) => {
       return res.status(400).json({ success: false, message: 'Text is required.' });
     }
 
+    const aiConfig = getAiConfig();
     const isMale = voice === 'onyx' || voice === 'echo' || voice === 'fable' || voice === 'ardi';
 
-    // ── TIER 1: NATIVE INDONESIAN VOICES (100% Logat Asli Indonesia, Bukan Bule) ──
-    // Pria: TikTok id_001 — Suara pria Indonesia asli, berwibawa & profesional
-    // Wanita: Google Translate id — Suara wanita Indonesia asli, jernih & ramah
-    if (isMale) {
-      try {
-        const audioBuffer = await generateTikTokTTS(text, voice);
-        if (audioBuffer && audioBuffer.length > 0) {
-          res.setHeader('Content-Type', 'audio/mpeg');
-          res.setHeader('X-TTS-Provider', 'tiktok-male-native-id');
-          res.setHeader('X-TTS-Voice', 'id_001');
-          return res.end(audioBuffer);
-        }
-      } catch (tiktokErr) {
-        console.warn('[TikTok Native ID TTS Error]', tiktokErr.message);
-      }
-    } else {
-      try {
-        const audioBuffer = await generateGoogleTTS(text);
-        if (audioBuffer && audioBuffer.length > 0) {
-          res.setHeader('Content-Type', 'audio/mpeg');
-          res.setHeader('X-TTS-Provider', 'google-female-native-id');
-          res.setHeader('X-TTS-Voice', 'id-female');
-          return res.end(audioBuffer);
-        }
-      } catch (gErr) {
-        console.warn('[Google Native ID TTS Error]', gErr.message);
-      }
-    }
-
-    // ── TIER 2: MICROSOFT EDGE NEURAL (id-ID-ArdiNeural / id-ID-GadisNeural) ──
-    try {
-      const audioBuffer = await generateEdgeTTS(text, voice);
-      if (audioBuffer && audioBuffer.length > 0) {
-        res.setHeader('Content-Type', 'audio/mpeg');
-        res.setHeader('X-TTS-Provider', 'microsoft-edge-id');
-        res.setHeader('X-TTS-Voice', EDGE_TTS_VOICE_MAP[voice] || (isMale ? 'id-ID-ArdiNeural' : 'id-ID-GadisNeural'));
-        return res.end(audioBuffer);
-      }
-    } catch (edgeErr) {
-      console.warn('[Edge Neural TTS Error]', edgeErr.message);
-    }
-
-    // ── TIER 3: CROSS-FALLBACK (Google for male, or TikTok for female) ──
-    try {
-      const audioBuffer = isMale ? await generateGoogleTTS(text) : await generateTikTokTTS(text, voice);
-      if (audioBuffer && audioBuffer.length > 0) {
-        res.setHeader('Content-Type', 'audio/mpeg');
-        res.setHeader('X-TTS-Provider', isMale ? 'google-fallback-id' : 'tiktok-fallback-id');
-        return res.end(audioBuffer);
-      }
-    } catch (crossErr) {
-      console.warn('[Cross Native TTS Error]', crossErr.message);
-    }
-
-    // ── TIER 4: OPENAI OFFICIAL TTS (tts-1) (Hanya fallback darurat jika penyedia suara lokal gagal) ──
-    const aiConfig = getAiConfig();
+    // ── TIER 1: OPENAI OFFICIAL TTS (tts-1: onyx / nova) ──
+    // Menggunakan API Key resmi OpenAI langsung
+    // Pria: onyx (suara pria tegap, tegas, wibawa)
+    // Wanita: nova (suara wanita jernih & ramah)
     if (aiConfig.hasOfficialTts) {
       try {
-        const openAiVoice = voice || (isMale ? 'onyx' : 'nova');
+        const openAiVoice = isMale 
+          ? (voice === 'echo' || voice === 'fable' ? voice : 'onyx') 
+          : (voice === 'shimmer' || voice === 'alloy' ? voice : 'nova');
+
         const ttsRes = await fetch(`${aiConfig.baseUrl}/audio/speech`, {
           method: 'POST',
           headers: {
@@ -1627,7 +1579,7 @@ app.post('/api/interview/speak', async (req, res) => {
             model: 'tts-1',
             input: text,
             voice: openAiVoice,
-            speed: speed
+            speed: speed || (isMale ? 0.92 : 0.96)
           }),
           signal: AbortSignal.timeout(12000)
         });
@@ -1635,17 +1587,75 @@ app.post('/api/interview/speak', async (req, res) => {
         if (ttsRes.ok) {
           const contentType = ttsRes.headers.get('content-type') || 'audio/mpeg';
           res.setHeader('Content-Type', contentType);
-          res.setHeader('X-TTS-Provider', 'openai-official-fallback');
+          res.setHeader('X-TTS-Provider', 'openai-official');
           res.setHeader('X-TTS-Voice', openAiVoice);
           const audioBuffer = await ttsRes.arrayBuffer();
           return res.end(Buffer.from(audioBuffer));
+        } else {
+          const errText = await ttsRes.text();
+          console.warn('[OpenAI TTS Error]', ttsRes.status, errText.slice(0, 150));
         }
       } catch (openAiErr) {
-        console.warn('[OpenAI TTS Fallback Exception]', openAiErr.message);
+        console.warn('[OpenAI TTS Exception, falling back]', openAiErr.message);
       }
     }
 
-    // ── TIER 5: Fallback to client Web Speech API ──
+    // ── TIER 2: FALLBACK SESUAI GENDER (Pria tetap Pria, Wanita tetap Wanita) ──
+    if (isMale) {
+      // 1. TikTok Indonesian Male (id_001)
+      try {
+        const audioBuffer = await generateTikTokTTS(text, voice);
+        if (audioBuffer && audioBuffer.length > 0) {
+          res.setHeader('Content-Type', 'audio/mpeg');
+          res.setHeader('X-TTS-Provider', 'tiktok-male');
+          res.setHeader('X-TTS-Voice', 'id_001');
+          return res.end(audioBuffer);
+        }
+      } catch (tiktokErr) {
+        console.warn('[TikTok Male Error]', tiktokErr.message);
+      }
+
+      // 2. Microsoft Edge Neural Male (id-ID-ArdiNeural)
+      try {
+        const audioBuffer = await generateEdgeTTS(text, 'onyx');
+        if (audioBuffer && audioBuffer.length > 0) {
+          res.setHeader('Content-Type', 'audio/mpeg');
+          res.setHeader('X-TTS-Provider', 'microsoft-edge-male');
+          res.setHeader('X-TTS-Voice', 'id-ID-ArdiNeural');
+          return res.end(audioBuffer);
+        }
+      } catch (edgeErr) {
+        console.warn('[Edge Male Error]', edgeErr.message);
+      }
+    } else {
+      // 1. Google Indonesian Female (id)
+      try {
+        const audioBuffer = await generateGoogleTTS(text);
+        if (audioBuffer && audioBuffer.length > 0) {
+          res.setHeader('Content-Type', 'audio/mpeg');
+          res.setHeader('X-TTS-Provider', 'google-female');
+          res.setHeader('X-TTS-Voice', 'id-female');
+          return res.end(audioBuffer);
+        }
+      } catch (gErr) {
+        console.warn('[Google Female Error]', gErr.message);
+      }
+
+      // 2. Microsoft Edge Neural Female (id-ID-GadisNeural)
+      try {
+        const audioBuffer = await generateEdgeTTS(text, 'nova');
+        if (audioBuffer && audioBuffer.length > 0) {
+          res.setHeader('Content-Type', 'audio/mpeg');
+          res.setHeader('X-TTS-Provider', 'microsoft-edge-female');
+          res.setHeader('X-TTS-Voice', 'id-ID-GadisNeural');
+          return res.end(audioBuffer);
+        }
+      } catch (edgeErr) {
+        console.warn('[Edge Female Error]', edgeErr.message);
+      }
+    }
+
+    // ── TIER 3: Client Web Speech API Fallback ──
     res.status(503).json({ success: false, message: 'TTS service unavailable. Use Web Speech API fallback.' });
 
   } catch (err) {
