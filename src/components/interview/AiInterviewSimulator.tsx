@@ -118,6 +118,7 @@ export const AiInterviewSimulator: React.FC<AiInterviewSimulatorProps> = ({
   const callTimerRef = useRef<any>(null);
   const recognitionActiveRef = useRef<boolean>(false);
   const audioRef = useRef<HTMLAudioElement | null>(null); // For server TTS playback & interrupt
+  const audioContextRef = useRef<AudioContext | null>(null); // Web Audio API for volume boost
 
   // Synchronize Token Balance with storage & events
   useEffect(() => {
@@ -152,7 +153,7 @@ export const AiInterviewSimulator: React.FC<AiInterviewSimulatorProps> = ({
     return `${m}:${s}`;
   };
 
-  // Initialize Web Speech Recognition
+  // Speech Recognition Initialization
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -168,22 +169,28 @@ export const AiInterviewSimulator: React.FC<AiInterviewSimulatorProps> = ({
         };
 
         recognition.onresult = (event: any) => {
-          let transcript = '';
-          for (let i = event.resultIndex; i < event.results.length; i++) {
-            transcript += event.results[i][0].transcript;
+          let interimTranscript = '';
+          let finalTranscript = '';
+          for (let i = 0; i < event.results.length; ++i) {
+            if (event.results[i].isFinal) {
+              finalTranscript += event.results[i][0].transcript + ' ';
+            } else {
+              interimTranscript += event.results[i][0].transcript;
+            }
           }
-          if (transcript.trim()) {
-            setUserInputText(transcript);
+          const fullText = (finalTranscript + interimTranscript).trim();
+          if (fullText) {
+            setUserInputText(fullText);
 
             // Reset silence detector
             if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
-            if (transcript.trim().split(/\s+/).length >= 3) {
-              // Auto-commit after 1.2s of natural pause (faster = more natural)
+            // Relaxed natural pause: 3000ms (3.0 seconds) and at least 4 words so user doesn't get cut off mid-thought!
+            if (fullText.split(/\s+/).length >= 4) {
               silenceTimerRef.current = setTimeout(() => {
                 if (recognitionActiveRef.current) {
-                  handleCommitCandidateAnswer(transcript);
+                  handleCommitCandidateAnswer(fullText);
                 }
-              }, 1200);
+              }, 3000);
             }
           }
         };
@@ -255,12 +262,15 @@ export const AiInterviewSimulator: React.FC<AiInterviewSimulatorProps> = ({
     window.speechSynthesis.speak(utterance);
   };
 
-  // ─── Primary TTS: Server-side Neural Voice (Sumopod onyx / Google TTS) ────
+  // ─── Primary TTS: Server-side Neural Voice (OpenAI / TikTok / Edge) ────
   const speakText = async (text: string, onDoneCallback?: () => void) => {
     if (!text.trim()) {
       if (onDoneCallback) onDoneCallback();
       return;
     }
+
+    // Stop mic recognition immediately before playing so mobile devices switch away from in-call earpiece to loud loudspeaker
+    stopListeningToUser();
 
     // Stop any currently playing audio
     if (audioRef.current) {
@@ -290,7 +300,29 @@ export const AiInterviewSimulator: React.FC<AiInterviewSimulatorProps> = ({
         if (blob.size > 0) {
           const audioUrl = URL.createObjectURL(blob);
           const audio = new Audio(audioUrl);
+          audio.volume = 1.0;
           audioRef.current = audio;
+
+          // Hardware volume booster using Web Audio API GainNode (85% boost for loud speaker output)
+          try {
+            const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+            if (AudioCtx) {
+              if (!audioContextRef.current || audioContextRef.current.state === 'closed') {
+                audioContextRef.current = new AudioCtx();
+              }
+              const ctx = audioContextRef.current;
+              if (ctx.state === 'suspended') {
+                ctx.resume();
+              }
+              const source = ctx.createMediaElementSource(audio);
+              const gainNode = ctx.createGain();
+              gainNode.gain.value = 1.85; // 85% louder volume boost
+              source.connect(gainNode);
+              gainNode.connect(ctx.destination);
+            }
+          } catch (audioCtxErr) {
+            console.log('Audio boost note:', audioCtxErr);
+          }
 
           audio.onended = () => {
             URL.revokeObjectURL(audioUrl);
@@ -421,8 +453,9 @@ export const AiInterviewSimulator: React.FC<AiInterviewSimulatorProps> = ({
     setTranscriptHistory(updatedTranscript);
     setUserInputText('');
 
-    // If reached turn 5 or more, auto-wrap up gracefully
-    if (turnCount >= 5) {
+    // Comprehensive interview session: auto-wrap up only after extensive exploration (turn 11+)
+    // Candidate can also end anytime with the red button
+    if (turnCount >= 11) {
       handleEndCallAndEvaluate(updatedTranscript);
       return;
     }
@@ -431,7 +464,13 @@ export const AiInterviewSimulator: React.FC<AiInterviewSimulatorProps> = ({
     const baseBank = interviewQuestionsBank[targetRole] || interviewQuestionsBank.operator;
     const baseQuestion = baseBank[turnCount] || baseBank[baseBank.length - 1];
 
-    const followUp = await generateAdaptiveFollowUp(answer, targetRole, turnCount, baseQuestion);
+    // Pass conversation history so AI has full context and does NOT repeat questions or phrases
+    const historyForAi = updatedTranscript.map(t => ({
+      role: (t.role === 'assistant' ? 'assistant' : 'user') as 'assistant' | 'user',
+      content: t.text
+    }));
+
+    const followUp = await generateAdaptiveFollowUp(answer, targetRole, turnCount, baseQuestion, historyForAi);
     const aiSpeech = followUp.fullSpokenDialogue;
 
     setLatestAiDialogue(aiSpeech);
@@ -675,8 +714,11 @@ export const AiInterviewSimulator: React.FC<AiInterviewSimulatorProps> = ({
                 <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500" />
               </span>
               <div>
-                <span className="text-xs font-black text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-                  Panggilan Suara Langsung • {formatTime(callSeconds)}
+                <span className="text-xs font-black text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+                  <span>Panggilan Suara Langsung • {formatTime(callSeconds)}</span>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-500/10 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 font-bold border border-indigo-500/20">
+                    Pertanyaan #{turnCount}
+                  </span>
                 </span>
                 <span className="text-[10px] text-slate-400 block font-medium">
                   {persona.name} — {persona.roleTitle}
@@ -722,12 +764,15 @@ export const AiInterviewSimulator: React.FC<AiInterviewSimulatorProps> = ({
                   : 'bg-indigo-600/15'
             }`} />
 
-            {/* Recruiter Identity & Status */}
+            {/* Recruiter Identity & Stage Indicator */}
             <div className="text-center relative z-10 space-y-1">
               <h2 className="text-lg sm:text-xl font-black text-white tracking-tight">
                 {persona.name}
               </h2>
               <p className="text-xs text-purple-300 font-medium">{persona.roleTitle}</p>
+              <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-white/10 border border-white/15 text-[10px] text-purple-200 font-medium mt-1">
+                <span>Tahap {turnCount <= 2 ? '1: Latar Belakang & PKL' : turnCount <= 4 ? '2: Keahlian Teknis & Mesin' : turnCount <= 6 ? '3: K3, 5S & Standar Presisi' : turnCount <= 8 ? '4: Ketahanan Fisik & 3 Shift' : turnCount <= 10 ? '5: Problem Solving & Kerjasama' : '6: Tanya Jawab Balik & Penutup'}</span>
+              </div>
             </div>
 
             {/* Center Animated HRD Avatar with Acoustic Pulsing Ripples */}
@@ -872,8 +917,15 @@ export const AiInterviewSimulator: React.FC<AiInterviewSimulatorProps> = ({
               </div>
             )}
 
+            {/* Friendly guidance hint */}
+            <div className="w-full max-w-md text-center pt-2 relative z-10">
+              <p className="text-[11px] text-slate-400 font-medium">
+                💡 Bicaralah dengan santai. Klik <span className="text-emerald-400 font-bold">✓ Selesai Bicara</span> jika sudah tuntas, atau tombol merah <span className="text-red-400 font-bold">📞</span> untuk akhiri sesi & lihat skor kapan saja.
+              </p>
+            </div>
+
             {/* Bottom In-Call Control Bar */}
-            <div className="w-full max-w-md pt-3 flex items-center justify-around relative z-10 border-t border-white/10 mt-2">
+            <div className="w-full max-w-md pt-3 flex items-center justify-around relative z-10 border-t border-white/10 mt-1">
               
               {/* Mic Mute / Unmute */}
               <button

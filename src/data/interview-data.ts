@@ -78,7 +78,7 @@ export const interviewQuestionsBank: Record<TargetRole, InterviewQuestionItem[]>
       interviewerPersona: 'Bapak Hendra (Senior HRD Industri Otomotif)',
       expectedKeywords: ['nama', 'smk', 'jurusan', 'pkl', 'disiplin', 'perakitan', 'mesin', 'tanggung jawab'],
       followUpPrompt: 'Bagus. Dari pengalaman PKL tersebut, apa tugas utama yang paling sering Anda kerjakan di line produksi?',
-      idealAnswer: 'Selamat pagi Bapak Hendra. Nama saya Ahmad Fauzi, lulusan SMK Negeri 1 Jurusan Teknik Mesin. Selama masa sekolah, saya aktif dalam kegiatan bengkel dan menyelesaikan Praktik Kerja Lapangan (PKL) selama 6 bulan di bagian line perakitan mesin. Saya terbiasa dengan target produksi harian, disiplin waktu, dan penerapan K3 di tempat kerja. Saya sangat termotivasi untuk bergabung dan berkontribusi sebagai Operator Produksi di perusahaan ini.'
+      idealAnswer: 'Selamat pagi Bapak Hendra. Nama saya Ahmad Fauzi, lulusan SMK Negeri 1 Jurusan Teknik Mesin. Selama masa sekolah, saya aktif dalam kegiatan bengkel dan menyelesaikan Praktik Kerja Lapangan (PKL) selama 6 bulan di bagian line perakitan mesin. Saya terbiasa dengan target produksi harian, disiplin waktu, dan penerapan K3 di tempat kerja.'
     },
     {
       id: 'op-2',
@@ -102,7 +102,7 @@ export const interviewQuestionsBank: Record<TargetRole, InterviewQuestionItem[]>
       id: 'op-4',
       role: 'operator',
       question: 'Jika saat Anda sedang bekerja, mesin yang Anda operasikan tiba-tiba mengeluarkan suara berdecit tidak wajar atau lampu indikator andon menyala merah, apa tindakan pertama yang Anda ambil dan mengapa Anda tidak disarankan memperbaikinya sendiri?',
-      interviewerPersona: 'Bapak Dimas (Supervisor Produksi Manufaktur)',
+      interviewerPersona: 'Bapak Hendra (Senior HRD Industri Otomotif)',
       expectedKeywords: ['stop', 'matikan', 'lapor', 'leader', 'foreman', 'andon', 'sop', 'jangan dipaksa'],
       followUpPrompt: 'Mengapa kepatuhan pada wewenang kerja sangat penting di industri pabrik?',
       idealAnswer: 'Tindakan pertama saya adalah segera menghentikan mesin (menekan tombol stop/andon) untuk mencegah kerusakan lebih parah atau kecelakaan kerja. Kemudian, saya langsung melaporkan ke Team Leader atau Foreman. Saya tidak mencoba memperbaikinya sendiri karena hal teknis mesin adalah wewenang teknisi maintenance sesuai SOP keselamatan K3.'
@@ -110,11 +110,56 @@ export const interviewQuestionsBank: Record<TargetRole, InterviewQuestionItem[]>
     {
       id: 'op-5',
       role: 'operator',
-      question: 'Terakhir, apa motivasi terbesar Anda melamar di perusahaan kami, dan apa komitmen Anda jika diberikan kesempatan untuk bekerja dan berkembang di sini dalam jangka panjang?',
+      question: 'Bagaimana pemahaman Anda mengenai budaya kerja 5S atau 5R (Ringkas, Rapi, Resik, Rawat, Rajin) dan bagaimana penerapannya secara nyata di area kerja Anda setiap hari?',
       interviewerPersona: 'Bapak Hendra (Senior HRD Industri Otomotif)',
-      expectedKeywords: ['motivasi', 'komitmen', 'loyal', 'disiplin', 'berkembang', 'kontribusi', 'jangka panjang', 'reputasi'],
-      followUpPrompt: 'Bagus. Apakah ada hal yang ingin Anda tanyakan kepada kami sebelum sesi ini berakhir?',
-      idealAnswer: 'Motivasi terbesar saya adalah ingin membangun karier profesional di perusahaan manufaktur ternama ini dan membantu perekonomian keluarga. Komitmen saya adalah bekerja dengan disiplin tinggi, tidak absen tanpa izin, selalu mematuhi target dan SOP mutu, serta siap belajar hal baru untuk memajukan target produksi perusahaan.'
+      expectedKeywords: ['5s', '5r', 'ringkas', 'rapi', 'resik', 'rawat', 'rajin', 'kebersihan', 'alat'],
+      followUpPrompt: 'Mengapa meja kerja yang rapi bisa meningkatkan efisiensi dan mencegah kecelakaan kerja?',
+      idealAnswer: 'Saya selalu memastikan alat kerja diletakkan kembali pada tempatnya setelah dipakai (Seiton/Rapi), membersihkan serpihan debu atau oli di stasiun kerja (Seiso/Resik), serta mematuhi standardisasi tata letak agar mempermudah pengambilan barang dan menjaga keselamatan kerja.'
+    },
+    {
+      id: 'op-6',
+      role: 'operator',
+      question: 'Dalam satu line produksi, jika rekan di stasiun kerja sebelum Anda terlambat atau stasiun Anda mengalami penumpukan barang (bottleneck), bagaimana sikap kerjasama dan komunikasi Anda dengan rekan kerja?',
+      interviewerPersona: 'Bapak Hendra (Senior HRD Industri Otomotif)',
+      expectedKeywords: ['komunikasi', 'bantu', 'koordinasi', 'tim', 'leader', 'takt time', 'kecepatan'],
+      followUpPrompt: 'Pernahkah Anda membantu rekan kerja saat mengejar target akhir shift?',
+      idealAnswer: 'Saya akan berkomunikasi dengan tenang dan saling bantu tanpa mengabaikan kualitas stasiun sendiri. Jika beban terus menumpuk, saya segera menginformasikan ke Team Leader agar dapat dialokasikan bantuan atau penyesuaian takt time secara tepat.'
+    },
+    {
+      id: 'op-7',
+      role: 'operator',
+      question: 'Bagaimana sikap dan respon Anda apabila suatu hari Anda ditegur secara tegas oleh Foreman atau Supervisor karena ada kelalaian kerja atau hasil perakitan yang kurang presisi?',
+      interviewerPersona: 'Bapak Hendra (Senior HRD Industri Otomotif)',
+      expectedKeywords: ['terima', 'evaluasi', 'lapang dada', 'perbaiki', 'tidak membantah', 'tanggung jawab'],
+      followUpPrompt: 'Bagaimana Anda memastikan kesalahan yang sama tidak terulang kembali?',
+      idealAnswer: 'Saya akan menerima teguran tersebut dengan lapang dada dan penuh tanggung jawab sebagai masukan berharga. Saya akan meminta arahan mengenai letak kekeliruan, mengevaluasi diri, dan membuat catatan pengingat agar kesalahan yang sama tidak terulang lagi.'
+    },
+    {
+      id: 'op-8',
+      role: 'operator',
+      question: 'Pekerjaan operator seringkali bersifat repetitif dan menuntut berdiri selama 8 jam sehari. Bagaimana Anda menjaga motivasi kerja agar tidak mudah merasa jenuh dan tetap konsisten menghasilkan produk bermutu?',
+      interviewerPersona: 'Bapak Hendra (Senior HRD Industri Otomotif)',
+      expectedKeywords: ['konsisten', 'fokus', 'tanggung jawab', 'kebanggaan', 'target', 'kualitas'],
+      followUpPrompt: 'Apa yang membuat Anda bangga bekerja di bidang manufaktur?',
+      idealAnswer: 'Saya memandang setiap komponen yang saya rakit adalah bagian penting dari produk akhir yang akan dipakai masyarakat luas. Tanggung jawab dan kebanggaan atas kualitas produk tersebut membuat saya tetap fokus dan termotivasi menjaga konsistensi kerja.'
+    },
+    {
+      id: 'op-9',
+      role: 'operator',
+      question: 'Apa motivasi terbesar Anda melamar di perusahaan kami, dan apa komitmen Anda terkait kedisiplinan absensi dan kesiapan bekerja lembur saat ada lonjakan target produksi?',
+      interviewerPersona: 'Bapak Hendra (Senior HRD Industri Otomotif)',
+      expectedKeywords: ['motivasi', 'komitmen', 'loyal', 'disiplin', 'lembur', 'kehadiran', 'zero absen'],
+      followUpPrompt: 'Apakah Anda siap berkomitmen tidak absen tanpa alasan mendesak?',
+      idealAnswer: 'Motivasi terbesar saya adalah ingin membangun karier profesional jangka panjang di perusahaan terkemuka ini. Komitmen saya adalah menjaga kehadiran 100% (zero absentism), selalu hadir tepat waktu, dan siap lembur kapan pun perusahaan membutuhkan tambahan kapasitas produksi.'
+    },
+    {
+      id: 'op-10',
+      role: 'operator',
+      question: 'Baik, saya rasa gambaran kemampuan dan kesiapan kerja Anda sudah sangat jelas. Sebelum kita akhiri sesi wawancara ini, apakah ada hal yang ingin Anda tanyakan kepada kami?',
+      interviewerPersona: 'Bapak Hendra (Senior HRD Industri Otomotif)',
+      expectedKeywords: ['tanya', 'pelatihan', 'training', 'jenjang', 'kriteria', 'budaya'],
+      followUpPrompt: 'Pertanyaan yang sangat bagus, mari kita bahas sejenak.',
+      idealAnswer: 'Terima kasih Bapak Hendra. Saya ingin menanyakan, bagaimana tahapan pelatihan awal (onboarding training) bagi operator baru di line produksi, dan hal apa yang paling dinilai agar operator baru bisa cepat beradaptasi dengan ritme kerja tim?'
     }
   ],
   qc: [
@@ -125,7 +170,7 @@ export const interviewQuestionsBank: Record<TargetRole, InterviewQuestionItem[]>
       interviewerPersona: 'Ibu Ratna (QA & Quality Control Manager)',
       expectedKeywords: ['standar', 'spesifikasi', 'cacat', 'defect', 'zero defect', 'inspeksi', 'kepuasan pelanggan', 'sop'],
       followUpPrompt: 'Alat ukur presisi apa saja yang sudah pernah Anda gunakan saat sekolah atau PKL?',
-      idealAnswer: 'Selamat pagi Ibu Ratna. Nama saya Rahmat Hidayat, lulusan SMK. Bagi saya, Quality Control adalah garda terdepan penjamin mutu produk. Tugas utama QC adalah memastikan seluruh proses di line produksi hingga barang jadi memenuhi standar spesifikasi dan toleransi ukuran agar tidak ada produk reject yang lolos ke konsumen.'
+      idealAnswer: 'Selamat pagi Ibu Ratna. Bagi saya, Quality Control adalah garda terdepan penjamin mutu produk. Tugas utama QC adalah memastikan seluruh proses di line produksi hingga barang jadi memenuhi standar spesifikasi dan toleransi ukuran agar tidak ada produk reject yang lolos ke konsumen.'
     },
     {
       id: 'qc-2',
@@ -157,11 +202,56 @@ export const interviewQuestionsBank: Record<TargetRole, InterviewQuestionItem[]>
     {
       id: 'qc-5',
       role: 'qc',
-      question: 'Terakhir, mengapa Anda tertarik berkarir di bidang Quality Control dan apa nilai integritas yang paling Anda junjung tinggi dalam pekerjaan?',
+      question: 'Dalam pencatatan data mutu harian, bagaimana Anda memastikan bahwa check sheet inspeksi selalu terisi akurat dan bebas dari manipulasi angka?',
       interviewerPersona: 'Ibu Ratna (QA & Quality Control Manager)',
-      expectedKeywords: ['integritas', 'kejujuran', 'ketelitian', 'tanggung jawab', 'mutu', 'komitmen'],
-      followUpPrompt: 'Terima kasih, apakah ada yang ingin Anda tanyakan seputar standar kerja di bagian QC kami?',
-      idealAnswer: 'Saya menyukai pekerjaan yang membutuhkan ketelitian tinggi dan kejujuran data. Nilai utama yang saya junjung adalah integritas, yaitu tidak pernah memanipulasi catatan inspeksi dan selalu mengutamakan keselamatan konsumen melalui produk berkualitas prima.'
+      expectedKeywords: ['jujur', 'integritas', 'check sheet', 'fakta', 'aktual', 'akurasi'],
+      followUpPrompt: 'Mengapa manipulasi data inspeksi sangat berbahaya bagi reputasi perusahaan?',
+      idealAnswer: 'Saya selalu mencatat angka aktual hasil pengukuran secara real-time langsung di check sheet tanpa menunda atau mengira-ngira. Integritas data adalah nyawa seorang QC, karena satu kesalahan pencatatan bisa berakibat fatal pada keselamatan konsumen.'
+    },
+    {
+      id: 'qc-6',
+      role: 'qc',
+      question: 'Bagaimana pemahaman Anda mengenai perbedaan antara cacat fungsional (critical defect) dengan cacat kosmetik/visual (minor defect)?',
+      interviewerPersona: 'Ibu Ratna (QA & Quality Control Manager)',
+      expectedKeywords: ['kritis', 'fungsional', 'visual', 'go no go', 'toleransi', 'safety'],
+      followUpPrompt: 'Berikan contoh cacat fungsional yang pernah Anda jumpai.',
+      idealAnswer: 'Cacat fungsional berdampak langsung pada kinerja dan keselamatan produk, seperti ukuran lubang drat yang longgar atau retak mikro. Sedangkan cacat kosmetik berupa goresan halus pada permukaan luar yang tidak mengganggu fungsi kerja.'
+    },
+    {
+      id: 'qc-7',
+      role: 'qc',
+      question: 'Bekerja di QC seringkali berada di antara tekanan target produksi dan tuntutan kualitas tanpa kompromi. Bagaimana Anda menjaga stabilitas emosi dan fokus saat menghadapi situasi kerja yang menegangkan?',
+      interviewerPersona: 'Ibu Ratna (QA & Quality Control Manager)',
+      expectedKeywords: ['tenang', 'profesional', 'data', 'fakta', 'fokus', 'regulasi'],
+      followUpPrompt: 'Bagaimana Anda menghindari perdebatan subjektif saat inspeksi?',
+      idealAnswer: 'Saya selalu mengandalkan data terukur, foto visual limit, dan standar SOP tertulis sebagai dasar argumen. Dengan berbicara berbasis data objektif dan menjaga nada bicara profesional, kita dapat menyelesaikan perdebatan secara tenang dan berbasis fakta.'
+    },
+    {
+      id: 'qc-8',
+      role: 'qc',
+      question: 'Bagaimana kesiapan fisik Anda untuk melakukan inspeksi keliling (patrol check) di area produksi yang bersuara bising, berpindah antar stasiun kerja, dan sistem kerja shift?',
+      interviewerPersona: 'Ibu Ratna (QA & Quality Control Manager)',
+      expectedKeywords: ['siap', 'patrol', 'earplug', 'apd', 'stamina', 'shift'],
+      followUpPrompt: 'Apakah Anda terbiasa memakai APD telinga dan kacamata safety sepanjang hari?',
+      idealAnswer: 'Saya sangat siap. Saya terbiasa bergerak aktif dan selalu mematuhi kewajiban APD di area produksi, seperti earplug untuk meredam kebisingan dan safety glasses. Saya juga siap menjalankan rotasi shift secara disiplin.'
+    },
+    {
+      id: 'qc-9',
+      role: 'qc',
+      question: 'Apa motivasi terbesar Anda ingin bergabung di departemen Quality Control kami, dan bagaimana komitmen Anda dalam menerapkan prinsip Kaizen (continuous improvement)?',
+      interviewerPersona: 'Ibu Ratna (QA & Quality Control Manager)',
+      expectedKeywords: ['kaizen', 'improvement', 'mutu', 'komitmen', 'belajar', 'loyal'],
+      followUpPrompt: 'Pernahkah Anda mengusulkan perbaikan kecil saat PKL?',
+      idealAnswer: 'Motivasi saya adalah menjadi bagian dari jaminan mutu perusahaan berstandar internasional. Saya berkomitmen tidak hanya mendeteksi cacat, namun juga ikut menganalisis akar masalah (root cause) untuk memberikan ide perbaikan berkelanjutan.'
+    },
+    {
+      id: 'qc-10',
+      role: 'qc',
+      question: 'Baik, seluruh pemahaman dan integritas mutu Anda telah kami catat dengan baik. Apakah ada hal yang ingin Anda tanyakan kepada kami sebelum mengakhiri sesi wawancara ini?',
+      interviewerPersona: 'Ibu Ratna (QA & Quality Control Manager)',
+      expectedKeywords: ['tanya', 'standar', 'sertifikasi', 'peralatan', 'cmm'],
+      followUpPrompt: 'Silakan, saya senang menjawab pertanyaan kritis dari calon QC.',
+      idealAnswer: 'Terima kasih Ibu Ratna. Saya ingin menanyakan mengenai standar sistem manajemen mutu yang saat ini diterapkan di pabrik (seperti ISO 9001 atau IATF 16949), dan apakah ada kesempatan untuk mempelajari alat ukur digital lanjutan seperti CMM atau Projector Profile?'
     }
   ],
   maintenance: [
@@ -169,8 +259,8 @@ export const interviewQuestionsBank: Record<TargetRole, InterviewQuestionItem[]>
       id: 'maint-1',
       role: 'maintenance',
       question: 'Selamat pagi. Silakan perkenalkan diri Anda dan ceritakan keahlian dasar kelistrikan dan mekanik yang Anda kuasai.',
-      interviewerPersona: 'Bapak Suryo (Chief Engineering & Maintenance)',
-      expectedKeywords: ['preventive', 'pencegahan', 'perawatan', 'multimeter', 'wiring', 'motor', 'pelumasan', 'troubleshooting'],
+      interviewerPersona: 'Bapak Suryo (Chief Engineering & Maintenance Lead)',
+      expectedKeywords: ['preventive', 'perawatan', 'multimeter', 'wiring', 'motor', 'pelumasan', 'troubleshooting'],
       followUpPrompt: 'Apa langkah pertama Anda dalam melakukan isolasi sumber tegangan (LOTO)?',
       idealAnswer: 'Selamat pagi Bapak Suryo. Nama saya Rizky Pratama, lulusan SMK Teknik Otomasi / Mesin. Saya memiliki kompetensi dalam membaca diagram kelistrikan (wiring diagram), pengukuran multimeter, instalasi motor listrik 3 fasa, dan perawatan mekanikal dasar.'
     },
@@ -178,7 +268,7 @@ export const interviewQuestionsBank: Record<TargetRole, InterviewQuestionItem[]>
       id: 'maint-2',
       role: 'maintenance',
       question: 'Bisa jelaskan perbedaan mendasar antara Preventive Maintenance dan Breakdown Maintenance, serta mengapa pabrik modern sangat memprioritaskan Preventive Maintenance?',
-      interviewerPersona: 'Bapak Suryo (Chief Engineering & Maintenance)',
+      interviewerPersona: 'Bapak Suryo (Chief Engineering & Maintenance Lead)',
       expectedKeywords: ['preventive', 'berkala', 'breakdown', 'terjadwal', 'downtime', 'efisiensi', 'umur mesin'],
       followUpPrompt: 'Contoh tindakan preventif apa yang rutin dilakukan pada motor listrik atau kompresor?',
       idealAnswer: 'Preventive maintenance adalah perawatan berkala terjadwal untuk mencegah terjadinya kerusakan sebelum terjadi, seperti pelumasan bearing dan pembersihan filter. Sedangkan breakdown maintenance adalah perbaikan setelah mesin mati. Preventive sangat diprioritaskan karena mencegah kerugian downtime produksi yang besar.'
@@ -187,7 +277,7 @@ export const interviewQuestionsBank: Record<TargetRole, InterviewQuestionItem[]>
       id: 'maint-3',
       role: 'maintenance',
       question: 'Jelaskan prosedur keselamatan kerja LOTO (Lockout Tagout) saat Anda hendak melakukan perbaikan pada panel kelistrikan bertegangan tinggi atau mesin berputar.',
-      interviewerPersona: 'Bapak Suryo (Chief Engineering & Maintenance)',
+      interviewerPersona: 'Bapak Suryo (Chief Engineering & Maintenance Lead)',
       expectedKeywords: ['loto', 'lockout', 'tagout', 'gembok', 'kartu', 'isolasi', 'nol tegangan', 'k3'],
       followUpPrompt: 'Bagaimana cara memastikan bahwa benar-benar tidak ada sisa tegangan sebelum tangan menyentuh kabel?',
       idealAnswer: 'Prosedur LOTO diawali dengan mematikan sumber daya utama, memasang gembok pengaman fisik (Lock) dan label peringatan bahaya (Tag) pada saklar utama. Kemudian melakukan pengetesan dengan multimeter (test before touch) untuk memastikan status tegangan benar-benar nol.'
@@ -196,7 +286,7 @@ export const interviewQuestionsBank: Record<TargetRole, InterviewQuestionItem[]>
       id: 'maint-4',
       role: 'maintenance',
       question: 'Jika terjadi situasi darurat di mana dua mesin di line perakitan utama mengalami gangguan teknis bersamaan, bagaimana Anda menentukan prioritas penanganannya?',
-      interviewerPersona: 'Bapak Suryo (Chief Engineering & Maintenance)',
+      interviewerPersona: 'Bapak Suryo (Chief Engineering & Maintenance Lead)',
       expectedKeywords: ['prioritas', 'bottleneck', 'downtime', 'koordinasi', 'keselamatan', 'foreman'],
       followUpPrompt: 'Kapan Anda perlu meminta bantuan tambahan dari tim engineering lain?',
       idealAnswer: 'Saya akan mengutamakan mesin yang menjadi jalur utama (bottleneck) atau mesin yang berdampak langsung pada keselamatan operator. Saya segera berkoordinasi dengan Foreman Maintenance untuk membagi tugas penanganan agar perbaikan berlangsung paralel dan downtime minimal.'
@@ -204,11 +294,56 @@ export const interviewQuestionsBank: Record<TargetRole, InterviewQuestionItem[]>
     {
       id: 'maint-5',
       role: 'maintenance',
-      question: 'Terakhir, apa komitmen Anda terhadap kedisiplinan jam kerja, kesiapan standby saat shift darurat, dan pengembangan keterampilan teknis Anda di perusahaan ini?',
-      interviewerPersona: 'Bapak Suryo (Chief Engineering & Maintenance)',
-      expectedKeywords: ['standby', 'komitmen', 'shift', 'belajar', 'loyalitas', 'disiplin'],
-      followUpPrompt: 'Bagus sekali. Ada pertanyaan yang ingin Anda sampaikan mengenai mesin produksi kami?',
-      idealAnswer: 'Saya siap 100% mengikuti jadwal shift dan siap dipanggil saat terjadi panggilan darurat mesin. Saya juga sangat antusias untuk terus belajar sistem otomasi baru seperti PLC dan robotik guna meningkatkan efisiensi pabrik.'
+      question: 'Bagaimana kebiasaan Anda dalam merawat dan menata perkakas kerja teknisi (toolbox) setelah menyelesaikan pekerjaan perbaikan mesin?',
+      interviewerPersona: 'Bapak Suryo (Chief Engineering & Maintenance Lead)',
+      expectedKeywords: ['toolbox', 'rapi', '5s', 'hitung', 'bersih', 'perkakas', 'fOD'],
+      followUpPrompt: 'Mengapa alat yang tertinggal di dalam mesin produksi sangat berbahaya?',
+      idealAnswer: 'Setelah perbaikan selesai, saya selalu membersihkan alat dari oli dan menghitung kembali kelengkapan toolbox. Ketinggalan perkakas di dalam mesin dapat memicu kerusakan fatal saat mesin dinyalakan kembali.'
+    },
+    {
+      id: 'maint-6',
+      role: 'maintenance',
+      question: 'Seberapa familiar Anda dengan sistem kontrol otomatis seperti sensor pneumatik, silinder hidrolik, atau PLC (Programmable Logic Controller)?',
+      interviewerPersona: 'Bapak Suryo (Chief Engineering & Maintenance Lead)',
+      expectedKeywords: ['plc', 'sensor', 'pneumatik', 'hidrolik', 'ladder', 'input output'],
+      followUpPrompt: 'Bagaimana cara mengecek sensor proximity yang tidak merespon?',
+      idealAnswer: 'Saya memahami dasar pembacaan input-output PLC dan rangkaian pneumatik dasar menggunakan solenoid valve. Untuk mengecek sensor, saya memeriksa lampu indikator daya, jarak deteksi mekanik, dan kabel sinyal menggunakan multimeter.'
+    },
+    {
+      id: 'maint-7',
+      role: 'maintenance',
+      question: 'Teknisi maintenance dituntut siap siaga (on-call) saat ada mesin breakdown mendadak pada jam lembur atau shift malam. Bagaimana kesiapan komitmen Anda?',
+      interviewerPersona: 'Bapak Suryo (Chief Engineering & Maintenance Lead)',
+      expectedKeywords: ['siap', 'on call', 'standby', 'shift', 'tanggung jawab', 'responsif'],
+      followUpPrompt: 'Apakah Anda bersedia dihubungi di luar jam kerja normal jika terjadi kendala kritis pabrik?',
+      idealAnswer: 'Saya sangat siap menjalankan jadwal standby dan shift malam. Saya menyadari kelancaran operasional pabrik bergantung pada kesiapan tim maintenance dalam merespon breakdown secara cepat dan tepat.'
+    },
+    {
+      id: 'maint-8',
+      role: 'maintenance',
+      question: 'Jika saat menganalisis kerusakan mesin Anda menemukan bahwa kerusakan disebabkan oleh kelalaian operator dalam pengoperasian, bagaimana cara Anda menyampaikan edukasi kepada operator tersebut?',
+      interviewerPersona: 'Bapak Suryo (Chief Engineering & Maintenance Lead)',
+      expectedKeywords: ['edukasi', 'sopan', 'komunikasi', 'sop', 'tidak menyalahkan', 'solusi'],
+      followUpPrompt: 'Bagaimana cara membangun hubungan baik antara tim maintenance dan tim produksi?',
+      idealAnswer: 'Saya akan menyampaikan dengan bahasa yang sopan dan solutif, menjelaskan cara pengoperasian yang benar sesuai SOP tanpa nada menyalahkan. Kolaborasi yang harmonis antara operator dan teknisi adalah kunci keandalan mesin.'
+    },
+    {
+      id: 'maint-9',
+      role: 'maintenance',
+      question: 'Apa motivasi terbesar Anda bergabung di tim Engineering kami dan target kompetensi apa yang ingin Anda kuasai dalam 2 tahun ke depan?',
+      interviewerPersona: 'Bapak Suryo (Chief Engineering & Maintenance Lead)',
+      expectedKeywords: ['target', 'otomasi', 'robotik', 'jenjang karir', 'kompetensi', 'loyal'],
+      followUpPrompt: 'Apakah Anda tertarik mendalami sistem otomasi dan robotik pabrik?',
+      idealAnswer: 'Motivasi saya adalah menjadi teknisi maintenance yang andal dan menguasai teknologi industri modern. Dalam 2 tahun, target saya adalah mahir mendiagnosis error PLC tingkat lanjut dan sistem robotik perakitan.'
+    },
+    {
+      id: 'maint-10',
+      role: 'maintenance',
+      question: 'Baik, pemahaman teknis dan kedisiplinan K3 Anda sangat memuaskan. Sebelum kita akhiri pertemuan ini, apakah ada pertanyaan yang ingin Anda sampaikan kepada saya?',
+      interviewerPersona: 'Bapak Suryo (Chief Engineering & Maintenance Lead)',
+      expectedKeywords: ['tanya', 'mesin', 'otomasi', 'tantangan', 'software'],
+      followUpPrompt: 'Silakan, saya senang berdiskusi teknis dengan calon teknisi kami.',
+      idealAnswer: 'Terima kasih Pak Suryo. Saya ingin menanyakan jenis mesin utama dan brand PLC apa yang paling dominan digunakan di line produksi saat ini, serta bagaimana program pelatihan sertifikasi teknisi di perusahaan ini?'
     }
   ],
   logistics: [
@@ -217,7 +352,7 @@ export const interviewQuestionsBank: Record<TargetRole, InterviewQuestionItem[]>
       role: 'logistics',
       question: 'Selamat pagi. Silakan perkenalkan diri Anda dan ceritakan pengalaman Anda dalam manajemen barang di gudang atau pergudangan sekolah/PKL.',
       interviewerPersona: 'Bapak Anton (Warehouse & Logistics Lead)',
-      expectedKeywords: ['fifo', 'first in first out', 'stock', 'opname', 'akurasi', 'barcode', 'labeling', 'tata letak'],
+      expectedKeywords: ['fifo', 'stock', 'opname', 'akurasi', 'barcode', 'labeling', 'tata letak'],
       followUpPrompt: 'Bagaimana Anda memastikan barang yang keluar dari gudang tidak mengalami selisih data sistem dengan fisik?',
       idealAnswer: 'Selamat pagi Bapak Anton. Nama saya Deni Irawan, lulusan SMK. Saya memiliki pengalaman PKL di bagian logistik dan memahami alur penerimaan barang (receiving), penyimpanan rak (putaway), hingga penyiapan pengiriman (picking & dispatching).'
     },
@@ -251,11 +386,56 @@ export const interviewQuestionsBank: Record<TargetRole, InterviewQuestionItem[]>
     {
       id: 'log-5',
       role: 'logistics',
-      question: 'Terakhir, apa motivasi Anda bergabung di tim Logistik kami dan apa komitmen Anda terhadap ketepatan waktu pengiriman suplai komponen ke line produksi?',
+      question: 'Bagaimana Anda memastikan barang yang disiapkan (picking) untuk dikirim ke line produksi benar-benar sesuai dengan part number, kode lot, dan jumlah yang diminta?',
       interviewerPersona: 'Bapak Anton (Warehouse & Logistics Lead)',
-      expectedKeywords: ['tepat waktu', 'disiplin', 'tanggung jawab', 'komitmen', 'kerjasama', 'zero delay'],
-      followUpPrompt: 'Apakah ada hal yang ingin Anda tanyakan seputar alur kerja pergudangan kami?',
-      idealAnswer: 'Motivasi saya adalah menjadi bagian dari rantai pasok manufaktur yang solid. Komitmen saya adalah memastikan ketersediaan dan suplai material ke line produksi selalu tepat waktu (Just-In-Time) dengan akurasi 100% sehingga line produksi tidak pernah mengalami stop produksi.'
+      expectedKeywords: ['part number', 'barcode', 'scanner', 'label', 'teliti', 'double check'],
+      followUpPrompt: 'Mengapa salah suplai part ke line produksi bisa memicu stop line massal?',
+      idealAnswer: 'Saya menerapkan prosedur double-check dengan memindai barcode part number dan mencocokkan kode pada delivery order sheet. Ketelitian part number sangat krusial agar tidak ada kesalahan rakit di line produksi.'
+    },
+    {
+      id: 'log-6',
+      role: 'logistics',
+      question: 'Bagaimana cara Anda menata palet barang di rak penyimpanan gudang (racking system) agar stabil, rapi, dan tidak berisiko roboh?',
+      interviewerPersona: 'Bapak Anton (Warehouse & Logistics Lead)',
+      expectedKeywords: ['kunci palet', 'berat bawah', 'wrapping', 'stabil', 'beban maksimal'],
+      followUpPrompt: 'Bagaimana aturan peletakan barang berat vs barang ringan pada rak vertikal?',
+      idealAnswer: 'Barang yang lebih berat selalu ditempatkan di tingkat rak paling bawah untuk menjaga pusat gravitasi rak. Setiap tumpukan kardus dipastikan di-wrapping plastik secara kencang dan tidak melebihi kapasitas beban maksimum (SWL).'
+    },
+    {
+      id: 'log-7',
+      role: 'logistics',
+      question: 'Bagaimana kesiapan fisik Anda dalam menangani aktivitas manual handling seperti memindahkan kardus barang, mengangkat dengan postur tubuh yang benar, dan bekerja di gudang non-AC?',
+      interviewerPersona: 'Bapak Anton (Warehouse & Logistics Lead)',
+      expectedKeywords: ['ergonomis', 'jongkok', 'tulang belakang', 'fisik', 'stamina', 'siap'],
+      followUpPrompt: 'Bagaimana teknik mengangkat barang berat agar tidak mencederai punggung?',
+      idealAnswer: 'Saya selalu menerapkan teknik ergonomis, yaitu menekuk lutut dan bertumpu pada kekuatan paha, bukan membungkukkan tulang belakang. Saya memiliki stamina fisik yang sehat dan siap bekerja aktif di area pergudangan.'
+    },
+    {
+      id: 'log-8',
+      role: 'logistics',
+      question: 'Jika suatu hari terjadi keterlambatan kedatangan truk suplai dari vendor sementara line perakitan membutuhkan material tersebut dalam 15 menit ke depan, bagaimana langkah cepat dan koordinasi Anda?',
+      interviewerPersona: 'Bapak Anton (Warehouse & Logistics Lead)',
+      expectedKeywords: ['lapor', 'prioritas', 'jalur cepat', 'koordinasi', 'siaga', 'bongkar cepat'],
+      followUpPrompt: 'Bagaimana Anda berkoordinasi dengan tim receiving?',
+      idealAnswer: 'Saya segera melaporkan status ke Leader dan mempersiapkan area receiving khusus (fast-track). Begitu truk tiba, tim langsung melakukan unloading dan verifikasi cepat agar material bisa segera diantar ke line tanpa menghentikan produksi.'
+    },
+    {
+      id: 'log-9',
+      role: 'logistics',
+      question: 'Apa komitmen terbesar Anda terhadap akurasi stok (inventory accuracy), kedisiplinan jam kerja, dan kemauan bekerja lembur di akhir pekan saat jadwal stock opname?',
+      interviewerPersona: 'Bapak Anton (Warehouse & Logistics Lead)',
+      expectedKeywords: ['komitmen', 'akurasi 100', 'stock opname', 'lembur', 'disiplin', 'tanggung jawab'],
+      followUpPrompt: 'Apakah Anda bersedia masuk di akhir pekan saat jadwal opname tahunan?',
+      idealAnswer: 'Komitmen saya adalah menjaga akurasi data 100% dan selalu siap lembur saat jadwal stock opname bulanan atau tahunan. Bagi saya, keakuratan stok gudang adalah fondasi kelancaran seluruh operasional pabrik.'
+    },
+    {
+      id: 'log-10',
+      role: 'logistics',
+      question: 'Baik, penjelasan mengenai alur pergudangan dan komitmen K3 Anda sangat meyakinkan. Sebelum kita akhiri wawancara ini, apakah ada hal yang ingin Anda tanyakan kepada kami?',
+      interviewerPersona: 'Bapak Anton (Warehouse & Logistics Lead)',
+      expectedKeywords: ['tanya', 'sistem wms', 'sap', 'forklift', 'alur kerja'],
+      followUpPrompt: 'Silakan, saya sangat terbuka menjawab hal yang ingin Anda ketahui.',
+      idealAnswer: 'Terima kasih Pak Anton. Saya ingin menanyakan sistem manajemen pergudangan (WMS atau SAP) apa yang digunakan di sini, dan apakah ada pelatihan resmi untuk pengoperasian alat angkat seperti Reach Truck atau Forklift?'
     }
   ]
 };
@@ -366,7 +546,8 @@ export async function generateAdaptiveFollowUp(
   userPreviousAnswer: string,
   role: TargetRole,
   nextQuestionIndex: number,
-  baseQuestionItem: InterviewQuestionItem
+  baseQuestionItem: InterviewQuestionItem,
+  conversationHistory: { role: 'user' | 'assistant'; content: string }[] = []
 ): Promise<{
   acknowledgement: string;
   adaptiveQuestionText: string;
@@ -382,7 +563,8 @@ export async function generateAdaptiveFollowUp(
         targetRole: role,
         interviewerPersona: baseQuestionItem.interviewerPersona,
         userAnswer: userPreviousAnswer,
-        questionIndex: nextQuestionIndex
+        questionIndex: nextQuestionIndex,
+        conversationHistory
       })
     });
 
