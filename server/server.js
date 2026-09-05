@@ -1022,7 +1022,10 @@ app.post('/api/interview/generate-followup', async (req, res) => {
     } = req.body;
 
     const sumopodKey = process.env.SUMOPOD_API_KEY || process.env.OPENAI_API_KEY;
-    const sumopodBaseUrl = (process.env.SUMOPOD_BASE_URL || 'https://api.sumopod.com/v1').replace(/\/+$/, '');
+    let sumopodBaseUrl = (process.env.SUMOPOD_BASE_URL || 'https://ai.sumopod.com/v1').replace(/\/+$/, '');
+    if (sumopodBaseUrl.includes('api.sumopod.com')) {
+      sumopodBaseUrl = 'https://ai.sumopod.com/v1';
+    }
     const sumopodModel = process.env.SUMOPOD_MODEL || process.env.OPENAI_MODEL || 'gpt-4o-mini';
     const geminiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
 
@@ -1148,7 +1151,10 @@ Kembalikan respon HANYA dalam format JSON murni tanpa markdown:
 app.get('/api/interview/test-connection', async (req, res) => {
   const startTime = Date.now();
   const sumopodKey = process.env.SUMOPOD_API_KEY || process.env.OPENAI_API_KEY;
-  const sumopodBaseUrl = (process.env.SUMOPOD_BASE_URL || 'https://api.sumopod.com/v1').replace(/\/+$/, '');
+  let sumopodBaseUrl = (process.env.SUMOPOD_BASE_URL || 'https://ai.sumopod.com/v1').replace(/\/+$/, '');
+  if (sumopodBaseUrl.includes('api.sumopod.com')) {
+    sumopodBaseUrl = 'https://ai.sumopod.com/v1';
+  }
   const sumopodModel = process.env.SUMOPOD_MODEL || process.env.OPENAI_MODEL || 'gpt-4o-mini';
   const geminiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
 
