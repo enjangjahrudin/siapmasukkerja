@@ -48,6 +48,17 @@ export const App: React.FC = () => {
   // Tryout modal state
   const [isTryoutOpen, setIsTryoutOpen] = useState<boolean>(false);
 
+  // Main scroll viewport ref
+  const mainScrollRef = React.useRef<HTMLElement | null>(null);
+
+  // Reset scroll position to top whenever tab or subview changes
+  useEffect(() => {
+    if (mainScrollRef.current) {
+      mainScrollRef.current.scrollTop = 0;
+    }
+    window.scrollTo(0, 0);
+  }, [activeNavTab, activeSubView]);
+
   const handleSuccessAuth = (user: RegisteredUser) => {
     setCurrentUser(user);
     if (user.isAdmin) {
@@ -202,9 +213,12 @@ export const App: React.FC = () => {
         />
 
         {/* Scrollable / Flexible Mobile Viewport */}
-        <main className={`flex-1 overflow-y-auto relative flex flex-col transition-colors duration-200 ${
-          isDark ? 'bg-slate-900 text-white' : 'bg-slate-50 text-slate-900'
-        }`}>
+        <main 
+          ref={mainScrollRef}
+          className={`flex-1 overflow-y-auto relative flex flex-col transition-colors duration-200 ${
+            isDark ? 'bg-slate-900 text-white' : 'bg-slate-50 text-slate-900'
+          }`}
+        >
           
           {/* Sub Views (Running tests) */}
           {activeSubView === 'kraepelin' && (

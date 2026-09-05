@@ -77,6 +77,15 @@ export const TipsHub: React.FC = () => {
   // Active Article Reader State (null by default so popup opens only on user click)
   const [selectedArticle, setSelectedArticle] = useState<TipArticle | null>(null);
 
+  // Scroll container to top when switching between Video Edukasi & Artikel Panduan
+  useEffect(() => {
+    const mainEl = document.querySelector('main');
+    if (mainEl) {
+      mainEl.scrollTop = 0;
+    }
+    window.scrollTo(0, 0);
+  }, [activeHubMode]);
+
   // Active Video Player Modal / Inline State
   const [activePlayingVideo, setActivePlayingVideo] = useState<EducationVideo | null>(null);
   const [watchedVideoIds, setWatchedVideoIds] = useState<string[]>(() => {
