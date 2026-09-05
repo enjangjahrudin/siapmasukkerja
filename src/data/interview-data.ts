@@ -181,3 +181,86 @@ export function evaluateUserInterviewResponse(
     idealAnswer: questionItem.idealAnswer
   };
 }
+
+/**
+ * Dynamic Contextual Conversation Engine
+ * Analyzes candidate's previous response, extracts topical cues, and synthesizes a natural contextual transition + adaptive question
+ */
+export function generateAdaptiveFollowUp(
+  userPreviousAnswer: string,
+  role: TargetRole,
+  nextQuestionIndex: number,
+  baseQuestionItem: InterviewQuestionItem
+): {
+  acknowledgement: string;
+  adaptiveQuestionText: string;
+  fullSpokenDialogue: string;
+} {
+  const text = (userPreviousAnswer || '').toLowerCase().trim();
+  const wordCount = text.split(/\s+/).filter(Boolean).length;
+
+  // 1. Topical extraction
+  const hasPkl = text.includes('pkl') || text.includes('magang') || text.includes('prakerin') || text.includes('bengkel') || text.includes('sekolah');
+  const hasTech = text.includes('mesin') || text.includes('rakit') || text.includes('perakitan') || text.includes('ukur') || text.includes('listrik') || text.includes('wiring') || text.includes('alat');
+  const hasDiscipline = text.includes('disiplin') || text.includes('sop') || text.includes('k3') || text.includes('tanggung jawab') || text.includes('aturan');
+  const hasStamina = text.includes('fisik') || text.includes('shift') || text.includes('malam') || text.includes('olahraga') || text.includes('sehat') || text.includes('stamina');
+  const hasQuality = text.includes('kualitas') || text.includes('reject') || text.includes('cacat') || text.includes('zero defect') || text.includes('presisi') || text.includes('inspeksi');
+  const hasTeam = text.includes('tim') || text.includes('leader') || text.includes('atasan') || text.includes('lapor') || text.includes('komunikasi') || text.includes('teman');
+
+  // 2. Dynamic Acknowledgement Generation
+  let acknowledgement = 'Baik, terima kasih atas penjelasannya.';
+  if (hasPkl && hasTech) {
+    acknowledgement = 'Bagus sekali, saya melihat Anda sudah memiliki bekal praktik kerja dan pemahaman teknis dasar yang cukup relevan.';
+  } else if (hasQuality) {
+    acknowledgement = 'Sangat tepat, kepedulian terhadap standar kualitas dan detail adalah prinsip utama yang sangat kami hargai.';
+  } else if (hasStamina || hasDiscipline) {
+    acknowledgement = 'Saya catat kesiapan dan komitmen disiplin kerja yang Anda sampaikan barusan.';
+  } else if (hasTeam) {
+    acknowledgement = 'Bagus, kemampuan koordinasi dan kepatuhan jalur komando memang sangat krusial di pabrik.';
+  } else if (wordCount >= 25) {
+    acknowledgement = 'Penjelasan yang cukup terstruktur dan lugas.';
+  } else {
+    acknowledgement = 'Baik, poin inti jawaban Anda sudah saya tangkap.';
+  }
+
+  // 3. Dynamic Question Synthesis based on Question Index & Role
+  let adaptiveQuestion = baseQuestionItem.question;
+
+  if (nextQuestionIndex === 1) {
+    // Stage 2: Kesiapan fisik, shift & ritme kerja
+    if (role === 'operator') {
+      adaptiveQuestion = hasPkl
+        ? `Menghubungkan dengan pengalaman dan kebiasaan kerja Anda tadi, di posisi Operator Produksi ini ritme kerjanya cepat, repetitif, dan menggunakan sistem 3 shift termasuk shift malam. Bagaimana strategi konkret Anda menjaga stamina, fokus, dan ketelitian agar tidak drop saat berada di shift 3?`
+        : `Di industri manufaktur, Anda akan menghadapi target harian yang ketat dan sistem shift kerja termasuk shift malam. Bagaimana kesiapan fisik dan mental Anda dalam beradaptasi dengan ritme kerja lembur dan pergantian shift tersebut?`;
+    } else if (role === 'qc') {
+      adaptiveQuestion = hasQuality
+        ? `Tadi Anda menyebutkan pentingnya menjaga standar mutu. Dalam praktik lapangan QC, seringkali target pengiriman barang sangat mendesak namun ditemukan produk dengan deviasi dimensi minor. Bagaimana sikap tegas dan cara Anda menahan produk reject tersebut tanpa memicu konflik dengan tim produksi?`
+        : `Jika saat inspeksi akhir Anda menemukan batch produk mengalami cacat (NG) menjelang jam pergantian shift, apa prosedur isolasi barang dan komunikasi yang akan Anda terapkan?`;
+    } else if (role === 'maintenance') {
+      adaptiveQuestion = hasTech
+        ? `Melanjutkan kemampuan teknis yang Anda ceritakan, dalam perawatan mesin pabrik kita mengutamakan Preventive Maintenance. Bagaimana cara Anda mendeteksi potensi keausan komponen sebelum mesin mengalami breakdown mendadak di tengah jam produksi?`
+        : `Bisa ceritakan pemahaman Anda tentang prosedur keselamatan kerja LOTO (Lockout Tagout) saat melakukan perbaikan pada panel kelistrikan bertegangan tinggi?`;
+    } else if (role === 'logistics') {
+      adaptiveQuestion = `Dalam operasional gudang dengan mobilitas tinggi, bagaimana Anda memastikan penerapan metode FIFO dan pencatatan barcode barang tetap akurat 100% tanpa ada selisih stok fisik?`;
+    }
+  } else if (nextQuestionIndex >= 2) {
+    // Stage 3: Problem solving, K3 & Komitmen
+    if (role === 'operator') {
+      adaptiveQuestion = `Nah, jika saat Anda sedang mengoperasikan mesin di line perakitan, tiba-tiba mesin berbunyi tidak wajar atau lampu indikator andon menyala merah, apa langkah pertama yang Anda lakukan dan mengapa Anda tidak disarankan memperbaikinya sendiri?`;
+    } else if (role === 'qc') {
+      adaptiveQuestion = `Alat ukur presisi apa saja yang paling Anda kuasai, dan bagaimana cara Anda memastikan alat ukur tersebut selalu terkalibrasi dengan benar sebelum digunakan inspeksi harian?`;
+    } else if (role === 'maintenance') {
+      adaptiveQuestion = `Jika ada dua mesin di line berbeda mengalami gangguan secara bersamaan, bagaimana Anda menentukan prioritas penanganan perbaikan agar downtime produksi tetap minimal?`;
+    } else if (role === 'logistics') {
+      adaptiveQuestion = `Jika terjadi selisih jumlah barang saat proses loading ke truk pengiriman, langkah investigasi apa yang pertama kali Anda jalankan?`;
+    }
+  }
+
+  const fullSpokenDialogue = `${acknowledgement} ${adaptiveQuestion}`;
+
+  return {
+    acknowledgement,
+    adaptiveQuestionText: adaptiveQuestion,
+    fullSpokenDialogue
+  };
+}

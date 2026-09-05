@@ -1,6 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { TargetRole, InterviewRubric } from '../../types';
-import { interviewQuestionsBank, evaluateUserInterviewResponse, InterviewQuestionItem } from '../../data/interview-data';
+import { 
+  interviewQuestionsBank, 
+  evaluateUserInterviewResponse, 
+  generateAdaptiveFollowUp,
+  InterviewQuestionItem 
+} from '../../data/interview-data';
 import { sounds } from '../../utils/sound-effects';
 import { 
   Mic, 
@@ -84,8 +89,16 @@ export const AiInterviewSimulator: React.FC<AiInterviewSimulatorProps> = ({
   const callTimerRef = useRef<any>(null);
   const recognitionActiveRef = useRef<boolean>(false);
 
-  const questionsList = interviewQuestionsBank[targetRole] || interviewQuestionsBank.operator;
-  const currentQuestion = questionsList[currentQIndex];
+  // Dynamic Contextual Questions State
+  const [dynamicQuestions, setDynamicQuestions] = useState<InterviewQuestionItem[]>(() => {
+    return interviewQuestionsBank[targetRole] || interviewQuestionsBank.operator;
+  });
+
+  useEffect(() => {
+    setDynamicQuestions(interviewQuestionsBank[targetRole] || interviewQuestionsBank.operator);
+  }, [targetRole]);
+
+  const currentQuestion = dynamicQuestions[currentQIndex] || (interviewQuestionsBank[targetRole] || interviewQuestionsBank.operator)[0];
 
   // Synchronize Token Balance with storage & events
   useEffect(() => {
@@ -282,6 +295,8 @@ export const AiInterviewSimulator: React.FC<AiInterviewSimulatorProps> = ({
     }
     setTokenBalance(getUserInterviewTokens());
 
+    const initialQuestions = interviewQuestionsBank[targetRole] || interviewQuestionsBank.operator;
+    setDynamicQuestions(initialQuestions);
     setSessionState('interviewing');
     setCurrentQIndex(0);
     setUserInputText('');
@@ -290,7 +305,7 @@ export const AiInterviewSimulator: React.FC<AiInterviewSimulatorProps> = ({
 
     // Begin conversation
     setTimeout(() => {
-      speakQuestion(questionsList[0].question);
+      speakQuestion(initialQuestions[0].question);
     }, 800);
   };
 
@@ -311,23 +326,27 @@ export const AiInterviewSimulator: React.FC<AiInterviewSimulatorProps> = ({
     ];
     setSessionResponses(updatedResponses);
 
-    const isLastQuestion = currentQIndex + 1 >= questionsList.length;
+    const isLastQuestion = currentQIndex + 1 >= dynamicQuestions.length;
 
     if (!isLastQuestion) {
       const nextIdx = currentQIndex + 1;
+      const baseNextQuestion = (interviewQuestionsBank[targetRole] || interviewQuestionsBank.operator)[nextIdx];
+
+      // Dynamic Contextual Adaptive Dialogue Synthesis
+      const followUp = generateAdaptiveFollowUp(answerText, targetRole, nextIdx, baseNextQuestion);
+
+      const nextList = [...dynamicQuestions];
+      nextList[nextIdx] = {
+        ...baseNextQuestion,
+        question: followUp.adaptiveQuestionText
+      };
+      setDynamicQuestions(nextList);
+
       setCurrentQIndex(nextIdx);
       setUserInputText('');
 
-      // Spoken transitional phrase
-      const transitions = [
-        'Baik, terima kasih atas penjelasannya. Mari lanjut ke pertanyaan selanjutnya.',
-        'Bagus, saya catat jawaban Anda. Pertanyaan berikutnya:',
-        'Menarik sekali. Selanjutnya silakan tanggapi pertanyaan ini:'
-      ];
-      const randomTransition = transitions[currentQIndex % transitions.length];
-
       setTimeout(() => {
-        speakQuestion(`${randomTransition} ${questionsList[nextIdx].question}`);
+        speakQuestion(followUp.fullSpokenDialogue);
       }, 600);
     } else {
       // Completed all questions
@@ -336,9 +355,9 @@ export const AiInterviewSimulator: React.FC<AiInterviewSimulatorProps> = ({
         updatedResponses.reduce((sum, r) => sum + r.rubric.totalAcceptanceProbability, 0) / updatedResponses.length
       );
 
-      // Speak closing remark before showing evaluation
+      // Speak natural closing remark before showing evaluation
       speakQuestion(
-        'Terima kasih sudah mengikuti sesi wawancara ini dengan sangat baik. Sesi wawancara telah selesai, mari kita lihat hasil evaluasi dan rekomendasi kelulusan Anda.',
+        'Terima kasih banyak sudah mengikuti sesi wawancara ini dengan sangat baik. Seluruh jawaban Anda telah kami catat dan analisis. Mari kita lihat laporan evaluasi kelulusan Anda.',
         () => {
           setSessionState('evaluated');
           setConversationStatus('idle');
@@ -353,7 +372,7 @@ export const AiInterviewSimulator: React.FC<AiInterviewSimulatorProps> = ({
               testType: 'psychotest',
               testName: `AI Interview — ${currentQuestion.interviewerPersona}`,
               score: finalAvgScore,
-              totalQuestions: questionsList.length,
+              totalQuestions: dynamicQuestions.length,
               correctAnswers: updatedResponses.filter(r => r.rubric.totalAcceptanceProbability >= 70).length,
               details: {
                 targetRole,
@@ -581,7 +600,7 @@ export const AiInterviewSimulator: React.FC<AiInterviewSimulatorProps> = ({
                   Panggilan Aktif • {formatTime(callSeconds)}
                 </span>
                 <span className="text-[10px] text-slate-400 block">
-                  Pertanyaan {currentQIndex + 1} dari {questionsList.length} ({targetRole.toUpperCase()})
+                  Pertanyaan {currentQIndex + 1} dari {dynamicQuestions.length} ({targetRole.toUpperCase()})
                 </span>
               </div>
             </div>
