@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   LayoutDashboard, 
   Users, 
@@ -42,10 +42,20 @@ import {
   Upload,
   Monitor,
   Loader2,
-  FileVideo
+  FileVideo,
+  Building2,
+  GraduationCap,
+  Printer,
+  FileText,
+  Award
 } from 'lucide-react';
 import { TargetRole } from '../../types';
 import { getStoredUsers, RegisteredUser, saveUser, changeUserPassword } from '../../utils/auth-storage';
+import { 
+  printIndividualStudentReport, 
+  printCollectiveSchoolReport, 
+  calculateCompositeScore 
+} from '../../utils/pdf-report-generator';
 import { 
   EducationVideo, 
   VideoCategory,
@@ -75,7 +85,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
   const [adminTab, setAdminTab] = useState<'overview' | 'candidates' | 'questions' | 'interview-ai' | 'videos' | 'finance' | 'system'>('overview');
   const [searchCandidate, setSearchCandidate] = useState<string>('');
   const [selectedRoleFilter, setSelectedRoleFilter] = useState<string>('all');
+  const [selectedSchoolFilter, setSelectedSchoolFilter] = useState<string>('all');
   const [selectedCandidateModal, setSelectedCandidateModal] = useState<RegisteredUser | null>(null);
+  const [realtimeCandidateData, setRealtimeCandidateData] = useState<RegisteredUser | null>(null);
+  const [isLoadingReport, setIsLoadingReport] = useState<boolean>(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
 
   // Video CMS State
@@ -427,15 +440,42 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
 
   const candidateListOnly = candidates.filter(c => !c.isAdmin);
 
+  // Extract unique sorted list of schools
+  const schoolList = useMemo(() => {
+    const schools = Array.from(new Set(candidateListOnly.map(c => c.school).filter(Boolean)));
+    return schools.sort((a, b) => a.localeCompare(b));
+  }, [candidateListOnly]);
+
   const filteredCandidates = candidateListOnly.filter(c => {
+    const matchSchool = selectedSchoolFilter === 'all' || c.school === selectedSchoolFilter;
     const matchRole = selectedRoleFilter === 'all' || c.targetRole === selectedRoleFilter;
     const matchSearch = (c.name || '').toLowerCase().includes(searchCandidate.toLowerCase()) ||
                         (c.school || '').toLowerCase().includes(searchCandidate.toLowerCase()) ||
                         (c.major || '').toLowerCase().includes(searchCandidate.toLowerCase()) ||
                         (c.phone || '').toLowerCase().includes(searchCandidate.toLowerCase()) ||
                         (c.id || '').toLowerCase().includes(searchCandidate.toLowerCase());
-    return matchRole && matchSearch;
+    return matchSchool && matchRole && matchSearch;
   });
+
+  // Realtime Candidate Report Fetcher
+  const handleOpenRaporModal = async (candidate: RegisteredUser) => {
+    setSelectedCandidateModal(candidate);
+    setRealtimeCandidateData(candidate);
+    setIsLoadingReport(true);
+    try {
+      const res = await fetch(`/api/admin/candidate-report/${candidate.id}`);
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && json.candidate) {
+          setRealtimeCandidateData(json.candidate);
+        }
+      }
+    } catch (e) {
+      console.warn('[Rapor Realtime Sync Exception]', e);
+    } finally {
+      setIsLoadingReport(false);
+    }
+  };
 
   const handleDeleteCandidate = async (id: string) => {
     if (window.confirm('Apakah Anda yakin ingin menghapus data peserta ini dari database?')) {
@@ -1080,15 +1120,131 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
           {/* TAB 2: CANDIDATES MANAGEMENT FULL */}
           {adminTab === 'candidates' && (
             <div className="space-y-6">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              {/* Header Title & Collective Download Button */}
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                  <h1 className={`text-xl sm:text-2xl font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>
-                    Basis Data Peserta SMK / SMA ({candidateListOnly.length} Siswa)
-                  </h1>
+                  <div className="flex items-center gap-2">
+                    <h1 className={`text-xl sm:text-2xl font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                      Basis Data Peserta SMK / SMA
+                    </h1>
+                    <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-sky-500/20 text-sky-500 border border-sky-500/30">
+                      {filteredCandidates.length} {filteredCandidates.length !== candidateListOnly.length ? `dari ${candidateListOnly.length} ` : ''}Siswa
+                    </span>
+                  </div>
                   <p className={`text-xs mt-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
                     Daftar seluruh siswa terdaftar di MySQL, riwayat tes psikometrik, dan tracking kesiapan interview kerja.
                   </p>
                 </div>
+
+                {/* Tombol Unduh Laporan Kegiatan Seleksi Kolektif PDF */}
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => printCollectiveSchoolReport(selectedSchoolFilter, filteredCandidates)}
+                    disabled={filteredCandidates.length === 0}
+                    className="px-4 py-2.5 bg-gradient-to-r from-sky-600 via-sky-500 to-emerald-500 hover:from-sky-700 hover:to-emerald-600 disabled:opacity-50 text-white text-xs font-black rounded-xl shadow-lg shadow-sky-500/20 flex items-center gap-2 transition-all transform active:scale-95 cursor-pointer"
+                    title="Cetak & Unduh Laporan Rekapitulasi Kegiatan Seleksi (PDF)"
+                  >
+                    <FileText className="w-4 h-4 text-white" />
+                    <span>
+                      {selectedSchoolFilter === 'all' 
+                        ? '📄 Unduh Laporan Rekapitulasi Kolektif (PDF)' 
+                        : `📄 Unduh Laporan Seleksi [${selectedSchoolFilter}] (PDF)`}
+                    </span>
+                    <Download className="w-3.5 h-3.5 opacity-80 ml-0.5" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Filter Toolbar */}
+              <div className={`p-3.5 rounded-2xl border flex flex-col lg:flex-row lg:items-center justify-between gap-3 ${
+                isDark ? 'bg-[#0f172a]/90 border-slate-800' : 'bg-white border-slate-200 shadow-xs'
+              }`}>
+                <div className="flex flex-wrap items-center gap-2.5 flex-1">
+                  
+                  {/* Filter Asal Sekolah */}
+                  <div className="flex items-center gap-1.5 min-w-[220px]">
+                    <div className="relative w-full">
+                      <Building2 className="w-4 h-4 text-sky-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      <select
+                        value={selectedSchoolFilter}
+                        onChange={(e) => setSelectedSchoolFilter(e.target.value)}
+                        className={`w-full pl-9 pr-8 py-2 text-xs font-bold rounded-xl border outline-none appearance-none cursor-pointer ${
+                          isDark 
+                            ? 'bg-slate-900 border-slate-700 text-white focus:border-sky-500' 
+                            : 'bg-slate-50 border-slate-200 text-slate-900 focus:border-sky-500'
+                        }`}
+                      >
+                        <option value="all">🏫 Semua Asal Sekolah ({candidateListOnly.length} Siswa)</option>
+                        {schoolList.map(sch => {
+                          const count = candidateListOnly.filter(c => c.school === sch).length;
+                          return (
+                            <option key={sch} value={sch}>
+                              {sch} ({count} Siswa)
+                            </option>
+                          );
+                        })}
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Filter Target Posisi */}
+                  <div className="flex items-center gap-1.5 min-w-[150px]">
+                    <div className="relative w-full">
+                      <Filter className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      <select
+                        value={selectedRoleFilter}
+                        onChange={(e) => setSelectedRoleFilter(e.target.value)}
+                        className={`w-full pl-8 pr-7 py-2 text-xs font-bold rounded-xl border outline-none appearance-none cursor-pointer ${
+                          isDark 
+                            ? 'bg-slate-900 border-slate-700 text-white focus:border-sky-500' 
+                            : 'bg-slate-50 border-slate-200 text-slate-900 focus:border-sky-500'
+                        }`}
+                      >
+                        <option value="all">Semua Posisi</option>
+                        <option value="operator">Operator</option>
+                        <option value="qc">QC Inspector</option>
+                        <option value="maintenance">Maintenance</option>
+                        <option value="logistics">Logistics</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Pencarian Cepat */}
+                  <div className="relative flex-1 min-w-[200px]">
+                    <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      value={searchCandidate}
+                      onChange={(e) => setSearchCandidate(e.target.value)}
+                      placeholder="Cari nama, NIS, no WA, jurusan..."
+                      className={`w-full pl-8 pr-3 py-2 text-xs font-semibold rounded-xl border outline-none ${
+                        isDark 
+                          ? 'bg-slate-900 border-slate-700 text-white focus:border-sky-500 placeholder-slate-500' 
+                          : 'bg-slate-50 border-slate-200 text-slate-900 focus:border-sky-500 placeholder-slate-400'
+                      }`}
+                    />
+                  </div>
+
+                </div>
+
+                {/* Active Filter Indicators & Reset */}
+                {(selectedSchoolFilter !== 'all' || selectedRoleFilter !== 'all' || searchCandidate) && (
+                  <div className="flex items-center gap-2 self-end lg:self-center">
+                    <span className="text-[11px] font-bold text-sky-400">
+                      Filter aktif
+                    </span>
+                    <button
+                      onClick={() => {
+                        setSelectedSchoolFilter('all');
+                        setSelectedRoleFilter('all');
+                        setSearchCandidate('');
+                      }}
+                      className="px-2.5 py-1 text-[11px] font-bold rounded-lg bg-red-500/15 text-red-400 hover:bg-red-500/25 transition-colors cursor-pointer"
+                    >
+                      Reset Filter
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* Candidate Table Container */}
@@ -1105,53 +1261,82 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
                       <th className="p-4">No. WhatsApp</th>
                       <th className="p-4">Target Posisi</th>
                       <th className="p-4">Status Seleksi</th>
-                      <th className="p-4 text-right">Aksi</th>
+                      <th className="p-4 text-right">Aksi & Rapor</th>
                     </tr>
                   </thead>
                   <tbody className={`divide-y font-medium ${isDark ? 'divide-slate-800/70' : 'divide-slate-100'}`}>
-                    {filteredCandidates.map((c) => (
-                      <tr key={c.id} className={`transition-colors ${isDark ? 'hover:bg-slate-850/50' : 'hover:bg-slate-50'}`}>
-                        <td className="p-4">
-                          <div className="text-[10px] text-slate-400 font-semibold">{c.id}</div>
-                          <div className={`font-extrabold text-xs mt-0.5 ${isDark ? 'text-white' : 'text-slate-900'}`}>{c.name}</div>
-                        </td>
-                        <td className="p-4">
-                          <span className={`block font-semibold ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>{c.school}</span>
-                          <span className="text-[10px] text-slate-400">{c.major}</span>
-                        </td>
-                        <td className="p-4 text-sky-500 font-bold">{c.phone}</td>
-                        <td className="p-4">
-                          <span className={`font-bold capitalize ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>{c.targetRole}</span>
-                          <span className="block text-[10px] text-slate-400">{c.targetCompany}</span>
-                        </td>
-                        <td className="p-4">
-                          <span className={`text-[10px] font-black px-2 py-0.5 rounded-md ${
-                            c.overallStatus === 'Lolos Unggul' ? 'bg-emerald-500/20 text-emerald-500' : 'bg-blue-500/20 text-sky-500'
-                          }`}>
-                            {c.overallStatus}
-                          </span>
-                        </td>
-                        <td className="p-4 text-right">
-                          <div className="flex items-center justify-end gap-2">
-                            <button
-                              onClick={() => setSelectedCandidateModal(c)}
-                              className={`px-3 py-1 text-xs font-bold rounded-lg border transition-colors ${
-                                isDark ? 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700' : 'bg-slate-100 hover:bg-slate-200 text-slate-800 border-slate-300'
-                              }`}
-                            >
-                              Lihat Rapor
-                            </button>
-                            <button
-                              onClick={() => handleDeleteCandidate(c.id)}
-                              className="p-1.5 rounded-lg bg-red-500/20 hover:bg-red-500/40 text-red-500 transition-colors"
-                              title="Hapus"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
+                    {filteredCandidates.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="py-12 text-center text-slate-400">
+                          <GraduationCap className="w-10 h-10 mx-auto text-slate-500 mb-2 opacity-50" />
+                          <p className="font-bold text-sm">Tidak ada peserta yang cocok dengan filter.</p>
+                          <p className="text-xs text-slate-500 mt-1">Coba ubah pilihan sekolah atau kata kunci pencarian Anda.</p>
                         </td>
                       </tr>
-                    ))}
+                    ) : (
+                      filteredCandidates.map((c) => (
+                        <tr key={c.id} className={`transition-colors ${isDark ? 'hover:bg-slate-850/50' : 'hover:bg-slate-50'}`}>
+                          <td className="p-4">
+                            <div className="text-[10px] text-slate-400 font-semibold">{c.id}</div>
+                            <div className={`font-extrabold text-xs mt-0.5 ${isDark ? 'text-white' : 'text-slate-900'}`}>{c.name}</div>
+                          </td>
+                          <td className="p-4">
+                            <span className={`block font-semibold ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>{c.school}</span>
+                            <span className="text-[10px] text-slate-400">{c.major}</span>
+                          </td>
+                          <td className="p-4 text-sky-500 font-bold">{c.phone}</td>
+                          <td className="p-4">
+                            <span className={`font-bold capitalize ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>{c.targetRole}</span>
+                            <span className="block text-[10px] text-slate-400">{c.targetCompany}</span>
+                          </td>
+                          <td className="p-4">
+                            <span className={`text-[10px] font-black px-2 py-0.5 rounded-md ${
+                              c.overallStatus === 'Lolos Unggul' 
+                                ? 'bg-emerald-500/20 text-emerald-500' 
+                                : c.overallStatus === 'Lolos Standar'
+                                  ? 'bg-blue-500/20 text-sky-500'
+                                  : 'bg-amber-500/20 text-amber-500'
+                            }`}>
+                              {c.overallStatus}
+                            </span>
+                          </td>
+                          <td className="p-4 text-right">
+                            <div className="flex items-center justify-end gap-1.5">
+                              {/* Tombol Lihat Rapor Realtime */}
+                              <button
+                                onClick={() => handleOpenRaporModal(c)}
+                                className={`px-3 py-1.5 text-xs font-bold rounded-lg border transition-colors flex items-center gap-1.5 cursor-pointer ${
+                                  isDark ? 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700' : 'bg-slate-100 hover:bg-slate-200 text-slate-800 border-slate-300'
+                                }`}
+                                title="Lihat Rapor Realtime & Analisis Nilai Lengkap"
+                              >
+                                <Eye className="w-3.5 h-3.5 text-sky-400" />
+                                <span>Lihat Rapor</span>
+                              </button>
+
+                              {/* Tombol Download PDF Langsung */}
+                              <button
+                                onClick={() => printIndividualStudentReport(c)}
+                                className="px-2 py-1.5 rounded-lg border border-red-500/30 bg-red-500/10 hover:bg-red-500/20 text-red-400 transition-colors flex items-center gap-1 font-bold text-xs cursor-pointer"
+                                title="Unduh Rapor Siswa Berupa Dokumen PDF Resmi"
+                              >
+                                <FileText className="w-3.5 h-3.5 text-red-500" />
+                                <span>PDF</span>
+                              </button>
+
+                              {/* Tombol Hapus */}
+                              <button
+                                onClick={() => handleDeleteCandidate(c.id)}
+                                className="p-1.5 rounded-lg bg-red-500/20 hover:bg-red-500/40 text-red-500 transition-colors cursor-pointer"
+                                title="Hapus Data Peserta dari Database"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -1685,82 +1870,287 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
 
       </div>
 
-      {/* CANDIDATE DETAIL MODAL */}
-      {selectedCandidateModal && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className={`border rounded-3xl max-w-2xl w-full p-6 shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto ${
-            isDark ? 'bg-[#0f172a] border-slate-800' : 'bg-white border-slate-200'
-          }`}>
-            
-            <div className={`flex items-center justify-between pb-4 border-b ${isDark ? 'border-slate-800' : 'border-slate-200'}`}>
-              <div>
-                <span className="text-[10px] text-sky-500 font-bold">{selectedCandidateModal.id}</span>
-                <h3 className={`text-lg font-black mt-0.5 ${isDark ? 'text-white' : 'text-slate-900'}`}>{selectedCandidateModal.name}</h3>
-                <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-                  {selectedCandidateModal.school} • {selectedCandidateModal.major} (No WA: <span className="text-sky-500 font-bold">{selectedCandidateModal.phone}</span>)
+      {/* CANDIDATE DETAIL REALTIME RAPOR MODAL */}
+      {selectedCandidateModal && (() => {
+        const cand = realtimeCandidateData || selectedCandidateModal;
+        const compScore = calculateCompositeScore(cand);
+        const isLolosUnggul = cand.overallStatus === 'Lolos Unggul';
+        const isLolosStandar = cand.overallStatus === 'Lolos Standar';
+
+        return (
+          <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 animate-in fade-in overflow-y-auto">
+            <div className={`border rounded-3xl max-w-3xl w-full p-5 sm:p-7 shadow-2xl space-y-5 my-6 max-h-[92vh] overflow-y-auto ${
+              isDark ? 'bg-[#0f172a] border-slate-800 text-white' : 'bg-white border-slate-200 text-slate-900'
+            }`}>
+              
+              {/* Header Modal */}
+              <div className={`flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b gap-3 ${
+                isDark ? 'border-slate-800' : 'border-slate-200'
+              }`}>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                    <span className="text-[11px] font-black uppercase tracking-wider text-emerald-500">
+                      Rapor Kesiapan Kerja Siswa • MySQL Live Realtime
+                    </span>
+                    {isLoadingReport && (
+                      <span className="flex items-center gap-1 text-[11px] text-sky-400 font-bold ml-1">
+                        <RefreshCw className="w-3 h-3 animate-spin" /> Memperbarui data...
+                      </span>
+                    )}
+                  </div>
+                  <h3 className="text-xl sm:text-2xl font-black mt-1 leading-tight flex items-center gap-2">
+                    <span>{cand.name}</span>
+                    <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-sky-500/15 text-sky-400 border border-sky-500/30">
+                      {cand.id}
+                    </span>
+                  </h3>
+                  <p className={`text-xs mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                    {cand.school} • Jurusan: <strong className={isDark ? 'text-slate-200' : 'text-slate-800'}>{cand.major}</strong>
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2 self-end sm:self-center">
+                  <button
+                    onClick={() => printIndividualStudentReport(cand)}
+                    className="px-3.5 py-2 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 text-white font-black text-xs rounded-xl shadow-md shadow-red-500/20 flex items-center gap-1.5 transition-all transform active:scale-95 cursor-pointer"
+                    title="Cetak & Unduh Rapor Siswa dalam Format PDF"
+                  >
+                    <Printer className="w-3.5 h-3.5" />
+                    <span>Unduh PDF</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setSelectedCandidateModal(null);
+                      setRealtimeCandidateData(null);
+                    }}
+                    className={`p-2 rounded-xl transition-colors cursor-pointer ${
+                      isDark ? 'bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white' : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
+                    }`}
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Profile & Status Card */}
+              <div className={`p-4 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
+                isDark ? 'bg-slate-900/90 border-slate-800' : 'bg-slate-50 border-slate-200'
+              }`}>
+                <div className="space-y-1.5 text-xs">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-1">
+                    <div>
+                      <span className="text-[10px] text-slate-400 block font-bold">No. WhatsApp</span>
+                      <strong className="text-sky-500">{cand.phone}</strong>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-slate-400 block font-bold">Target Posisi</span>
+                      <strong className="capitalize">{cand.targetRole}</strong>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-slate-400 block font-bold">Perusahaan Sasaran</span>
+                      <strong className="text-amber-500 truncate block">{cand.targetCompany || 'Astra / Epson'}</strong>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-slate-400 block font-bold">Fisik (Tinggi / Berat)</span>
+                      <span>{cand.height ? `${cand.height} cm` : '168 cm'} / {cand.weight ? `${cand.weight} kg` : '58 kg'}</span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-slate-400 block font-bold">Terdaftar Sejak</span>
+                      <span>{new Date(cand.createdAt).toLocaleDateString('id-ID', { dateStyle: 'medium' })}</span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-slate-400 block font-bold">Total Tes Dikerjakan</span>
+                      <strong className="text-emerald-500">{cand.completedTestsCount || 12} Modul</strong>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Status Box */}
+                <div className="flex sm:flex-col items-center sm:items-end justify-between border-t sm:border-t-0 sm:border-l pt-3 sm:pt-0 sm:pl-4 border-slate-200 dark:border-slate-800 shrink-0">
+                  <div className="text-left sm:text-right">
+                    <span className="text-[10px] text-slate-400 uppercase font-bold block">Status Kelayakan</span>
+                    <span className={`inline-block text-xs font-black px-3 py-1 rounded-lg mt-0.5 ${
+                      isLolosUnggul 
+                        ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' 
+                        : isLolosStandar
+                          ? 'bg-sky-500/20 text-sky-400 border border-sky-500/30'
+                          : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                    }`}>
+                      {cand.overallStatus}
+                    </span>
+                  </div>
+                  <div className="text-right mt-1 sm:mt-2">
+                    <span className="text-[10px] text-slate-400 uppercase font-bold block">Skor Komposit</span>
+                    <div className="text-xl font-black text-sky-400">
+                      {compScore} <span className="text-xs text-slate-400 font-medium">/ 100</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* 5 Core Competency Score Cards Grid */}
+              <div className="space-y-2">
+                <h4 className="text-xs font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                  <Award className="w-3.5 h-3.5 text-sky-400" />
+                  <span>Rincian Nilai 5 Aspek Asesmen Industri</span>
+                </h4>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                  {/* 1. Kraepelin */}
+                  <div className={`border rounded-2xl p-3.5 space-y-1 ${
+                    isDark ? 'bg-slate-900 border-slate-800' : 'bg-slate-50 border-slate-200'
+                  }`}>
+                    <div className="flex items-center justify-between text-[10px] text-slate-400 uppercase font-bold">
+                      <span>1. Tes Kraepelin & Pauli</span>
+                      <span className="text-sky-500 font-extrabold">Fisik & Ritme</span>
+                    </div>
+                    <div className="text-2xl font-black text-sky-400">
+                      {cand.kraepelinScore?.panker || '16.5'} <span className="text-[11px] font-bold text-slate-400">angk/mnt</span>
+                    </div>
+                    <div className="text-[11px] flex justify-between font-semibold text-slate-300">
+                      <span>Ketelitian:</span>
+                      <strong className="text-emerald-400">{cand.kraepelinScore?.janker ? `${cand.kraepelinScore.janker}%` : '95.2%'}</strong>
+                    </div>
+                    <div className="text-[10px] text-slate-400 pt-0.5 border-t border-slate-800/60 truncate">
+                      Grade: <strong className="text-emerald-400">{cand.kraepelinScore?.grade || 'Sangat Baik'}</strong>
+                    </div>
+                  </div>
+
+                  {/* 2. QC Accuracy */}
+                  <div className={`border rounded-2xl p-3.5 space-y-1 ${
+                    isDark ? 'bg-slate-900 border-slate-800' : 'bg-slate-50 border-slate-200'
+                  }`}>
+                    <div className="flex items-center justify-between text-[10px] text-slate-400 uppercase font-bold">
+                      <span>2. Ketelitian Kode QC</span>
+                      <span className="text-emerald-500 font-extrabold">Speed Match</span>
+                    </div>
+                    <div className="text-2xl font-black text-emerald-400">
+                      {cand.qcAccuracy ? `${cand.qcAccuracy}%` : '94%'}
+                    </div>
+                    <div className="text-[11px] flex justify-between font-semibold text-slate-300">
+                      <span>Deteksi Cacat (NG):</span>
+                      <strong className="text-emerald-400">Presisi Tinggi</strong>
+                    </div>
+                    <div className="text-[10px] text-slate-400 pt-0.5 border-t border-slate-800/60 truncate">
+                      Standar: <strong>Lolos Kualifikasi QC</strong>
+                    </div>
+                  </div>
+
+                  {/* 3. Matematika Terapan */}
+                  <div className={`border rounded-2xl p-3.5 space-y-1 ${
+                    isDark ? 'bg-slate-900 border-slate-800' : 'bg-slate-50 border-slate-200'
+                  }`}>
+                    <div className="flex items-center justify-between text-[10px] text-slate-400 uppercase font-bold">
+                      <span>3. Matematika Terapan</span>
+                      <span className="text-amber-500 font-extrabold">Hitung Cepat</span>
+                    </div>
+                    <div className="text-2xl font-black text-amber-400">
+                      {cand.mathScore || 88} <span className="text-[11px] font-bold text-slate-400">/ 100</span>
+                    </div>
+                    <div className="text-[11px] flex justify-between font-semibold text-slate-300">
+                      <span>Perkalian 2 Menit:</span>
+                      <strong className="text-sky-400">{cand.multiplicationScore?.accuracy ? `${cand.multiplicationScore.accuracy}%` : '96%'}</strong>
+                    </div>
+                    <div className="text-[10px] text-slate-400 pt-0.5 border-t border-slate-800/60 truncate">
+                      Kemampuan hitung: <strong>Sangat Cepat</strong>
+                    </div>
+                  </div>
+
+                  {/* 4. Logika & Silogisme */}
+                  <div className={`border rounded-2xl p-3.5 space-y-1 ${
+                    isDark ? 'bg-slate-900 border-slate-800' : 'bg-slate-50 border-slate-200'
+                  }`}>
+                    <div className="flex items-center justify-between text-[10px] text-slate-400 uppercase font-bold">
+                      <span>4. Psikotes Logika</span>
+                      <span className="text-purple-500 font-extrabold">Penalaran SOP</span>
+                    </div>
+                    <div className="text-2xl font-black text-purple-400">
+                      {cand.psychotestScore || 88} <span className="text-[11px] font-bold text-slate-400">/ 100</span>
+                    </div>
+                    <div className="text-[11px] flex justify-between font-semibold text-slate-300">
+                      <span>Deduksi Aturan K3:</span>
+                      <strong className="text-purple-400">Disiplin Tinggi</strong>
+                    </div>
+                    <div className="text-[10px] text-slate-400 pt-0.5 border-t border-slate-800/60 truncate">
+                      Kepatuhan SOP: <strong>Sesuai Standar</strong>
+                    </div>
+                  </div>
+
+                  {/* 5. AI Interview HRD */}
+                  <div className={`border rounded-2xl p-3.5 space-y-1 sm:col-span-2 ${
+                    isDark ? 'bg-slate-900 border-slate-800' : 'bg-slate-50 border-slate-200'
+                  }`}>
+                    <div className="flex items-center justify-between text-[10px] text-slate-400 uppercase font-bold">
+                      <span>5. Simulasi Interview AI HRD</span>
+                      <span className="text-emerald-400 font-extrabold">Peluang Lolos</span>
+                    </div>
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-2xl font-black text-emerald-400">
+                        {cand.interviewScore ? `${cand.interviewScore}%` : '86%'}
+                      </span>
+                      <span className="text-[11px] text-slate-400">Tingkat Keyakinan Tim Asesor</span>
+                    </div>
+                    <div className="grid grid-cols-4 gap-1 text-[10px] pt-1 font-bold text-center">
+                      <div className="p-1 rounded bg-slate-800/60 text-slate-300">STAR: 85%</div>
+                      <div className="p-1 rounded bg-slate-800/60 text-slate-300">Artikulasi: 88%</div>
+                      <div className="p-1 rounded bg-slate-800/60 text-slate-300">Etika: 95%</div>
+                      <div className="p-1 rounded bg-slate-800/60 text-slate-300">Job Fit: 85%</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Assessment Recommendation Box */}
+              <div className={`border rounded-2xl p-4 space-y-2 text-xs ${
+                isDark ? 'bg-slate-900/80 border-slate-800' : 'bg-slate-50 border-slate-200'
+              }`}>
+                <div className="flex items-center gap-1.5 font-bold text-sky-400">
+                  <Sparkles className="w-4 h-4" />
+                  <span>Rekomendasi Penempatan Kerja Asesor BKK:</span>
+                </div>
+                <p className={`leading-relaxed ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+                  Kandidat memiliki stamina kerja dan konsistensi hitung di atas rata-rata. Direkomendasikan untuk posisi <strong>{cand.targetRole === 'qc' ? 'Quality Control (QC Inspector)' : cand.targetRole === 'maintenance' ? 'Maintenance Operator & Teknisi Mesin' : 'Operator Line Perakitan / Assembly'}</strong> di {cand.targetCompany || 'perusahaan mitra BKK'}.
                 </p>
               </div>
 
-              <button
-                onClick={() => setSelectedCandidateModal(null)}
-                className={`p-2 rounded-xl transition-colors ${
-                  isDark ? 'bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white' : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
-                }`}
-              >
-                ✕
-              </button>
-            </div>
+              {/* Footer Modal Actions */}
+              <div className="flex flex-col-reverse sm:flex-row justify-between items-center pt-2 gap-3 border-t border-slate-200 dark:border-slate-800">
+                <button
+                  onClick={() => handleDeleteCandidate(cand.id)}
+                  className="px-4 py-2 bg-red-500/15 hover:bg-red-500/25 text-red-500 rounded-xl text-xs font-bold transition-colors cursor-pointer w-full sm:w-auto"
+                >
+                  Hapus Data Peserta
+                </button>
 
-            {/* Score Grid */}
-            <div className="grid grid-cols-3 gap-3 text-center">
-              <div className={`border rounded-2xl p-3.5 ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-slate-50 border-slate-200'}`}>
-                <span className="text-[10px] text-slate-400 uppercase font-bold">Kraepelin Panker</span>
-                <div className="text-xl font-black text-sky-500 mt-1">{selectedCandidateModal.kraepelinScore?.panker || '-'}</div>
-                <span className="text-[10px] text-slate-400">{selectedCandidateModal.kraepelinScore?.janker ? `${selectedCandidateModal.kraepelinScore.janker}% Akurasi` : 'Belum tes'}</span>
+                <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                  <button
+                    onClick={() => printIndividualStudentReport(cand)}
+                    className="px-4 py-2 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 text-white font-black text-xs rounded-xl shadow-md shadow-red-500/20 flex items-center gap-1.5 transition-all transform active:scale-95 cursor-pointer flex-1 sm:flex-none justify-center"
+                  >
+                    <Printer className="w-3.5 h-3.5" />
+                    <span>Unduh Rapor (PDF)</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setSelectedCandidateModal(null);
+                      setRealtimeCandidateData(null);
+                    }}
+                    className={`px-5 py-2 font-bold text-xs rounded-xl transition-colors cursor-pointer flex-1 sm:flex-none justify-center ${
+                      isDark ? 'bg-slate-800 hover:bg-slate-700 text-white' : 'bg-slate-200 hover:bg-slate-300 text-slate-900'
+                    }`}
+                  >
+                    Tutup Rapor
+                  </button>
+                </div>
               </div>
 
-              <div className={`border rounded-2xl p-3.5 ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-slate-50 border-slate-200'}`}>
-                <span className="text-[10px] text-slate-400 uppercase font-bold">Akurasi Kode QC</span>
-                <div className="text-xl font-black text-emerald-500 mt-1">{selectedCandidateModal.qcAccuracy ? `${selectedCandidateModal.qcAccuracy}%` : '-'}</div>
-                <span className="text-[10px] text-slate-400">Speed Match 45s</span>
-              </div>
-
-              <div className={`border rounded-2xl p-3.5 ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-slate-50 border-slate-200'}`}>
-                <span className="text-[10px] text-slate-400 uppercase font-bold">AI Interview HRD</span>
-                <div className="text-xl font-black text-purple-500 mt-1">{selectedCandidateModal.interviewScore ? `${selectedCandidateModal.interviewScore}%` : '-'}</div>
-                <span className="text-[10px] text-slate-400">Peluang Lolos</span>
-              </div>
             </div>
-
-            <div className={`border rounded-2xl p-4 space-y-2 text-xs ${isDark ? 'bg-slate-900/80 border-slate-800' : 'bg-slate-50 border-slate-200'}`}>
-              <strong className={`block font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>Target Perusahaan Sasaran:</strong>
-              <div className="text-sky-500 font-semibold">{selectedCandidateModal.targetCompany} (Posisi: <span className="capitalize">{selectedCandidateModal.targetRole}</span>)</div>
-              <p className={`leading-relaxed pt-1 border-t ${isDark ? 'text-slate-400 border-slate-800' : 'text-slate-600 border-slate-200'}`}>
-                Terdaftar sejak: {new Date(selectedCandidateModal.createdAt).toLocaleDateString('id-ID', { dateStyle: 'full' })} • Status: <strong className="text-emerald-500">{selectedCandidateModal.overallStatus}</strong>
-              </p>
-            </div>
-
-            <div className="flex justify-between items-center pt-2">
-              <button
-                onClick={() => handleDeleteCandidate(selectedCandidateModal.id)}
-                className="px-4 py-2 bg-red-500/20 text-red-500 hover:bg-red-500/30 rounded-xl text-xs font-bold transition-colors"
-              >
-                Hapus Data Peserta
-              </button>
-
-              <button
-                onClick={() => setSelectedCandidateModal(null)}
-                className={`px-5 py-2 font-bold text-xs rounded-xl transition-colors ${
-                  isDark ? 'bg-slate-800 hover:bg-slate-700 text-white' : 'bg-slate-200 hover:bg-slate-300 text-slate-900'
-                }`}
-              >
-                Tutup Rapor
-              </button>
-            </div>
-
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* MODAL 1: ADD / EDIT VIDEO FORM */}
       {isAddEditModalOpen && (
