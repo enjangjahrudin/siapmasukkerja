@@ -351,11 +351,11 @@ export function printIndividualStudentReport(student: RegisteredUser): void {
       <polygon points="40,8 43,11 40,14 37,11" fill="#34d399"/>
     </svg>
     <div class="kop-text">
-      <div class="kop-title-sub">Bursa Kerja Khusus (BKK) SMK Mitra Industri</div>
-      <div class="kop-title-main">SIAP MASUK KERJA • PUSAT ASESMEN KESIAPAN KERJA</div>
+      <div class="kop-title-sub">PLATFORM ASESMEN KESIAPAN KERJA & SELEKSI INDUSTRI • BUATDIGITAL.ID</div>
+      <div class="kop-title-main">SIAP MASUK KERJA • PUSAT ASESMEN PSIKOMETRIK</div>
       <p class="kop-address">
-        Uji Kompetensi Psikometrik, Ketahanan Fisik & Simulasi Interview Standar Pabrik Otomotif & Elektronika<br/>
-        Portal Resmi: www.siapmasukkerja.id • Email: bkk@siapmasukkerja.id
+        Platform Uji Kompetensi Kesiapan Kerja, Psikometrik & Simulasi Interview Standar Industri Manufaktur<br/>
+        Website Resmi: www.buatdigital.id • www.siapmasukkerja.id • Email: info@buatdigital.id
       </p>
     </div>
     <div class="kop-right-code">
@@ -516,24 +516,24 @@ export function printIndividualStudentReport(student: RegisteredUser): void {
 
     <div class="sig-col">
       <div>Diterbitkan di Karawang, ${printDate}</div>
-      <div style="font-weight: 700; color: #475569;">Pimpinan Tim Asesor Rekrutmen</div>
+      <div style="font-weight: 700; color: #475569;">Pimpinan Platform & Tim Asesor</div>
       <div class="sig-space">
         <svg class="sig-stamp" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
           <circle cx="50" cy="50" r="46" stroke="#059669" stroke-width="3"/>
           <circle cx="50" cy="50" r="38" stroke="#059669" stroke-width="1.5"/>
-          <text x="50" y="38" font-size="7" font-weight="900" fill="#059669" text-anchor="middle">ASESMEN INDUSTRI</text>
-          <text x="50" y="52" font-size="9" font-weight="900" fill="#059669" text-anchor="middle">TERVERIFIKASI</text>
+          <text x="50" y="38" font-size="7.5" font-weight="900" fill="#059669" text-anchor="middle">BUATDIGITAL.ID</text>
+          <text x="50" y="52" font-size="8.5" font-weight="900" fill="#059669" text-anchor="middle">★ TERVERIFIKASI ★</text>
           <text x="50" y="66" font-size="7" font-weight="900" fill="#059669" text-anchor="middle">SIAP MASUK KERJA</text>
         </svg>
       </div>
-      <div class="sig-name">Bapak Hendra, S.T., M.M.</div>
-      <div class="sig-role">Senior Assessor & HR Specialist Manufaktur</div>
+      <div class="sig-name">Enjang Jahrudin, S.M.</div>
+      <div class="sig-role">Founder & CEO BuatDigital.id • Platform Director</div>
     </div>
   </div>
 
   <!-- FOOTER -->
   <div class="footer">
-    <span>Dokumen resmi hasil evaluasi otomatis platform <strong>SMK Siap Masuk Kerja</strong> (www.siapmasukkerja.id).</span>
+    <span>Dokumen resmi hasil evaluasi otomatis platform <strong>SMK Siap Masuk Kerja</strong> • Powered by <strong>BuatDigital.id</strong> (www.buatdigital.id).</span>
     <span>Halaman 1 dari 1 • Dicetak pada: ${new Date().toLocaleString('id-ID')}</span>
   </div>
 
@@ -783,11 +783,11 @@ export function printCollectiveSchoolReport(schoolName: string, students: Regist
       <polygon points="40,8 43,11 40,14 37,11" fill="#34d399"/>
     </svg>
     <div class="kop-text">
-      <div class="kop-title-sub">Bursa Kerja Khusus (BKK) SMK / SMA Mitra Industri</div>
+      <div class="kop-title-sub">PLATFORM ASESMEN KESIAPAN KERJA & SELEKSI INDUSTRI • BUATDIGITAL.ID</div>
       <div class="kop-title-main">LAPORAN RESMI SELEKSI PSIKOMETRIK & KESIAPAN KERJA</div>
       <p class="kop-address">
-        Pusat Evaluasi Uji Kompetensi Kesiapan Kerja Siswa Berbasis AI • Standar PT Astra, PT Epson, PT Yamaha Motor Mfg<br/>
-        Laporan Kolektif Kegiatan Tes Seleksi BKK • Diterbitkan Resmi pada: ${printDate}
+        Platform Uji Kompetensi Kesiapan Kerja Siswa Berbasis AI • Standar PT Astra, PT Epson, PT Yamaha Motor Mfg<br/>
+        Laporan Kolektif Kegiatan Tes Seleksi Kerja • Diterbitkan Resmi pada: ${printDate}
       </p>
     </div>
     <div class="kop-right-code">
@@ -882,35 +882,35 @@ export function printCollectiveSchoolReport(schoolName: string, students: Regist
   </table>
 
   <!-- LEMBAR TANDA TANGAN & PENGESAHAN -->
-  <div class="sig-container">
-    <div class="sig-col">
-      <div>Mengetahui,</div>
-      <div style="font-weight: 700; color: #475569;">Ketua BKK / Koordinator Hubinmas</div>
-      <div class="sig-space"></div>
+  <div class="sig-container" style="justify-content: space-around;">
+    <div class="sig-col" style="width: 42%;">
+      <div>Mengetahui & Memvalidasi,</div>
+      <div style="font-weight: 700; color: #475569;">Pihak Sekolah / Koordinator BKK</div>
+      <div class="sig-space" style="height: 55px;"></div>
       <div class="sig-name">${schoolName === 'all' ? 'Koordinator BKK Sekolah Mitra' : schoolName}</div>
-      <div class="sig-role">NIP / Penanggung Jawab BKK</div>
+      <div class="sig-role">Penanggung Jawab Sekolah & Fasilitator BKK</div>
     </div>
 
-    <div class="sig-col">
-      <div>Diverifikasi oleh,</div>
-      <div style="font-weight: 700; color: #475569;">Tim Verifikator Industri</div>
-      <div class="sig-space"></div>
-      <div class="sig-name">Tim Rekrutmen Industri Mitra</div>
-      <div class="sig-role">Divisi Talent Acquisition & Training Center</div>
-    </div>
-
-    <div class="sig-col">
-      <div>Diterbitkan di Karawang, ${printDate}</div>
-      <div style="font-weight: 700; color: #475569;">Pimpinan Tim Asesor Penguji</div>
-      <div class="sig-space"></div>
-      <div class="sig-name">Bapak Hendra, S.T., M.M.</div>
-      <div class="sig-role">Head of Industrial Assessment • Siap Masuk Kerja</div>
+    <div class="sig-col" style="width: 42%;">
+      <div>Diterbitkan & Disahkan di Karawang, ${printDate}</div>
+      <div style="font-weight: 700; color: #475569;">Platform Owner & Pimpinan Asesor</div>
+      <div class="sig-space" style="height: 55px; display: flex; align-items: center; justify-content: center;">
+        <svg class="sig-stamp" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" style="width: 65px; height: 65px;">
+          <circle cx="50" cy="50" r="46" stroke="#059669" stroke-width="2.5" stroke-dasharray="5 2.5"/>
+          <circle cx="50" cy="50" r="38" stroke="#059669" stroke-width="1.5"/>
+          <text x="50" y="38" font-size="7.5" font-weight="900" fill="#059669" text-anchor="middle">BUATDIGITAL.ID</text>
+          <text x="50" y="52" font-size="8" font-weight="900" fill="#059669" text-anchor="middle">★ DISAHKAN ★</text>
+          <text x="50" y="66" font-size="6.5" font-weight="900" fill="#059669" text-anchor="middle">SIAP MASUK KERJA</text>
+        </svg>
+      </div>
+      <div class="sig-name">Enjang Jahrudin, S.M.</div>
+      <div class="sig-role">Founder & CEO BuatDigital.id • Platform Director Siap Masuk Kerja</div>
     </div>
   </div>
 
   <!-- FOOTER -->
   <div class="footer">
-    <span>Dokumen resmi hasil evaluasi otomatis platform <strong>SMK Siap Masuk Kerja</strong> (www.siapmasukkerja.id).</span>
+    <span>Dokumen resmi hasil evaluasi otomatis platform <strong>SMK Siap Masuk Kerja</strong> • Powered by <strong>BuatDigital.id</strong> (www.buatdigital.id).</span>
     <span>Laporan Rekapitulasi Kolektif BKK • Dicetak pada: ${new Date().toLocaleString('id-ID')}</span>
   </div>
 
