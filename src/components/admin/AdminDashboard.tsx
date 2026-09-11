@@ -3086,7 +3086,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
                 }`}
                 title="Cetak format garis titik-titik untuk tanda tangan manual di atas kertas"
               >
-                Unduh Format Manual (Titik-Titik)
+                Cetak Format Manual (Titik-Titik)
               </button>
 
               <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
@@ -3110,12 +3110,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
                   {isDownloadingPdf ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin text-white" />
-                      <span>Membuat PDF...</span>
+                      <span>Menyiapkan Dokumen...</span>
                     </>
                   ) : (
                     <>
-                      <Download className="w-4 h-4 text-white" />
-                      <span>Unduh File PDF</span>
+                      <Printer className="w-4 h-4 text-white" />
+                      <span>Cetak / Simpan PDF Resmi</span>
                     </>
                   )}
                 </button>

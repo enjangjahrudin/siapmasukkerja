@@ -1,31 +1,6 @@
 import { RegisteredUser } from './auth-storage';
 
 /**
- * Dynamically load html2pdf from CDN without bundling dependencies
- */
-function loadHtml2Pdf(): Promise<any> {
-  if (typeof window !== 'undefined' && (window as any).html2pdf) {
-    return Promise.resolve((window as any).html2pdf);
-  }
-  return new Promise((resolve, reject) => {
-    const existing = document.getElementById('html2pdf-cdn-script');
-    if (existing) {
-      existing.addEventListener('load', () => resolve((window as any).html2pdf));
-      existing.addEventListener('error', (e) => reject(e));
-      return;
-    }
-
-    const script = document.createElement('script');
-    script.id = 'html2pdf-cdn-script';
-    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
-    script.async = true;
-    script.onload = () => resolve((window as any).html2pdf);
-    script.onerror = (e) => reject(e);
-    document.head.appendChild(script);
-  });
-}
-
-/**
  * Format date to Indonesian formal standard (e.g., 11 September 2026)
  */
 function formatIndonesianDate(dateStr?: string | Date): string {
@@ -55,68 +30,7 @@ export interface SchoolSignerInfo {
 }
 
 /**
- * Direct PDF download generator using html2pdf.js
- */
-async function generateAndDownloadPdf(
-  htmlContent: string, 
-  filename: string, 
-  orientation: 'portrait' | 'landscape' = 'portrait'
-): Promise<void> {
-  const iframe = document.createElement('iframe');
-  iframe.style.position = 'fixed';
-  iframe.style.left = '-9999px';
-  iframe.style.top = '-9999px';
-  iframe.style.width = orientation === 'landscape' ? '1120px' : '794px';
-  iframe.style.height = '1400px';
-  iframe.style.border = 'none';
-  iframe.style.zIndex = '-9999';
-  document.body.appendChild(iframe);
-
-  try {
-    const doc = iframe.contentDocument || iframe.contentWindow?.document;
-    if (!doc) throw new Error('Cannot access iframe document');
-
-    doc.open();
-    doc.write(htmlContent);
-    doc.close();
-
-    // Give browser a short delay to parse SVG and render layout
-    await new Promise(resolve => setTimeout(resolve, 350));
-
-    const opt = {
-      margin: [6, 6, 6, 6],
-      filename: `${filename}.pdf`,
-      image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: {
-        scale: 2,
-        useCORS: true,
-        logging: false,
-        windowWidth: orientation === 'landscape' ? 1120 : 794
-      },
-      jsPDF: {
-        unit: 'mm',
-        format: 'a4',
-        orientation: orientation
-      },
-      pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
-    };
-
-    const pdfRunner = await loadHtml2Pdf();
-    await pdfRunner().set(opt).from(doc.body).save();
-  } catch (err) {
-    console.warn('Direct PDF download encountered an issue, falling back to print dialog:', err);
-    triggerPrint(htmlContent, filename);
-  } finally {
-    setTimeout(() => {
-      if (document.body.contains(iframe)) {
-        document.body.removeChild(iframe);
-      }
-    }, 1200);
-  }
-}
-
-/**
- * Safe print runner using hidden iframe or fallback popup window
+ * High-fidelity native vector print & Save-as-PDF runner
  */
 function triggerPrint(htmlContent: string, title: string): void {
   const iframe = document.createElement('iframe');
@@ -130,16 +44,16 @@ function triggerPrint(htmlContent: string, title: string): void {
 
   const doc = iframe.contentWindow?.document;
   if (!doc) {
-    // Fallback: Open in dedicated print window
+    // Fallback: Open in dedicated window
     const printWin = window.open('', '_blank');
     if (printWin) {
       printWin.document.open();
       printWin.document.write(htmlContent);
       printWin.document.close();
+      printWin.document.title = title;
       printWin.focus();
       setTimeout(() => {
         printWin.print();
-        printWin.close();
       }, 500);
     }
     return;
@@ -148,18 +62,20 @@ function triggerPrint(htmlContent: string, title: string): void {
   doc.open();
   doc.write(htmlContent);
   doc.close();
+  doc.title = title;
 
   iframe.contentWindow?.focus();
   setTimeout(() => {
     try {
       iframe.contentWindow?.print();
     } catch (e) {
-      console.warn('Iframe print failed, falling back to window.open', e);
+      console.warn('Iframe print error, falling back to popup window', e);
       const printWin = window.open('', '_blank');
       if (printWin) {
         printWin.document.open();
         printWin.document.write(htmlContent);
         printWin.document.close();
+        printWin.document.title = title;
         printWin.focus();
         setTimeout(() => {
           printWin.print();
@@ -170,10 +86,11 @@ function triggerPrint(htmlContent: string, title: string): void {
         if (document.body.contains(iframe)) {
           document.body.removeChild(iframe);
         }
-      }, 2000);
+      }, 3000);
     }
   }, 400);
 }
+
 
 /**
  * GENERATE OFFICIAL INDIVIDUAL STUDENT REPORT (A4 PORTRAIT)
@@ -633,7 +550,7 @@ export async function printIndividualStudentReport(student: RegisteredUser, sign
 </body>
 </html>`;
 
-  await generateAndDownloadPdf(html, `Rapor_${student.id}_${student.name.replace(/\s+/g, '_')}`, 'portrait');
+  triggerPrint(html, `Rapor_${student.id}_${student.name.replace(/\s+/g, '_')}`);
 }
 
 /**
@@ -1011,5 +928,5 @@ export async function printCollectiveSchoolReport(schoolName: string, students: 
 </body>
 </html>`;
 
-  await generateAndDownloadPdf(html, `Laporan_Kolektif_Seleksi_${targetSchoolLabel.replace(/\s+/g, '_')}`, 'landscape');
+  triggerPrint(html, `Laporan_Kolektif_Seleksi_${targetSchoolLabel.replace(/\s+/g, '_')}`);
 }
