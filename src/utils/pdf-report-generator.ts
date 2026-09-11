@@ -114,10 +114,10 @@ export function generateIndividualStudentReportHtml(student: RegisteredUser, sig
   const statusBg = isLolosUnggul ? '#ecfdf5' : student.overallStatus === 'Lolos Standar' ? '#f0f9ff' : '#fffbeb';
 
   return `
-    <div style="font-family: 'Segoe UI', Arial, Helvetica, sans-serif; color: #0f172a; font-size: 8.5pt; width: 794px; min-height: 1122px; box-sizing: border-box; background: #ffffff; padding: 20px 24px; display: flex; flex-direction: column;">
+    <div style="font-family: 'Segoe UI', Arial, Helvetica, sans-serif; color: #0f172a; font-size: 8.5pt; width: 794px; height: 1122px; box-sizing: border-box; background: #ffffff; padding: 20px 24px 54px 24px; position: relative; overflow: hidden;">
       
       <!-- KOP RESMI -->
-      <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 2.5px double #0f172a; padding-bottom: 5px; margin-bottom: 7px; flex-shrink: 0;">
+      <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 2.5px double #0f172a; padding-bottom: 5px; margin-bottom: 7px;">
         <svg style="width: 48px; height: 48px; flex-shrink: 0;" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
           <rect width="48" height="48" rx="10" fill="#090d16"/>
           <path d="M10 34 L16 34 L16 25 L10 27 Z" fill="#38bdf8"/>
@@ -142,9 +142,6 @@ export function generateIndividualStudentReportHtml(student: RegisteredUser, sig
           ${documentId}
         </div>
       </div>
-
-      <!-- MAIN CONTENT (flex:1 pushes footer down) -->
-      <div style="flex: 1; display: flex; flex-direction: column;">
 
       <!-- JUDUL DOKUMEN -->
       <div style="text-align: center; margin-bottom: 7px;">
@@ -320,15 +317,13 @@ export function generateIndividualStudentReportHtml(student: RegisteredUser, sig
         </div>
       </div>
 
-      <!-- FOOTER STATIS SELALU DI BAWAH HALAMAN (margin-top:auto in flex column) -->
-      <div style="margin-top: auto; border-top: 1px dashed #cbd5e1; padding-top: 4px; padding-bottom: 2px; display: flex; justify-content: space-between; align-items: center; font-size: 6.5pt; color: #64748b; flex-shrink: 0;">
+      <!-- FOOTER STATIS — position:absolute agar selalu di bawah halaman A4 -->
+      <div style="position: absolute; bottom: 20px; left: 24px; right: 24px; border-top: 1px dashed #cbd5e1; padding-top: 4px; display: flex; justify-content: space-between; align-items: center; font-size: 6.5pt; color: #64748b;">
         <span>Dokumen resmi hasil evaluasi otomatis platform <strong>SMK Siap Masuk Kerja</strong> • Powered by <strong>BuatDigital.id</strong> (www.buatdigital.id).</span>
         <span>Rapor Hasil Seleksi • <strong>Halaman 1 dari 1 (1/1)</strong> • Diterbitkan: ${new Date().toLocaleString('id-ID')}</span>
       </div>
 
-      </div><!-- end main content wrapper -->
-
-    </div><!-- end A4 page -->
+    </div>
   `;
 }
 
@@ -339,21 +334,6 @@ export async function downloadIndividualStudentReportPdf(student: RegisteredUser
   const fileName = `Rapor_${student.id || 'Peserta'}_${(student.name || 'Siswa').replace(/\s+/g, '_')}.pdf`;
   const htmlContent = generateIndividualStudentReportHtml(student, signer);
 
-  // Wrap content in a full HTML document so html2pdf can render it correctly.
-  // Using .from(string, 'string') avoids off-screen DOM rendering issues with html2canvas.
-  const fullHtml = `<!DOCTYPE html>
-<html lang="id">
-<head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { background: #fff; font-family: Arial, Helvetica, sans-serif; }
-  </style>
-</head>
-<body>${htmlContent}</body>
-</html>`;
-
   const opt = {
     margin: [0, 0, 0, 0],
     filename: fileName,
@@ -363,24 +343,25 @@ export async function downloadIndividualStudentReportPdf(student: RegisteredUser
       useCORS: true,
       letterRendering: true,
       logging: false,
-      windowWidth: 794
+      windowWidth: 794,
+      windowHeight: 1122
     },
     jsPDF: {
       unit: 'mm',
       format: 'a4',
       orientation: 'portrait' as const,
       compress: true
-    },
-    pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
+    }
   };
 
   try {
-    // Pass HTML string directly — html2pdf creates its own internal container, avoiding off-screen rendering issues
+    // Pass HTML content string directly — DO NOT wrap in <!DOCTYPE html> (causes blank pages)
+    // html2pdf creates its own internal container div with the content as innerHTML
     // @ts-ignore
-    await html2pdf().set(opt).from(fullHtml, 'string').save();
+    await html2pdf().set(opt).from(htmlContent, 'string').save();
   } catch (err) {
     console.warn('html2pdf failed, falling back to print dialog', err);
-    triggerPrint(fullHtml, fileName.replace('.pdf', ''));
+    triggerPrint(`<!DOCTYPE html><html><head><meta charset="UTF-8"><style>*{box-sizing:border-box;margin:0;padding:0}body{background:#fff}</style></head><body>${htmlContent}</body></html>`, fileName.replace('.pdf', ''));
   }
 }
 

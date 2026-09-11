@@ -32,24 +32,39 @@ export interface EducationVideo {
 
 export const uploadVideoFile = async (file: File): Promise<{ success: boolean; videoUrl?: string; message?: string }> => {
   try {
-    // 1. Primary: Binary stream directly to server disk (high performance, no memory limits)
+    // 1. Primary: Binary stream directly to server disk (high performance)
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5 * 60 * 1000); // 5 minute timeout
+
       const streamRes = await fetch('/api/upload/video-stream', {
         method: 'POST',
         headers: {
           'x-file-name': encodeURIComponent(file.name),
           'Content-Type': file.type || 'video/mp4'
         },
-        body: file
+        body: file,
+        signal: controller.signal
       });
+      clearTimeout(timeoutId);
 
       if (streamRes.ok) {
         const streamJson = await streamRes.json();
         if (streamJson.success && streamJson.videoUrl) {
           return { success: true, videoUrl: streamJson.videoUrl, message: streamJson.message };
         }
+      } else if (streamRes.status === 413) {
+        return { success: false, message: 'File terlalu besar (413). Pastikan konfigurasi Nginx client_max_body_size sudah diatur.' };
+      } else {
+        // Try to parse error response
+        const errText = await streamRes.text().catch(() => '');
+        const errMsg = errText.startsWith('{') ? JSON.parse(errText).message : `HTTP ${streamRes.status}`;
+        console.warn('[Video Stream Upload] Server error:', errMsg);
       }
-    } catch (streamErr) {
+    } catch (streamErr: any) {
+      if (streamErr?.name === 'AbortError') {
+        return { success: false, message: 'Upload video timeout (lebih dari 5 menit). Coba video dengan ukuran lebih kecil.' };
+      }
       console.warn('[Video Stream Upload failed, trying base64 fallback]', streamErr);
     }
 
@@ -59,14 +74,15 @@ export const uploadVideoFile = async (file: File): Promise<{ success: boolean; v
       reader.onload = async (e) => {
         const base64Data = e.target?.result as string;
         try {
+          const controller2 = new AbortController();
+          const timeoutId2 = setTimeout(() => controller2.abort(), 5 * 60 * 1000);
           const res = await fetch('/api/upload/video', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              fileData: base64Data,
-              fileName: file.name
-            })
+            body: JSON.stringify({ fileData: base64Data, fileName: file.name }),
+            signal: controller2.signal
           });
+          clearTimeout(timeoutId2);
           const json = await res.json();
           if (res.ok && json.success) {
             resolve({ success: true, videoUrl: json.videoUrl, message: json.message });
@@ -77,10 +93,14 @@ export const uploadVideoFile = async (file: File): Promise<{ success: boolean; v
             });
           }
         } catch (err: any) {
-          resolve({ 
-            success: false, 
-            message: 'Gagal menghubungi server upload video: ' + (err.message || 'Network error') 
-          });
+          if (err?.name === 'AbortError') {
+            resolve({ success: false, message: 'Upload video timeout. Coba video dengan ukuran lebih kecil.' });
+          } else {
+            resolve({ 
+              success: false, 
+              message: 'Gagal menghubungi server upload video: ' + (err.message || 'Network error') 
+            });
+          }
         }
       };
       reader.onerror = () => {
