@@ -334,12 +334,17 @@ export async function downloadIndividualStudentReportPdf(student: RegisteredUser
   const fileName = `Rapor_${student.id || 'Peserta'}_${(student.name || 'Siswa').replace(/\s+/g, '_')}.pdf`;
   const htmlContent = generateIndividualStudentReportHtml(student, signer);
 
-  // Create offscreen container styled with A4 portrait width (794px at 96 DPI)
+  // Create container that is visually invisible but still rendered by html2canvas.
+  // position:fixed + left:-9999px is NOT rendered by html2canvas in modern Chromium.
+  // Using position:absolute + opacity:0.01 keeps it in the document flow so it gets captured.
   const container = document.createElement('div');
-  container.style.position = 'fixed';
-  container.style.left = '-9999px';
+  container.style.position = 'absolute';
   container.style.top = '0';
+  container.style.left = '0';
   container.style.width = '794px';
+  container.style.opacity = '0.01';
+  container.style.pointerEvents = 'none';
+  container.style.zIndex = '-9999';
   container.style.backgroundColor = '#ffffff';
   container.style.boxSizing = 'border-box';
   container.innerHTML = htmlContent;
@@ -592,12 +597,16 @@ export async function downloadCollectiveSchoolReportPdf(schoolName: string, stud
   const fileName = `Laporan_Kolektif_Seleksi_${targetSchoolLabel}.pdf`;
   const htmlContent = generateCollectiveSchoolReportHtml(schoolName, students, signer);
 
-  // Create offscreen container styled with A4 landscape width (1123px at 96 DPI)
+  // Create container that is visually invisible but still rendered by html2canvas.
+  // position:fixed + left:-9999px is NOT rendered by html2canvas in modern Chromium.
   const container = document.createElement('div');
-  container.style.position = 'fixed';
-  container.style.left = '-9999px';
+  container.style.position = 'absolute';
   container.style.top = '0';
+  container.style.left = '0';
   container.style.width = '1123px';
+  container.style.opacity = '0.01';
+  container.style.pointerEvents = 'none';
+  container.style.zIndex = '-9999';
   container.style.backgroundColor = '#ffffff';
   container.style.boxSizing = 'border-box';
   container.innerHTML = htmlContent;
