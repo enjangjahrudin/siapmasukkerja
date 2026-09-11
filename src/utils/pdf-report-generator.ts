@@ -1,6 +1,29 @@
 import { RegisteredUser } from './auth-storage';
-// @ts-ignore
-import html2pdf from 'html2pdf.js';
+
+/**
+ * Dynamically load html2pdf from CDN without bundling dependencies
+ */
+function loadHtml2Pdf(): Promise<any> {
+  if (typeof window !== 'undefined' && (window as any).html2pdf) {
+    return Promise.resolve((window as any).html2pdf);
+  }
+  return new Promise((resolve, reject) => {
+    const existing = document.getElementById('html2pdf-cdn-script');
+    if (existing) {
+      existing.addEventListener('load', () => resolve((window as any).html2pdf));
+      existing.addEventListener('error', (e) => reject(e));
+      return;
+    }
+
+    const script = document.createElement('script');
+    script.id = 'html2pdf-cdn-script';
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+    script.async = true;
+    script.onload = () => resolve((window as any).html2pdf);
+    script.onerror = (e) => reject(e);
+    document.head.appendChild(script);
+  });
+}
 
 /**
  * Format date to Indonesian formal standard (e.g., 11 September 2026)
@@ -78,8 +101,7 @@ async function generateAndDownloadPdf(
       pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
     };
 
-    // @ts-ignore
-    const pdfRunner = html2pdf.default || html2pdf;
+    const pdfRunner = await loadHtml2Pdf();
     await pdfRunner().set(opt).from(doc.body).save();
   } catch (err) {
     console.warn('Direct PDF download encountered an issue, falling back to print dialog:', err);
