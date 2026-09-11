@@ -334,21 +334,20 @@ export async function downloadIndividualStudentReportPdf(student: RegisteredUser
   const fileName = `Rapor_${student.id || 'Peserta'}_${(student.name || 'Siswa').replace(/\s+/g, '_')}.pdf`;
   const htmlContent = generateIndividualStudentReportHtml(student, signer);
 
-  // Create container that is visually invisible but still rendered by html2canvas.
-  // position:fixed + left:-9999px is NOT rendered by html2canvas in modern Chromium.
-  // Using position:absolute + opacity:0.01 keeps it in the document flow so it gets captured.
-  const container = document.createElement('div');
-  container.style.position = 'absolute';
-  container.style.top = '0';
-  container.style.left = '0';
-  container.style.width = '794px';
-  container.style.opacity = '0.01';
-  container.style.pointerEvents = 'none';
-  container.style.zIndex = '-9999';
-  container.style.backgroundColor = '#ffffff';
-  container.style.boxSizing = 'border-box';
-  container.innerHTML = htmlContent;
-  document.body.appendChild(container);
+  // Wrap content in a full HTML document so html2pdf can render it correctly.
+  // Using .from(string, 'string') avoids off-screen DOM rendering issues with html2canvas.
+  const fullHtml = `<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #fff; font-family: Arial, Helvetica, sans-serif; }
+  </style>
+</head>
+<body>${htmlContent}</body>
+</html>`;
 
   const opt = {
     margin: [0, 0, 0, 0],
@@ -358,7 +357,7 @@ export async function downloadIndividualStudentReportPdf(student: RegisteredUser
       scale: 2,
       useCORS: true,
       letterRendering: true,
-      scrollY: 0,
+      logging: false,
       windowWidth: 794
     },
     jsPDF: {
@@ -371,16 +370,12 @@ export async function downloadIndividualStudentReportPdf(student: RegisteredUser
   };
 
   try {
-    // Directly generate and download PDF file
+    // Pass HTML string directly — html2pdf creates its own internal container, avoiding off-screen rendering issues
     // @ts-ignore
-    await html2pdf().set(opt).from(container).save();
+    await html2pdf().set(opt).from(fullHtml, 'string').save();
   } catch (err) {
     console.warn('html2pdf failed, falling back to print dialog', err);
-    triggerPrint(htmlContent, fileName.replace('.pdf', ''));
-  } finally {
-    if (document.body.contains(container)) {
-      document.body.removeChild(container);
-    }
+    triggerPrint(fullHtml, fileName.replace('.pdf', ''));
   }
 }
 
@@ -597,20 +592,19 @@ export async function downloadCollectiveSchoolReportPdf(schoolName: string, stud
   const fileName = `Laporan_Kolektif_Seleksi_${targetSchoolLabel}.pdf`;
   const htmlContent = generateCollectiveSchoolReportHtml(schoolName, students, signer);
 
-  // Create container that is visually invisible but still rendered by html2canvas.
-  // position:fixed + left:-9999px is NOT rendered by html2canvas in modern Chromium.
-  const container = document.createElement('div');
-  container.style.position = 'absolute';
-  container.style.top = '0';
-  container.style.left = '0';
-  container.style.width = '1123px';
-  container.style.opacity = '0.01';
-  container.style.pointerEvents = 'none';
-  container.style.zIndex = '-9999';
-  container.style.backgroundColor = '#ffffff';
-  container.style.boxSizing = 'border-box';
-  container.innerHTML = htmlContent;
-  document.body.appendChild(container);
+  // Wrap in full HTML document and pass as string — avoids off-screen DOM rendering issues
+  const fullHtml = `<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #fff; font-family: Arial, Helvetica, sans-serif; }
+  </style>
+</head>
+<body>${htmlContent}</body>
+</html>`;
 
   const opt = {
     margin: [4, 6, 6, 6],
@@ -620,7 +614,7 @@ export async function downloadCollectiveSchoolReportPdf(schoolName: string, stud
       scale: 2,
       useCORS: true,
       letterRendering: true,
-      scrollY: 0,
+      logging: false,
       windowWidth: 1123
     },
     jsPDF: {
@@ -633,16 +627,11 @@ export async function downloadCollectiveSchoolReportPdf(schoolName: string, stud
   };
 
   try {
-    // Directly generate and download PDF file
     // @ts-ignore
-    await html2pdf().set(opt).from(container).save();
+    await html2pdf().set(opt).from(fullHtml, 'string').save();
   } catch (err) {
-    console.warn('html2pdf failed, falling back to print dialog', err);
-    triggerPrint(htmlContent, fileName.replace('.pdf', ''));
-  } finally {
-    if (document.body.contains(container)) {
-      document.body.removeChild(container);
-    }
+    console.warn('html2pdf collective failed, falling back to print dialog', err);
+    triggerPrint(fullHtml, fileName.replace('.pdf', ''));
   }
 }
 

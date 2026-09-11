@@ -158,14 +158,56 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 app.use(cors());
-app.use(express.json({ limit: '100mb' }));
-app.use(express.urlencoded({ limit: '100mb', extended: true }));
 
-// Serve static uploads directory
+// ─── Uploads directory: must be declared early (used by video-stream route below) ───
 const uploadsVideoDir = path.join(__dirname, 'uploads', 'videos');
 if (!fs.existsSync(uploadsVideoDir)) {
   fs.mkdirSync(uploadsVideoDir, { recursive: true });
 }
+
+// ─── VIDEO STREAM UPLOAD: Must be registered BEFORE express.json() middleware ───
+// express.json() global middleware would consume/corrupt the raw binary body before it reaches this handler.
+// Registering it here ensures req is a raw binary stream that can be piped directly to disk.
+
+app.post('/api/upload/video-stream', (req, res) => {
+  try {
+    const rawFileName = req.headers['x-file-name'] ? decodeURIComponent(req.headers['x-file-name']) : 'video.mp4';
+    const ext = path.extname(rawFileName) || '.mp4';
+    const uniqueName = `vid-${Date.now()}-${Math.random().toString(36).substring(2, 7)}${ext}`;
+    const filePath = path.join(uploadsVideoDir, uniqueName);
+
+    const writeStream = fs.createWriteStream(filePath);
+    req.pipe(writeStream);
+
+    writeStream.on('finish', () => {
+      try {
+        const stats = fs.statSync(filePath);
+        if (stats.size === 0) {
+          if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+          return res.status(400).json({ success: false, message: 'File video yang diupload kosong (0 byte).' });
+        }
+        const videoUrl = `/uploads/videos/${uniqueName}`;
+        console.log(`[Video Upload OK] ${uniqueName} (${(stats.size / 1024 / 1024).toFixed(2)} MB)`);
+        return res.json({ success: true, message: 'Video berhasil diunggah!', videoUrl, fileName: uniqueName, fileSize: stats.size });
+      } catch (statErr) {
+        console.error('[Video Stat Error]', statErr);
+        res.status(500).json({ success: false, message: 'Gagal memverifikasi file video.' });
+      }
+    });
+
+    writeStream.on('error', (err) => {
+      console.error('[Video Stream Write Error]', err);
+      res.status(500).json({ success: false, message: 'Gagal menulis file video: ' + err.message });
+    });
+  } catch (err) {
+    console.error('[Video Stream Upload Error]', err);
+    res.status(500).json({ success: false, message: 'Gagal memproses upload video: ' + err.message });
+  }
+});
+
+app.use(express.json({ limit: '100mb' }));
+app.use(express.urlencoded({ limit: '100mb', extended: true }));
+
 // Serve video files with HTTP 206 Range Streaming for smooth mobile iOS / Android & desktop playback
 app.get('/uploads/videos/:filename', (req, res) => {
   const filename = path.basename(req.params.filename);
@@ -1149,49 +1191,6 @@ app.post('/api/scores', async (req, res) => {
   }
 });
 
-// High-performance binary stream video upload (supports large videos, minimal memory footprint)
-app.post('/api/upload/video-stream', (req, res) => {
-  try {
-    const rawFileName = req.headers['x-file-name'] ? decodeURIComponent(req.headers['x-file-name']) : 'video.mp4';
-    const ext = path.extname(rawFileName) || '.mp4';
-    const uniqueName = `vid-${Date.now()}-${Math.random().toString(36).substring(2, 7)}${ext}`;
-    const filePath = path.join(uploadsVideoDir, uniqueName);
-
-    const writeStream = fs.createWriteStream(filePath);
-    req.pipe(writeStream);
-
-    writeStream.on('finish', () => {
-      try {
-        const stats = fs.statSync(filePath);
-        if (stats.size === 0) {
-          if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-          return res.status(400).json({ success: false, message: 'File video yang diupload kosong (0 byte).' });
-        }
-
-        const videoUrl = `/uploads/videos/${uniqueName}`;
-        console.log(`[Video Upload Success] ${uniqueName} (${(stats.size / 1024 / 1024).toFixed(2)} MB)`);
-        return res.json({
-          success: true,
-          message: 'Video berhasil diunggah ke server!',
-          videoUrl,
-          fileName: uniqueName,
-          fileSize: stats.size
-        });
-      } catch (statErr) {
-        console.error('[Video Stat Error]', statErr);
-        res.status(500).json({ success: false, message: 'Gagal memverifikasi file video.' });
-      }
-    });
-
-    writeStream.on('error', (err) => {
-      console.error('[Video Stream Write Error]', err);
-      res.status(500).json({ success: false, message: 'Gagal menulis file video ke disk: ' + err.message });
-    });
-  } catch (err) {
-    console.error('[Video Stream Upload Error]', err);
-    res.status(500).json({ success: false, message: 'Gagal memproses upload video: ' + err.message });
-  }
-});
 
 app.post('/api/upload/video', async (req, res) => {
   try {
