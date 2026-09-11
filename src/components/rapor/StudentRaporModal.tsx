@@ -12,8 +12,6 @@ import {
   ShieldCheck, 
   RefreshCw, 
   Loader2, 
-  ChevronDown, 
-  ChevronUp, 
   Activity,
   Check
 } from 'lucide-react';
@@ -43,12 +41,10 @@ export const StudentRaporModal: React.FC<StudentRaporModalProps> = ({
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isDownloading, setIsDownloading] = useState<boolean>(false);
 
-  // Signer configuration state (Optional BKK School Signer)
-  const [showSignerConfig, setShowSignerConfig] = useState<boolean>(false);
+  // Background BKK signer from admin configuration (read-only for students)
   const [signerName, setSignerName] = useState<string>('');
   const [signerTitle, setSignerTitle] = useState<string>('Koordinator BKK / Hubinmas');
   const [signerNip, setSignerNip] = useState<string>('');
-  const [savedNotice, setSavedNotice] = useState<boolean>(false);
 
   // Fetch live candidate report on modal open
   useEffect(() => {
@@ -99,23 +95,6 @@ export const StudentRaporModal: React.FC<StudentRaporModalProps> = ({
   const compositeScore = calculateCompositeScore(current);
   const isLolosUnggul = current.overallStatus === 'Lolos Unggul';
   const isLolosStandar = current.overallStatus === 'Lolos Standar';
-
-  // Handle Save Custom Signer Info
-  const handleSaveSigner = () => {
-    const schoolKey = current.school ? current.school.trim() : 'global';
-    try {
-      localStorage.setItem(`bkk_signer_${schoolKey}`, JSON.stringify({
-        name: signerName.trim(),
-        title: signerTitle.trim() || 'Koordinator BKK / Hubinmas',
-        nip: signerNip.trim()
-      }));
-      sounds.playClick();
-      setSavedNotice(true);
-      setTimeout(() => setSavedNotice(false), 2000);
-    } catch (e) {
-      console.warn('Failed to save signer info', e);
-    }
-  };
 
   // Handle PDF Download
   const handleDownloadPdf = async () => {
@@ -372,65 +351,26 @@ export const StudentRaporModal: React.FC<StudentRaporModalProps> = ({
             </p>
           </div>
 
-          {/* Collapsible School BKK Signer Configuration (Optional) */}
-          <div className={`border rounded-2xl transition-all overflow-hidden ${
-            isDark ? 'bg-slate-900/50 border-slate-800' : 'bg-slate-50/70 border-slate-200'
+          {/* Status Validasi Resmi BKK & Platform Asesor (Read-only untuk Siswa) */}
+          <div className={`p-3 rounded-2xl border flex items-center justify-between gap-3 text-xs ${
+            isDark ? 'bg-slate-900/60 border-slate-800' : 'bg-slate-50 border-slate-200'
           }`}>
-            <button
-              type="button"
-              onClick={() => setShowSignerConfig(!showSignerConfig)}
-              className="w-full p-2.5 flex items-center justify-between text-[11px] font-bold text-slate-400 hover:text-slate-200 text-left cursor-pointer"
-            >
-              <div className="flex items-center gap-1.5 truncate">
-                <School className="w-3.5 h-3.5 text-sky-400 shrink-0" />
-                <span className="truncate">Pengesahan BKK ({current.school || 'Sekolah Siswa'})</span>
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-emerald-500/15 text-emerald-500 flex items-center justify-center shrink-0">
+                <ShieldCheck className="w-4 h-4" />
               </div>
-              {showSignerConfig ? <ChevronUp className="w-3.5 h-3.5 shrink-0" /> : <ChevronDown className="w-3.5 h-3.5 shrink-0" />}
-            </button>
-
-            {showSignerConfig && (
-              <div className="p-3 pt-1 space-y-2 text-xs border-t border-slate-800/60">
-                <p className="text-[10px] text-slate-400 leading-snug">
-                  Dokumen telah divalidasi dengan stempel digital. Anda dapat mencantumkan nama guru BKK / Hubinmas bila diperlukan:
-                </p>
-
-                <div className="grid grid-cols-1 gap-2">
-                  <div>
-                    <label className="text-[9px] font-bold text-slate-400 uppercase block mb-0.5">Nama Pejabat BKK:</label>
-                    <input 
-                      type="text"
-                      value={signerName}
-                      onChange={(e) => setSignerName(e.target.value)}
-                      placeholder="Contoh: Drs. H. Mulyadi, M.Pd"
-                      className="w-full px-3 py-1.5 rounded-xl border border-slate-700 bg-slate-800/80 text-white text-xs outline-none focus:border-sky-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-[9px] font-bold text-slate-400 uppercase block mb-0.5">Jabatan:</label>
-                    <input 
-                      type="text"
-                      value={signerTitle}
-                      onChange={(e) => setSignerTitle(e.target.value)}
-                      placeholder="Koordinator BKK / Hubinmas"
-                      className="w-full px-3 py-1.5 rounded-xl border border-slate-700 bg-slate-800/80 text-white text-xs outline-none focus:border-sky-500"
-                    />
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between pt-1">
-                  <span className="text-[9px] text-slate-500">Tersimpan otomatis</span>
-                  <button
-                    type="button"
-                    onClick={handleSaveSigner}
-                    className="px-2.5 py-1 rounded-lg bg-sky-500/20 text-sky-400 hover:bg-sky-500/30 text-[10px] font-bold flex items-center gap-1 transition-all cursor-pointer"
-                  >
-                    <Check className="w-3 h-3" />
-                    <span>{savedNotice ? 'Tersimpan!' : 'Simpan Data BKK'}</span>
-                  </button>
-                </div>
+              <div>
+                <span className="text-[10px] text-slate-400 font-bold block uppercase tracking-wider">
+                  Pengesahan Dokumen Resmi
+                </span>
+                <strong className={`text-xs ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>
+                  BKK {current.school || 'Sekolah Siswa'} • BuatDigital.id
+                </strong>
               </div>
-            )}
+            </div>
+            <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 shrink-0 flex items-center gap-1">
+              <Check className="w-3 h-3" /> Terverifikasi
+            </span>
           </div>
 
         </div>
