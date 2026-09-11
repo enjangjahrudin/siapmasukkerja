@@ -93,7 +93,7 @@ export function printIndividualStudentReport(student: RegisteredUser): void {
 
   const kraepelinPanker = student.kraepelinScore?.panker ? `${student.kraepelinScore.panker} angka/menit` : '16.5 angka/menit';
   const kraepelinJanker = student.kraepelinScore?.janker ? `${student.kraepelinScore.janker}%` : '95.2%';
-  const kraepelinGrade = student.kraepelinScore?.grade || 'Sangat Baik (Standar Astra/Epson)';
+  const kraepelinGrade = student.kraepelinScore?.grade || 'Sangat Baik (Standar Toyota/Astra/Epson)';
 
   const qcAccuracy = student.qcAccuracy ? `${student.qcAccuracy}%` : '94%';
   const mathScore = student.mathScore ? `${student.mathScore}` : '88';
@@ -354,8 +354,8 @@ export function printIndividualStudentReport(student: RegisteredUser): void {
       <div class="kop-title-sub">PLATFORM ASESMEN KESIAPAN KERJA & SELEKSI INDUSTRI • BUATDIGITAL.ID</div>
       <div class="kop-title-main">SIAP MASUK KERJA • PUSAT ASESMEN PSIKOMETRIK</div>
       <p class="kop-address">
-        Platform Uji Kompetensi Kesiapan Kerja, Psikometrik & Simulasi Interview Standar Industri Manufaktur<br/>
-        Website Resmi: www.buatdigital.id • www.siapmasukkerja.id • Email: info@buatdigital.id
+        Platform Uji Kompetensi Kesiapan Kerja, Psikometrik & Simulasi Interview Standar PT Toyota, PT Astra, PT Epson, PT Yamaha Motor Mfg<br/>
+        Website: siapkerja.buatdigital.id dan www.buatdigital.id • Email: info@buatdigital.id
       </p>
     </div>
     <div class="kop-right-code">
@@ -399,7 +399,7 @@ export function printIndividualStudentReport(student: RegisteredUser): void {
     <tr>
       <td class="label">Perusahaan Sasaran</td>
       <td class="separator">:</td>
-      <td class="value">${student.targetCompany || 'PT Astra Daihatsu / PT Epson Indonesia'}</td>
+      <td class="value">${student.targetCompany || 'PT Toyota Motor Mfg / PT Astra Daihatsu / PT Epson'}</td>
       <td class="label">Tinggi / Berat Badan</td>
       <td class="separator">:</td>
       <td class="value">${student.height ? `${student.height} cm` : '168 cm'} / ${student.weight ? `${student.weight} kg` : '58 kg'}</td>
@@ -491,7 +491,7 @@ export function printIndividualStudentReport(student: RegisteredUser): void {
   <div class="section-title">Catatan Asesor & Rekomendasi Penempatan Kerja</div>
   <div class="notes-box">
     <strong>Analisis Kompetensi Siswa:</strong><br/>
-    Kandidat menunjukkan profil kesiapan kerja manufaktur yang sangat solid. Ketahanan dan kestabilan ritme kerja pada tes Kraepelin berada di atas ambang batas rata-rata rekrutmen PT Astra dan PT Epson. Respon terhadap instruksi K3, pemahaman penanganan mesin andon, serta kesiapan rotasi 3 shift terartikulasi dengan sopan dan meyakinkan.<br/>
+    Kandidat menunjukkan profil kesiapan kerja manufaktur yang sangat solid. Ketahanan dan kestabilan ritme kerja pada tes Kraepelin berada di atas ambang batas rata-rata rekrutmen PT Toyota, PT Astra, dan PT Epson. Respon terhadap instruksi K3, pemahaman penanganan mesin andon, serta kesiapan rotasi 3 shift terartikulasi dengan sopan dan meyakinkan.<br/>
     <strong>Rekomendasi Penempatan:</strong> Prioritas Penempatan pada Divisi <em>${student.targetRole === 'qc' ? 'Quality Control & Final Inspector' : student.targetRole === 'maintenance' ? 'Preventive Maintenance & Utility Line' : 'Operator Line Assembly & Stamping Presisi'}</em> (${student.targetCompany || 'Industri Otomotif / Elektronik'}).
   </div>
 
@@ -527,7 +527,7 @@ export function printIndividualStudentReport(student: RegisteredUser): void {
         </svg>
       </div>
       <div class="sig-name">Enjang Jahrudin, S.M.</div>
-      <div class="sig-role">Founder & CEO BuatDigital.id • Platform Director</div>
+      <div class="sig-role">Founder & CEO BuatDigital.id</div>
     </div>
   </div>
 
@@ -786,8 +786,8 @@ export function printCollectiveSchoolReport(schoolName: string, students: Regist
       <div class="kop-title-sub">PLATFORM ASESMEN KESIAPAN KERJA & SELEKSI INDUSTRI • BUATDIGITAL.ID</div>
       <div class="kop-title-main">LAPORAN RESMI SELEKSI PSIKOMETRIK & KESIAPAN KERJA</div>
       <p class="kop-address">
-        Platform Uji Kompetensi Kesiapan Kerja Siswa Berbasis AI • Standar PT Astra, PT Epson, PT Yamaha Motor Mfg<br/>
-        Laporan Kolektif Kegiatan Tes Seleksi Kerja • Diterbitkan Resmi pada: ${printDate}
+        Platform Uji Kompetensi Kesiapan Kerja Siswa Berbasis AI • Standar PT Toyota, PT Astra, PT Epson, PT Yamaha Motor Mfg<br/>
+        Laporan Kolektif Kegiatan Tes Seleksi Kerja • Website: siapkerja.buatdigital.id dan www.buatdigital.id
       </p>
     </div>
     <div class="kop-right-code">
@@ -904,7 +904,7 @@ export function printCollectiveSchoolReport(schoolName: string, students: Regist
         </svg>
       </div>
       <div class="sig-name">Enjang Jahrudin, S.M.</div>
-      <div class="sig-role">Founder & CEO BuatDigital.id • Platform Director Siap Masuk Kerja</div>
+      <div class="sig-role">Founder & CEO BuatDigital.id</div>
     </div>
   </div>
 
