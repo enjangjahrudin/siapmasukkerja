@@ -1,4 +1,5 @@
 import { RegisteredUser } from './auth-storage';
+// @ts-ignore
 import html2pdf from 'html2pdf.js';
 
 /**
