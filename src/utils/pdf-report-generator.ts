@@ -114,10 +114,10 @@ export function generateIndividualStudentReportHtml(student: RegisteredUser, sig
   const statusBg = isLolosUnggul ? '#ecfdf5' : student.overallStatus === 'Lolos Standar' ? '#f0f9ff' : '#fffbeb';
 
   return `
-    <div style="font-family: 'Segoe UI', Arial, Helvetica, sans-serif; color: #0f172a; line-height: 1.35; font-size: 8.5pt; width: 100%; box-sizing: border-box; background: #ffffff; padding: 20px 24px;">
+    <div style="font-family: 'Segoe UI', Arial, Helvetica, sans-serif; color: #0f172a; font-size: 8.5pt; width: 794px; min-height: 1122px; box-sizing: border-box; background: #ffffff; padding: 20px 24px; display: flex; flex-direction: column;">
       
       <!-- KOP RESMI -->
-      <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 2.5px double #0f172a; padding-bottom: 5px; margin-bottom: 7px;">
+      <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 2.5px double #0f172a; padding-bottom: 5px; margin-bottom: 7px; flex-shrink: 0;">
         <svg style="width: 48px; height: 48px; flex-shrink: 0;" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
           <rect width="48" height="48" rx="10" fill="#090d16"/>
           <path d="M10 34 L16 34 L16 25 L10 27 Z" fill="#38bdf8"/>
@@ -143,10 +143,13 @@ export function generateIndividualStudentReportHtml(student: RegisteredUser, sig
         </div>
       </div>
 
+      <!-- MAIN CONTENT (flex:1 pushes footer down) -->
+      <div style="flex: 1; display: flex; flex-direction: column;">
+
       <!-- JUDUL DOKUMEN -->
       <div style="text-align: center; margin-bottom: 7px;">
         <h1 style="font-size: 11pt; font-weight: 900; text-transform: uppercase; letter-spacing: 0.5px; color: #0f172a; margin: 0;">
-          RAPOR HASIL SELEKSI PSIKOMETRIK & KESIAPAN KERJA
+          RAPOR HASIL SELEKSI PSIKOMETRIK &amp; KESIAPAN KERJA
         </h1>
         <div style="font-size: 7.5pt; color: #64748b; margin-top: 1px; font-weight: 600;">
           Nomor Registrasi Asesmen: ${student.id} • Diterbitkan: ${printDate}
@@ -317,13 +320,15 @@ export function generateIndividualStudentReportHtml(student: RegisteredUser, sig
         </div>
       </div>
 
-      <!-- FOOTER STATIS DI BAWAH HALAMAN -->
-      <div style="border-top: 1px dashed #cbd5e1; padding-top: 4px; margin-top: 7px; display: flex; justify-content: space-between; align-items: center; font-size: 6.5pt; color: #64748b;">
+      <!-- FOOTER STATIS SELALU DI BAWAH HALAMAN (margin-top:auto in flex column) -->
+      <div style="margin-top: auto; border-top: 1px dashed #cbd5e1; padding-top: 4px; padding-bottom: 2px; display: flex; justify-content: space-between; align-items: center; font-size: 6.5pt; color: #64748b; flex-shrink: 0;">
         <span>Dokumen resmi hasil evaluasi otomatis platform <strong>SMK Siap Masuk Kerja</strong> • Powered by <strong>BuatDigital.id</strong> (www.buatdigital.id).</span>
         <span>Rapor Hasil Seleksi • <strong>Halaman 1 dari 1 (1/1)</strong> • Diterbitkan: ${new Date().toLocaleString('id-ID')}</span>
       </div>
 
-    </div>
+      </div><!-- end main content wrapper -->
+
+    </div><!-- end A4 page -->
   `;
 }
 
