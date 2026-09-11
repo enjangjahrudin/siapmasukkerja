@@ -54,7 +54,8 @@ import { getStoredUsers, RegisteredUser, saveUser, changeUserPassword } from '..
 import { 
   printIndividualStudentReport, 
   printCollectiveSchoolReport, 
-  calculateCompositeScore 
+  calculateCompositeScore,
+  SchoolSignerInfo
 } from '../../utils/pdf-report-generator';
 import { 
   EducationVideo, 
@@ -90,6 +91,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
   const [realtimeCandidateData, setRealtimeCandidateData] = useState<RegisteredUser | null>(null);
   const [isLoadingReport, setIsLoadingReport] = useState<boolean>(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
+
+  // PDF Signer / Pengesahan Modal State
+  const [signerModalOpen, setSignerModalOpen] = useState<boolean>(false);
+  const [signerTarget, setSignerTarget] = useState<{
+    type: 'individual' | 'collective';
+    student?: RegisteredUser;
+    schoolName: string;
+    students?: RegisteredUser[];
+  } | null>(null);
+  const [signerName, setSignerName] = useState<string>('');
+  const [signerTitle, setSignerTitle] = useState<string>('Koordinator BKK / Hubinmas');
+  const [signerNip, setSignerNip] = useState<string>('');
+  const [saveSignerPreference, setSaveSignerPreference] = useState<boolean>(true);
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState<boolean>(false);
 
   // Video CMS State
   const [videoList, setVideoList] = useState<EducationVideo[]>(() => getStoredVideos());
@@ -489,6 +504,71 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
       if (selectedCandidateModal?.id === id) {
         setSelectedCandidateModal(null);
       }
+    }
+  };
+
+  const openSignerModal = (target: {
+    type: 'individual' | 'collective';
+    student?: RegisteredUser;
+    schoolName: string;
+    students?: RegisteredUser[];
+  }) => {
+    setSignerTarget(target);
+    const schoolKey = target.schoolName && target.schoolName !== 'all' ? target.schoolName : 'global';
+    try {
+      const saved = localStorage.getItem(`bkk_signer_${schoolKey}`);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        setSignerName(parsed.name || '');
+        setSignerTitle(parsed.title || 'Koordinator BKK / Hubinmas');
+        setSignerNip(parsed.nip || '');
+      } else {
+        setSignerName('');
+        setSignerTitle('Koordinator BKK / Hubinmas');
+        setSignerNip('');
+      }
+    } catch {
+      setSignerName('');
+      setSignerTitle('Koordinator BKK / Hubinmas');
+      setSignerNip('');
+    }
+    setSignerModalOpen(true);
+  };
+
+  const handleConfirmDownloadPdf = async (useManualBlank: boolean = false) => {
+    if (!signerTarget) return;
+
+    const schoolKey = signerTarget.schoolName && signerTarget.schoolName !== 'all' ? signerTarget.schoolName : 'global';
+    const signerInfo: SchoolSignerInfo = useManualBlank ? {} : {
+      name: signerName.trim(),
+      title: signerTitle.trim() || 'Koordinator BKK / Hubinmas',
+      nip: signerNip.trim()
+    };
+
+    if (!useManualBlank && saveSignerPreference && signerName.trim()) {
+      try {
+        localStorage.setItem(`bkk_signer_${schoolKey}`, JSON.stringify({
+          name: signerName.trim(),
+          title: signerTitle.trim() || 'Koordinator BKK / Hubinmas',
+          nip: signerNip.trim()
+        }));
+      } catch (e) {
+        console.warn('Failed to save signer info to localStorage', e);
+      }
+    }
+
+    setIsDownloadingPdf(true);
+    try {
+      if (signerTarget.type === 'collective') {
+        await printCollectiveSchoolReport(signerTarget.schoolName, signerTarget.students || [], signerInfo);
+      } else if (signerTarget.student) {
+        await printIndividualStudentReport(signerTarget.student, signerInfo);
+      }
+      setSignerModalOpen(false);
+    } catch (err) {
+      console.error('Error downloading PDF report:', err);
+    } finally {
+      setIsDownloadingPdf(false);
     }
   };
 
@@ -1139,10 +1219,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
                 {/* Tombol Unduh Laporan Kegiatan Seleksi Kolektif PDF */}
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={() => printCollectiveSchoolReport(selectedSchoolFilter, filteredCandidates)}
+                    onClick={() => openSignerModal({
+                      type: 'collective',
+                      schoolName: selectedSchoolFilter,
+                      students: filteredCandidates
+                    })}
                     disabled={filteredCandidates.length === 0}
                     className="px-4 py-2.5 bg-gradient-to-r from-sky-600 via-sky-500 to-emerald-500 hover:from-sky-700 hover:to-emerald-600 disabled:opacity-50 text-white text-xs font-black rounded-xl shadow-lg shadow-sky-500/20 flex items-center gap-2 transition-all transform active:scale-95 cursor-pointer"
-                    title="Cetak & Unduh Laporan Rekapitulasi Kegiatan Seleksi (PDF)"
+                    title="Unduh Laporan Rekapitulasi Kegiatan Seleksi (PDF)"
                   >
                     <FileText className="w-4 h-4 text-white" />
                     <span>
@@ -1316,11 +1400,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
 
                               {/* Tombol Download PDF Langsung */}
                               <button
-                                onClick={() => printIndividualStudentReport(c)}
+                                onClick={() => openSignerModal({
+                                  type: 'individual',
+                                  student: c,
+                                  schoolName: c.school
+                                })}
                                 className="px-2 py-1.5 rounded-lg border border-red-500/30 bg-red-500/10 hover:bg-red-500/20 text-red-400 transition-colors flex items-center gap-1 font-bold text-xs cursor-pointer"
                                 title="Unduh Rapor Siswa Berupa Dokumen PDF Resmi"
                               >
-                                <FileText className="w-3.5 h-3.5 text-red-500" />
+                                <Download className="w-3.5 h-3.5 text-red-500" />
                                 <span>PDF</span>
                               </button>
 
@@ -1912,11 +2000,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
 
                 <div className="flex items-center gap-2 self-end sm:self-center">
                   <button
-                    onClick={() => printIndividualStudentReport(cand)}
+                    onClick={() => openSignerModal({
+                      type: 'individual',
+                      student: cand,
+                      schoolName: cand.school
+                    })}
                     className="px-3.5 py-2 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 text-white font-black text-xs rounded-xl shadow-md shadow-red-500/20 flex items-center gap-1.5 transition-all transform active:scale-95 cursor-pointer"
-                    title="Cetak & Unduh Rapor Siswa dalam Format PDF"
+                    title="Unduh Rapor Siswa dalam Format PDF"
                   >
-                    <Printer className="w-3.5 h-3.5" />
+                    <Download className="w-3.5 h-3.5" />
                     <span>Unduh PDF</span>
                   </button>
 
@@ -2126,10 +2218,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
 
                 <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
                   <button
-                    onClick={() => printIndividualStudentReport(cand)}
+                    onClick={() => openSignerModal({
+                      type: 'individual',
+                      student: cand,
+                      schoolName: cand.school
+                    })}
                     className="px-4 py-2 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 text-white font-black text-xs rounded-xl shadow-md shadow-red-500/20 flex items-center gap-1.5 transition-all transform active:scale-95 cursor-pointer flex-1 sm:flex-none justify-center"
                   >
-                    <Printer className="w-3.5 h-3.5" />
+                    <Download className="w-3.5 h-3.5" />
                     <span>Unduh Rapor (PDF)</span>
                   </button>
 
@@ -2823,6 +2919,208 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
               </div>
 
             </form>
+
+          </div>
+        </div>
+      )}
+
+      {/* MODAL PENGESAHAN TANDA TANGAN DOKUMEN PDF */}
+      {signerModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-xs animate-in fade-in duration-200">
+          <div 
+            className={`w-full max-w-lg rounded-3xl border shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 ${
+              isDark ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200 text-slate-900'
+            }`}
+          >
+            {/* Header */}
+            <div className={`p-5 border-b flex items-center justify-between ${
+              isDark ? 'border-slate-800 bg-slate-900/80' : 'border-slate-100 bg-slate-50/80'
+            }`}>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-sky-500 to-emerald-500 flex items-center justify-center text-white shadow-md shadow-sky-500/20">
+                  <Award className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-base leading-tight">Pengesahan Dokumen PDF</h3>
+                  <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                    Data pihak sekolah untuk lembar tanda tangan & validasi resmi
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => !isDownloadingPdf && setSignerModalOpen(false)}
+                disabled={isDownloadingPdf}
+                className={`p-2 rounded-xl transition-colors cursor-pointer ${
+                  isDark ? 'hover:bg-slate-800 text-slate-400' : 'hover:bg-slate-200 text-slate-500'
+                }`}
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Target Context Info */}
+            <div className="p-5 space-y-4">
+              <div className={`p-3 rounded-2xl border flex items-center gap-3 ${
+                isDark ? 'bg-sky-500/10 border-sky-500/20 text-sky-300' : 'bg-sky-50 border-sky-200 text-sky-800'
+              }`}>
+                <Building2 className="w-5 h-5 shrink-0 text-sky-500" />
+                <div className="text-xs">
+                  <span className="font-bold">Dokumen Tujuan: </span>
+                  {signerTarget?.type === 'collective' 
+                    ? `Laporan Kolektif Seleksi (${signerTarget.schoolName === 'all' ? 'Seluruh Sekolah Mitra' : signerTarget.schoolName})` 
+                    : `Rapor Individual: ${signerTarget?.student?.name} (${signerTarget?.schoolName || 'Siswa'})`}
+                </div>
+              </div>
+
+              {/* Form Fields */}
+              <div className="space-y-3.5">
+                <div>
+                  <label className="block text-xs font-bold mb-1.5 flex items-center justify-between">
+                    <span>Nama Lengkap Pihak Sekolah / Pejabat</span>
+                    <span className="text-[10px] font-normal text-slate-400">(dengan gelar)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={signerName}
+                    onChange={(e) => setSignerName(e.target.value)}
+                    placeholder="Contoh: Drs. H. Mulyadi, M.Pd"
+                    disabled={isDownloadingPdf}
+                    className={`w-full px-3.5 py-2.5 rounded-xl border text-sm font-semibold transition-all focus:ring-2 focus:ring-sky-500 focus:outline-none ${
+                      isDark 
+                        ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-500' 
+                        : 'bg-white border-slate-200 text-slate-800 placeholder-slate-400'
+                    }`}
+                  />
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    Nama ini akan dicantumkan di atas jabatan pada lembar tanda tangan.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold mb-1.5">
+                    Jabatan / Posisi di Sekolah
+                  </label>
+                  <input
+                    type="text"
+                    value={signerTitle}
+                    onChange={(e) => setSignerTitle(e.target.value)}
+                    placeholder="Contoh: Koordinator BKK & Hubinmas"
+                    disabled={isDownloadingPdf}
+                    className={`w-full px-3.5 py-2.5 rounded-xl border text-sm font-semibold transition-all focus:ring-2 focus:ring-sky-500 focus:outline-none ${
+                      isDark 
+                        ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-500' 
+                        : 'bg-white border-slate-200 text-slate-800 placeholder-slate-400'
+                    }`}
+                  />
+                  {/* Quick Suggestion Chips */}
+                  <div className="flex flex-wrap gap-1.5 mt-2">
+                    {[
+                      'Koordinator BKK & Hubinmas',
+                      'Kepala Sekolah',
+                      'Ketua Bursa Kerja Khusus (BKK)'
+                    ].map((titleOption) => (
+                      <button
+                        key={titleOption}
+                        type="button"
+                        onClick={() => setSignerTitle(titleOption)}
+                        className={`text-[10px] font-semibold px-2 py-1 rounded-lg border transition-all cursor-pointer ${
+                          signerTitle === titleOption
+                            ? 'bg-sky-500 text-white border-sky-500'
+                            : isDark
+                            ? 'bg-slate-800/80 border-slate-700 text-slate-300 hover:border-slate-600'
+                            : 'bg-slate-100 border-slate-200 text-slate-600 hover:bg-slate-200'
+                        }`}
+                      >
+                        {titleOption}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold mb-1.5 flex items-center justify-between">
+                    <span>NIP / NUPTK (Opsional)</span>
+                    <span className="text-[10px] font-normal text-slate-400">Bisa dikosongkan</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={signerNip}
+                    onChange={(e) => setSignerNip(e.target.value)}
+                    placeholder="Contoh: 19780512 200501 1 003"
+                    disabled={isDownloadingPdf}
+                    className={`w-full px-3.5 py-2.5 rounded-xl border text-sm font-semibold transition-all focus:ring-2 focus:ring-sky-500 focus:outline-none ${
+                      isDark 
+                        ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-500' 
+                        : 'bg-white border-slate-200 text-slate-800 placeholder-slate-400'
+                    }`}
+                  />
+                </div>
+
+                {/* Auto-save preference */}
+                <label className="flex items-center gap-2 cursor-pointer pt-1 select-none">
+                  <input
+                    type="checkbox"
+                    checked={saveSignerPreference}
+                    onChange={(e) => setSaveSignerPreference(e.target.checked)}
+                    className="w-4 h-4 rounded text-sky-600 focus:ring-sky-500 border-slate-300 cursor-pointer"
+                  />
+                  <span className={`text-xs ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+                    Ingat & simpan nama ini untuk <strong>{signerTarget?.schoolName && signerTarget.schoolName !== 'all' ? signerTarget.schoolName : 'sekolah mitra'}</strong> (otomatis terisi berikutnya)
+                  </span>
+                </label>
+              </div>
+            </div>
+
+            {/* Footer Buttons */}
+            <div className={`p-4 border-t flex flex-col sm:flex-row items-center justify-between gap-2.5 ${
+              isDark ? 'border-slate-800 bg-slate-900/90' : 'border-slate-100 bg-slate-50/90'
+            }`}>
+              <button
+                type="button"
+                onClick={() => handleConfirmDownloadPdf(true)}
+                disabled={isDownloadingPdf}
+                className={`w-full sm:w-auto px-3.5 py-2 rounded-xl text-xs font-bold border transition-colors cursor-pointer ${
+                  isDark 
+                    ? 'border-slate-700 bg-slate-800 text-slate-300 hover:bg-slate-700' 
+                    : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-100'
+                }`}
+                title="Cetak format garis titik-titik untuk tanda tangan manual di atas kertas"
+              >
+                Unduh Format Manual (Titik-Titik)
+              </button>
+
+              <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                <button
+                  type="button"
+                  onClick={() => setSignerModalOpen(false)}
+                  disabled={isDownloadingPdf}
+                  className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-colors cursor-pointer ${
+                    isDark ? 'hover:bg-slate-800 text-slate-400' : 'hover:bg-slate-200 text-slate-600'
+                  }`}
+                >
+                  Batal
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleConfirmDownloadPdf(false)}
+                  disabled={isDownloadingPdf}
+                  className="flex-1 sm:flex-none px-5 py-2.5 bg-gradient-to-r from-sky-600 via-sky-500 to-emerald-500 hover:from-sky-700 hover:to-emerald-600 text-white font-extrabold text-xs rounded-xl shadow-lg shadow-sky-500/20 flex items-center justify-center gap-2 transition-all transform active:scale-95 cursor-pointer disabled:opacity-50"
+                >
+                  {isDownloadingPdf ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin text-white" />
+                      <span>Membuat PDF...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Download className="w-4 h-4 text-white" />
+                      <span>Unduh File PDF</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
 
           </div>
         </div>

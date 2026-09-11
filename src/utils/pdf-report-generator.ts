@@ -1,4 +1,5 @@
 import { RegisteredUser } from './auth-storage';
+import html2pdf from 'html2pdf.js';
 
 /**
  * Format date to Indonesian formal standard (e.g., 11 September 2026)
@@ -21,6 +22,74 @@ export function calculateCompositeScore(user: RegisteredUser): number {
   // Weights: Kraepelin 25%, QC 25%, Math/Logic 20%, AI Interview 30%
   const composite = (kraepelinAccuracy * 0.25) + (qcAcc * 0.25) + (math * 0.20) + (interview * 0.30);
   return Math.round(composite * 10) / 10;
+}
+
+export interface SchoolSignerInfo {
+  name?: string;
+  title?: string;
+  nip?: string;
+}
+
+/**
+ * Direct PDF download generator using html2pdf.js
+ */
+async function generateAndDownloadPdf(
+  htmlContent: string, 
+  filename: string, 
+  orientation: 'portrait' | 'landscape' = 'portrait'
+): Promise<void> {
+  const iframe = document.createElement('iframe');
+  iframe.style.position = 'fixed';
+  iframe.style.left = '-9999px';
+  iframe.style.top = '-9999px';
+  iframe.style.width = orientation === 'landscape' ? '1120px' : '794px';
+  iframe.style.height = '1400px';
+  iframe.style.border = 'none';
+  iframe.style.zIndex = '-9999';
+  document.body.appendChild(iframe);
+
+  try {
+    const doc = iframe.contentDocument || iframe.contentWindow?.document;
+    if (!doc) throw new Error('Cannot access iframe document');
+
+    doc.open();
+    doc.write(htmlContent);
+    doc.close();
+
+    // Give browser a short delay to parse SVG and render layout
+    await new Promise(resolve => setTimeout(resolve, 350));
+
+    const opt = {
+      margin: [6, 6, 6, 6],
+      filename: `${filename}.pdf`,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        windowWidth: orientation === 'landscape' ? 1120 : 794
+      },
+      jsPDF: {
+        unit: 'mm',
+        format: 'a4',
+        orientation: orientation
+      },
+      pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
+    };
+
+    // @ts-ignore
+    const pdfRunner = html2pdf.default || html2pdf;
+    await pdfRunner().set(opt).from(doc.body).save();
+  } catch (err) {
+    console.warn('Direct PDF download encountered an issue, falling back to print dialog:', err);
+    triggerPrint(htmlContent, filename);
+  } finally {
+    setTimeout(() => {
+      if (document.body.contains(iframe)) {
+        document.body.removeChild(iframe);
+      }
+    }, 1200);
+  }
 }
 
 /**
@@ -86,7 +155,7 @@ function triggerPrint(htmlContent: string, title: string): void {
 /**
  * GENERATE OFFICIAL INDIVIDUAL STUDENT REPORT (A4 PORTRAIT)
  */
-export function printIndividualStudentReport(student: RegisteredUser): void {
+export async function printIndividualStudentReport(student: RegisteredUser, signer?: SchoolSignerInfo): Promise<void> {
   const compositeScore = calculateCompositeScore(student);
   const printDate = formatIndonesianDate();
   const documentId = `RAPOR-BKK/${student.id}/${new Date().getFullYear()}`;
@@ -498,8 +567,8 @@ export function printIndividualStudentReport(student: RegisteredUser): void {
   <!-- LEMBAR PENGESAHAN -->
   <div class="sig-container">
     <div class="sig-col">
-      <div>Mengetahui,</div>
-      <div style="font-weight: 700; color: #475569;">Koordinator BKK / Hubinmas</div>
+      <div>Mengetahui & Memvalidasi,</div>
+      <div style="font-weight: 700; color: #475569;">${signer?.title || 'Koordinator BKK / Hubinmas'}</div>
       <div class="sig-space">
         <!-- Digital Stamp placeholder -->
         <svg class="sig-stamp" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -510,8 +579,9 @@ export function printIndividualStudentReport(student: RegisteredUser): void {
           <text x="50" y="66" font-size="7" font-weight="900" fill="#0284c7" text-anchor="middle">SMK SIAP KERJA</text>
         </svg>
       </div>
-      <div class="sig-name">${student.school}</div>
-      <div class="sig-role">NIP / Tim Kerjasama Industri BKK</div>
+      <div class="sig-name">${signer?.name ? signer.name : '( .................................................. )'}</div>
+      <div class="sig-role">${signer?.nip ? `NIP. ${signer.nip}` : signer?.name ? `${signer.title || 'Koordinator BKK'} • ${student.school}` : `NIP. ..................................................`}</div>
+      <div style="font-size: 7.5pt; color: #64748b; margin-top: 1px;">${student.school}</div>
     </div>
 
     <div class="sig-col">
@@ -540,13 +610,13 @@ export function printIndividualStudentReport(student: RegisteredUser): void {
 </body>
 </html>`;
 
-  triggerPrint(html, `Rapor_${student.id}_${student.name.replace(/\s+/g, '_')}`);
+  await generateAndDownloadPdf(html, `Rapor_${student.id}_${student.name.replace(/\s+/g, '_')}`, 'portrait');
 }
 
 /**
  * GENERATE OFFICIAL COLLECTIVE SCHOOL SELECTION REPORT (A4 LANDSCAPE)
  */
-export function printCollectiveSchoolReport(schoolName: string, students: RegisteredUser[]): void {
+export async function printCollectiveSchoolReport(schoolName: string, students: RegisteredUser[], signer?: SchoolSignerInfo): Promise<void> {
   const printDate = formatIndonesianDate();
   const targetSchoolLabel = schoolName === 'all' ? 'SELURUH SEKOLAH MITRA BKK' : schoolName.toUpperCase();
   const documentId = `LAP-SELEKSI/${new Date().getFullYear()}/${Date.now().toString().slice(-6)}`;
@@ -885,10 +955,11 @@ export function printCollectiveSchoolReport(schoolName: string, students: Regist
   <div class="sig-container" style="justify-content: space-around;">
     <div class="sig-col" style="width: 42%;">
       <div>Mengetahui & Memvalidasi,</div>
-      <div style="font-weight: 700; color: #475569;">Pihak Sekolah / Koordinator BKK</div>
+      <div style="font-weight: 700; color: #475569;">${signer?.title || 'Pihak Sekolah / Koordinator BKK'}</div>
       <div class="sig-space" style="height: 55px;"></div>
-      <div class="sig-name">${schoolName === 'all' ? 'Koordinator BKK Sekolah Mitra' : schoolName}</div>
-      <div class="sig-role">Penanggung Jawab Sekolah & Fasilitator BKK</div>
+      <div class="sig-name">${signer?.name ? signer.name : '( .................................................. )'}</div>
+      <div class="sig-role">${signer?.nip ? `NIP. ${signer.nip}` : signer?.name ? `${signer.title || 'Koordinator BKK'} • ${schoolName === 'all' ? 'Sekolah Mitra' : schoolName}` : `NIP. ..................................................`}</div>
+      <div style="font-size: 7.5pt; color: #64748b; margin-top: 2px;">${schoolName === 'all' ? 'BKK SMK / SMA Mitra Industri' : schoolName}</div>
     </div>
 
     <div class="sig-col" style="width: 42%;">
@@ -917,5 +988,5 @@ export function printCollectiveSchoolReport(schoolName: string, students: Regist
 </body>
 </html>`;
 
-  triggerPrint(html, `Laporan_Kolektif_Seleksi_${targetSchoolLabel.replace(/\s+/g, '_')}`);
+  await generateAndDownloadPdf(html, `Laporan_Kolektif_Seleksi_${targetSchoolLabel.replace(/\s+/g, '_')}`, 'landscape');
 }
