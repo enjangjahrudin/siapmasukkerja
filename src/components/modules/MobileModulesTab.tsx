@@ -17,9 +17,10 @@ import {
 
 interface MobileModulesTabProps {
   onSelectTest: (test: TestCategory | 'tips' | 'tryout-full') => void;
+  isAdmin?: boolean;
 }
 
-export const MobileModulesTab: React.FC<MobileModulesTabProps> = ({ onSelectTest }) => {
+export const MobileModulesTab: React.FC<MobileModulesTabProps> = ({ onSelectTest, isAdmin }) => {
   const [selectedFilter, setSelectedFilter] = useState<'all' | 'hitung' | 'visual' | 'interview'>('all');
 
   const modules = [
@@ -97,11 +98,15 @@ export const MobileModulesTab: React.FC<MobileModulesTabProps> = ({ onSelectTest
       id: 'interview',
       title: 'AI Voice Mock Interview HRD',
       category: 'interview',
-      badge: 'Fitur Premium AI',
-      badgeColor: 'bg-purple-100 text-purple-700',
+      badge: isAdmin ? 'Mode Admin' : 'Coming Soon',
+      badgeColor: isAdmin 
+        ? 'bg-purple-100 text-purple-700 font-black' 
+        : 'bg-amber-100 text-amber-800 border border-amber-300/60 font-black',
       icon: Mic,
       iconColor: 'text-purple-600 bg-purple-50',
-      description: 'Simulasi wawancara suara real-time dengan persona HRD Astra/Epson & prediksi % kelulusan.'
+      description: isAdmin
+        ? 'Simulasi wawancara suara real-time dengan persona HRD Astra & Toyota (Mode Pengujian Admin).'
+        : 'Sedang tahap pengembangan suara natural AI & sistem kredit latihan. Segera hadir!'
     },
     {
       id: 'tips',

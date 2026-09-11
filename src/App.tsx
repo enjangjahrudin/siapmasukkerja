@@ -17,6 +17,7 @@ import { PsychotestHub } from './components/psychotest/PsychotestHub';
 import { WarteggCanvas } from './components/wartegg/WarteggCanvas';
 import { TipsHub } from './components/tips/TipsHub';
 import { AiInterviewSimulator } from './components/interview/AiInterviewSimulator';
+import { AiInterviewComingSoon } from './components/interview/AiInterviewComingSoon';
 import { FullTryoutModal } from './components/tryout/FullTryoutModal';
 import { AdminDashboard } from './components/admin/AdminDashboard';
 import { sounds } from './utils/sound-effects';
@@ -267,20 +268,35 @@ export const App: React.FC = () => {
               {activeNavTab === 'tests' && (
                 <MobileModulesTab
                   onSelectTest={handleSelectModule}
+                  isAdmin={Boolean(currentUser?.isAdmin)}
                 />
               )}
 
               {activeNavTab === 'interview' && (
                 <div className="w-full px-1 sm:px-3 pt-1 pb-24">
-                  <AiInterviewSimulator 
-                    targetRole={userTargetRole} 
-                    setTargetRole={(r) => {
-                      if (currentUser) {
-                        updateActiveUserScore({ targetRole: r });
-                        setCurrentUser(getActiveSession());
-                      }
-                    }}
-                  />
+                  {currentUser?.isAdmin ? (
+                    <AiInterviewSimulator 
+                      targetRole={userTargetRole} 
+                      isAdmin={true}
+                      setTargetRole={(r) => {
+                        if (currentUser) {
+                          updateActiveUserScore({ targetRole: r });
+                          setCurrentUser(getActiveSession());
+                        }
+                      }}
+                    />
+                  ) : (
+                    <AiInterviewComingSoon
+                      onExploreTests={() => {
+                        sounds.playClick();
+                        setActiveNavTab('tests');
+                      }}
+                      onExploreTips={() => {
+                        sounds.playClick();
+                        setActiveNavTab('tips');
+                      }}
+                    />
+                  )}
                 </div>
               )}
 
@@ -315,6 +331,7 @@ export const App: React.FC = () => {
         {!activeSubView && (
           <MobileBottomNav
             activeNavTab={activeNavTab}
+            isAdmin={Boolean(currentUser?.isAdmin)}
             setActiveNavTab={(tab: 'home' | 'tests' | 'interview' | 'tips' | 'profile') => {
               sounds.playClick();
               setActiveNavTab(tab);

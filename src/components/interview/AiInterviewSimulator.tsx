@@ -57,6 +57,7 @@ import {
 interface AiInterviewSimulatorProps {
   targetRole: TargetRole;
   setTargetRole: (role: TargetRole) => void;
+  isAdmin?: boolean;
 }
 
 interface TranscriptTurn {
@@ -81,7 +82,8 @@ export interface SavedInterviewSession {
 
 export const AiInterviewSimulator: React.FC<AiInterviewSimulatorProps> = ({
   targetRole,
-  setTargetRole
+  setTargetRole,
+  isAdmin
 }) => {
   const { isDark } = useTheme();
   const activeUser = getActiveSession();
@@ -724,10 +726,15 @@ export const AiInterviewSimulator: React.FC<AiInterviewSimulatorProps> = ({
       }`}>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 relative z-10">
           <div>
-            <div className="flex items-center gap-2 mb-1.5">
+            <div className="flex items-center gap-2 mb-1.5 flex-wrap">
               <span className="bg-amber-400 text-slate-950 text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full shadow-xs">
                 Fitur Unggulan Premium
               </span>
+              {isAdmin && (
+                <span className="bg-purple-600 text-white text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full shadow-xs flex items-center gap-1">
+                  <ShieldCheck className="w-3 h-3" /> Mode Admin
+                </span>
+              )}
               <span className="text-xs font-semibold text-purple-200 flex items-center gap-1">
                 <Sparkles className="w-3.5 h-3.5 text-amber-300" />
                 Live Voice Call AI HRD (Mode ChatGPT Voice)
@@ -1567,9 +1574,15 @@ export const AiInterviewSimulator: React.FC<AiInterviewSimulatorProps> = ({
                 <Coins className="w-6 h-6 fill-amber-400" />
               </div>
               <h3 className="text-lg font-black tracking-tight">Top Up Saldo Kredit AI Interview</h3>
-              <p className="text-xs text-slate-400">
-                Pilih paket sesi simulasi live interview dengan AI Recruiter industri manufaktur.
-              </p>
+              {isAdmin ? (
+                <div className="p-2.5 bg-purple-500/15 border border-purple-500/30 rounded-xl text-purple-300 text-[11px] font-semibold text-left">
+                  🛠️ <strong>Mode Pengujian Administrator</strong>: Anda dapat menambah kredit uji coba secara instan tanpa gateway pembayaran.
+                </div>
+              ) : (
+                <div className="p-2.5 bg-amber-500/15 border border-amber-500/30 rounded-xl text-amber-300 text-[11px] font-semibold text-left">
+                  🔒 <strong>Fitur Top Up Kredit Sedang Dalam Tahap Pengembangan (Coming Soon)</strong>: Integrasi gateway pembayaran otomatis sedang disiapkan.
+                </div>
+              )}
             </div>
 
             {topUpSuccessNotice && (
@@ -1613,11 +1626,19 @@ export const AiInterviewSimulator: React.FC<AiInterviewSimulatorProps> = ({
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
+                        if (!isAdmin) {
+                          alert('Fitur Top Up Kredit sedang dalam tahap pengembangan (Coming Soon).');
+                          return;
+                        }
                         handleTopUpTokens(pkg.amount, pkg.badge);
                       }}
-                      className="mt-1 px-3 py-1 bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-[10px] rounded-lg shadow-xs"
+                      className={`mt-1 px-3 py-1 font-black text-[10px] rounded-lg shadow-xs transition-all ${
+                        isAdmin 
+                          ? 'bg-amber-400 hover:bg-amber-300 text-slate-950 cursor-pointer active:scale-95' 
+                          : 'bg-slate-700 text-slate-400 cursor-not-allowed opacity-80'
+                      }`}
                     >
-                      Beli Sekarang
+                      {isAdmin ? 'Top Up (Admin)' : 'Coming Soon'}
                     </button>
                   </div>
                 </div>

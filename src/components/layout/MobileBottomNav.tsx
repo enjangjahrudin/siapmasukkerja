@@ -15,11 +15,13 @@ export type MainNavTab = 'home' | 'tests' | 'interview' | 'tips' | 'profile';
 interface MobileBottomNavProps {
   activeNavTab: MainNavTab;
   setActiveNavTab: (tab: MainNavTab) => void;
+  isAdmin?: boolean;
 }
 
 export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
   activeNavTab,
-  setActiveNavTab
+  setActiveNavTab,
+  isAdmin
 }) => {
   const { isDark } = useTheme();
 
@@ -51,8 +53,12 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
               }`}
             >
               {tab.isAi && (
-                <span className="absolute -top-1.5 right-2 bg-gradient-to-r from-amber-400 to-orange-500 text-slate-950 text-[8px] font-black px-1.5 py-0.2 rounded-full uppercase shadow-xs">
-                  AI
+                <span className={`absolute -top-1.5 right-1.5 text-[8px] font-black px-1.5 py-0.2 rounded-full uppercase shadow-xs ${
+                  isAdmin 
+                    ? 'bg-gradient-to-r from-purple-500 to-indigo-500 text-white' 
+                    : 'bg-gradient-to-r from-amber-400 to-rose-500 text-slate-950 font-black'
+                }`}>
+                  {isAdmin ? 'ADMIN' : 'SOON'}
                 </span>
               )}
               
