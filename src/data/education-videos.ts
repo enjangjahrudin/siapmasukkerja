@@ -32,6 +32,28 @@ export interface EducationVideo {
 
 export const uploadVideoFile = async (file: File): Promise<{ success: boolean; videoUrl?: string; message?: string }> => {
   try {
+    // 1. Primary: Binary stream directly to server disk (high performance, no memory limits)
+    try {
+      const streamRes = await fetch('/api/upload/video-stream', {
+        method: 'POST',
+        headers: {
+          'x-file-name': encodeURIComponent(file.name),
+          'Content-Type': file.type || 'video/mp4'
+        },
+        body: file
+      });
+
+      if (streamRes.ok) {
+        const streamJson = await streamRes.json();
+        if (streamJson.success && streamJson.videoUrl) {
+          return { success: true, videoUrl: streamJson.videoUrl, message: streamJson.message };
+        }
+      }
+    } catch (streamErr) {
+      console.warn('[Video Stream Upload failed, trying base64 fallback]', streamErr);
+    }
+
+    // 2. Fallback: Base64 upload if streaming endpoint fails
     return new Promise((resolve) => {
       const reader = new FileReader();
       reader.onload = async (e) => {
@@ -47,21 +69,27 @@ export const uploadVideoFile = async (file: File): Promise<{ success: boolean; v
           });
           const json = await res.json();
           if (res.ok && json.success) {
-            resolve({ success: true, videoUrl: json.videoUrl });
+            resolve({ success: true, videoUrl: json.videoUrl, message: json.message });
           } else {
-            // Local blob fallback for offline
-            const localBlobUrl = URL.createObjectURL(file);
-            resolve({ success: true, videoUrl: localBlobUrl, message: 'Tersimpan lokal' });
+            resolve({ 
+              success: false, 
+              message: json.message || 'Gagal menyimpan video ke server. Pastikan ukuran file wajar dan koneksi stabil.' 
+            });
           }
         } catch (err: any) {
-          const localBlobUrl = URL.createObjectURL(file);
-          resolve({ success: true, videoUrl: localBlobUrl, message: 'Tersimpan lokal' });
+          resolve({ 
+            success: false, 
+            message: 'Gagal menghubungi server upload video: ' + (err.message || 'Network error') 
+          });
         }
+      };
+      reader.onerror = () => {
+        resolve({ success: false, message: 'Gagal membaca file dari komputer/perangkat.' });
       };
       reader.readAsDataURL(file);
     });
   } catch (err: any) {
-    return { success: false, message: err.message || 'Gagal membaca file video.' };
+    return { success: false, message: err.message || 'Gagal memproses file video.' };
   }
 };
 

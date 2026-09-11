@@ -1686,10 +1686,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
                         {/* Top Badges */}
                         <div className="absolute top-2.5 left-2.5 flex flex-wrap items-center gap-1.5 max-w-[80%]">
                           {video.sourceType === 'upload' ? (
-                            <span className="bg-sky-600 text-white text-[9px] font-bold px-2 py-0.5 rounded shadow-xs flex items-center gap-1">
-                              <Upload className="w-2.5 h-2.5" />
-                              <span>File Upload</span>
-                            </span>
+                            video.videoUrl?.startsWith('blob:') ? (
+                              <span className="bg-rose-600 text-white text-[9px] font-bold px-2 py-0.5 rounded shadow-xs flex items-center gap-1 animate-pulse">
+                                <AlertTriangle className="w-2.5 h-2.5" />
+                                <span>Perlu Upload Ulang</span>
+                              </span>
+                            ) : (
+                              <span className="bg-sky-600 text-white text-[9px] font-bold px-2 py-0.5 rounded shadow-xs flex items-center gap-1">
+                                <Upload className="w-2.5 h-2.5" />
+                                <span>File Upload</span>
+                              </span>
+                            )
                           ) : (
                             <span className="bg-slate-900/90 backdrop-blur-xs text-amber-400 text-[9px] font-bold px-2 py-0.5 rounded border border-slate-700">
                               YT: {video.youtubeId}

@@ -20,7 +20,7 @@ import { sounds } from '../../utils/sound-effects';
 import { useTheme } from '../../utils/theme-context';
 import { RegisteredUser } from '../../utils/auth-storage';
 import { 
-  printIndividualStudentReport, 
+  downloadIndividualStudentReportPdf,
   calculateCompositeScore, 
   SchoolSignerInfo 
 } from '../../utils/pdf-report-generator';
@@ -108,7 +108,7 @@ export const StudentRaporModal: React.FC<StudentRaporModalProps> = ({
     } : {};
 
     try {
-      await printIndividualStudentReport(current, signerInfo);
+      await downloadIndividualStudentReportPdf(current, signerInfo);
       sounds.playCelebration();
       confetti({
         particleCount: 60,

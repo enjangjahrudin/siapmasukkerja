@@ -166,6 +166,54 @@ const uploadsVideoDir = path.join(__dirname, 'uploads', 'videos');
 if (!fs.existsSync(uploadsVideoDir)) {
   fs.mkdirSync(uploadsVideoDir, { recursive: true });
 }
+// Serve video files with HTTP 206 Range Streaming for smooth mobile iOS / Android & desktop playback
+app.get('/uploads/videos/:filename', (req, res) => {
+  const filename = path.basename(req.params.filename);
+  const filePath = path.join(uploadsVideoDir, filename);
+
+  if (!fs.existsSync(filePath)) {
+    return res.status(404).json({ success: false, message: 'File video tidak ditemukan di server.' });
+  }
+
+  const stat = fs.statSync(filePath);
+  const fileSize = stat.size;
+  const range = req.headers.range;
+
+  const ext = path.extname(filename).toLowerCase();
+  const contentType = ext === '.webm' ? 'video/webm' : ext === '.ogg' ? 'video/ogg' : 'video/mp4';
+
+  if (range) {
+    const parts = range.replace(/bytes=/, "").split("-");
+    const start = parseInt(parts[0], 10);
+    const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+
+    if (start >= fileSize) {
+      res.status(416).send('Requested range not satisfiable\n' + start + ' >= ' + fileSize);
+      return;
+    }
+
+    const chunksize = (end - start) + 1;
+    const file = fs.createReadStream(filePath, { start, end });
+    const head = {
+      'Content-Range': `bytes ${start}-${end}/${fileSize}`,
+      'Accept-Ranges': 'bytes',
+      'Content-Length': chunksize,
+      'Content-Type': contentType,
+    };
+
+    res.writeHead(206, head);
+    file.pipe(res);
+  } else {
+    const head = {
+      'Content-Length': fileSize,
+      'Content-Type': contentType,
+      'Accept-Ranges': 'bytes',
+    };
+    res.writeHead(200, head);
+    fs.createReadStream(filePath).pipe(res);
+  }
+});
+
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // MySQL Database Connection Pool
@@ -1101,9 +1149,50 @@ app.post('/api/scores', async (req, res) => {
   }
 });
 
-// ----------------------------------------------------------------------------
-// 11. EDUCATION VIDEOS CRUD & FILE UPLOADS (ADMIN CMS & APP SYNC)
-// ----------------------------------------------------------------------------
+// High-performance binary stream video upload (supports large videos, minimal memory footprint)
+app.post('/api/upload/video-stream', (req, res) => {
+  try {
+    const rawFileName = req.headers['x-file-name'] ? decodeURIComponent(req.headers['x-file-name']) : 'video.mp4';
+    const ext = path.extname(rawFileName) || '.mp4';
+    const uniqueName = `vid-${Date.now()}-${Math.random().toString(36).substring(2, 7)}${ext}`;
+    const filePath = path.join(uploadsVideoDir, uniqueName);
+
+    const writeStream = fs.createWriteStream(filePath);
+    req.pipe(writeStream);
+
+    writeStream.on('finish', () => {
+      try {
+        const stats = fs.statSync(filePath);
+        if (stats.size === 0) {
+          if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+          return res.status(400).json({ success: false, message: 'File video yang diupload kosong (0 byte).' });
+        }
+
+        const videoUrl = `/uploads/videos/${uniqueName}`;
+        console.log(`[Video Upload Success] ${uniqueName} (${(stats.size / 1024 / 1024).toFixed(2)} MB)`);
+        return res.json({
+          success: true,
+          message: 'Video berhasil diunggah ke server!',
+          videoUrl,
+          fileName: uniqueName,
+          fileSize: stats.size
+        });
+      } catch (statErr) {
+        console.error('[Video Stat Error]', statErr);
+        res.status(500).json({ success: false, message: 'Gagal memverifikasi file video.' });
+      }
+    });
+
+    writeStream.on('error', (err) => {
+      console.error('[Video Stream Write Error]', err);
+      res.status(500).json({ success: false, message: 'Gagal menulis file video ke disk: ' + err.message });
+    });
+  } catch (err) {
+    console.error('[Video Stream Upload Error]', err);
+    res.status(500).json({ success: false, message: 'Gagal memproses upload video: ' + err.message });
+  }
+});
+
 app.post('/api/upload/video', async (req, res) => {
   try {
     const { fileData, fileName } = req.body;

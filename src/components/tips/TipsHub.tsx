@@ -29,7 +29,8 @@ import {
   Check, 
   RefreshCw,
   Smartphone,
-  Upload 
+  Upload,
+  AlertCircle
 } from 'lucide-react';
 import { useTheme } from '../../utils/theme-context';
 import { sounds } from '../../utils/sound-effects';
@@ -307,7 +308,7 @@ export const TipsHub: React.FC = () => {
                 >
                   {/* Thumbnail & Badges */}
                   <div className={`relative w-full overflow-hidden bg-slate-900 ${video.orientation === 'portrait' ? 'aspect-[4/5] sm:aspect-video' : 'aspect-video'}`}>
-                    {video.sourceType === 'upload' && video.videoUrl ? (
+                    {video.sourceType === 'upload' && video.videoUrl && !video.videoUrl.startsWith('blob:') ? (
                       <div className="w-full h-full bg-slate-950 flex items-center justify-center relative">
                         <video
                           src={video.videoUrl}
@@ -318,7 +319,7 @@ export const TipsHub: React.FC = () => {
                       </div>
                     ) : (
                       <img 
-                        src={video.thumbnailUrl || `https://img.youtube.com/vi/${video.youtubeId}/hqdefault.jpg`} 
+                        src={video.thumbnailUrl || (video.youtubeId ? `https://img.youtube.com/vi/${video.youtubeId}/hqdefault.jpg` : 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=600&auto=format&fit=crop&q=80')} 
                         alt={video.title} 
                         className="w-full h-full object-cover group-hover:scale-105 transition-all duration-300"
                       />
@@ -590,13 +591,25 @@ export const TipsHub: React.FC = () => {
               activePlayingVideo.orientation === 'portrait' ? 'aspect-[9/16] max-h-[62vh]' : 'aspect-video'
             }`}>
               {activePlayingVideo.sourceType === 'upload' && activePlayingVideo.videoUrl ? (
-                <video
-                  src={activePlayingVideo.videoUrl}
-                  controls
-                  autoPlay
-                  playsInline
-                  className="w-full h-full object-contain bg-black"
-                />
+                activePlayingVideo.videoUrl.startsWith('blob:') ? (
+                  <div className="flex flex-col items-center justify-center p-8 text-center text-slate-300">
+                    <div className="w-14 h-14 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center mb-3">
+                      <AlertCircle className="w-7 h-7" />
+                    </div>
+                    <p className="font-bold text-sm text-white">Video Sedang Disiapkan</p>
+                    <p className="text-xs text-slate-400 mt-1 max-w-sm">
+                      File video ini sedang diproses oleh administrator server. Silakan hubungi admin atau buka beberapa saat lagi.
+                    </p>
+                  </div>
+                ) : (
+                  <video
+                    src={activePlayingVideo.videoUrl}
+                    controls
+                    autoPlay
+                    playsInline
+                    className="w-full h-full object-contain bg-black"
+                  />
+                )
               ) : (
                 <iframe
                   src={`https://www.youtube-nocookie.com/embed/${activePlayingVideo.youtubeId}?autoplay=1&playsinline=1&rel=0&modestbranding=1`}
