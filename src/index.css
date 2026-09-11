@@ -25,6 +25,15 @@
   background: #94a3b8;
 }
 
+/* Hide scrollbar utility */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
 /* Pulse glow animation for active test indicators */
 @keyframes pulseGlow {
   0%, 100% {
