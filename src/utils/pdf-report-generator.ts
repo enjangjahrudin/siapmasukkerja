@@ -120,7 +120,7 @@ export async function printIndividualStudentReport(student: RegisteredUser, sign
   <style>
     @page {
       size: A4 portrait;
-      margin: 12mm 15mm 12mm 15mm;
+      margin: 8mm 12mm 15mm 12mm;
     }
     * {
       box-sizing: border-box;
@@ -336,15 +336,20 @@ export async function printIndividualStudentReport(student: RegisteredUser, sign
       margin-top: 2px;
     }
 
-    /* FOOTER */
+    /* FOOTER STATIS DI BAWAH HALAMAN */
     .footer {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
       border-top: 1px dashed #cbd5e1;
-      margin-top: 20px;
-      padding-top: 6px;
+      padding-top: 5px;
       display: flex;
       justify-content: space-between;
+      align-items: center;
       font-size: 7.5pt;
-      color: #94a3b8;
+      color: #64748b;
+      background: #ffffff;
     }
   </style>
 </head>
@@ -541,10 +546,10 @@ export async function printIndividualStudentReport(student: RegisteredUser, sign
     </div>
   </div>
 
-  <!-- FOOTER -->
+  <!-- FOOTER STATIS DI BAWAH HALAMAN -->
   <div class="footer">
     <span>Dokumen resmi hasil evaluasi otomatis platform <strong>SMK Siap Masuk Kerja</strong> • Powered by <strong>BuatDigital.id</strong> (www.buatdigital.id).</span>
-    <span>Halaman 1 dari 1 • Dicetak pada: ${new Date().toLocaleString('id-ID')}</span>
+    <span>Rapor Hasil Seleksi • Halaman 1 dari 1 (1/1) • Dicetak pada: ${new Date().toLocaleString('id-ID')}</span>
   </div>
 
 </body>
@@ -575,6 +580,9 @@ export async function printCollectiveSchoolReport(schoolName: string, students: 
     ? (students.reduce((acc, s) => acc + calculateCompositeScore(s), 0) / total).toFixed(1)
     : '0.0';
 
+  // Calculate estimated total pages (Page 1 fits ~8 rows with Kop, summary cards, and signatures)
+  const totalPages = total <= 8 ? 1 : Math.ceil((total - 8) / 16) + 1;
+
   const html = `<!DOCTYPE html>
 <html lang="id">
 <head>
@@ -583,7 +591,7 @@ export async function printCollectiveSchoolReport(schoolName: string, students: 
   <style>
     @page {
       size: A4 landscape;
-      margin: 10mm 12mm 10mm 12mm;
+      margin: 8mm 12mm 14mm 12mm;
     }
     * {
       box-sizing: border-box;
@@ -748,7 +756,7 @@ export async function printCollectiveSchoolReport(schoolName: string, students: 
     .sig-container {
       display: flex;
       justify-content: space-between;
-      margin-top: 16px;
+      margin-top: 22px;
       page-break-inside: avoid;
     }
     .sig-col {
@@ -770,14 +778,20 @@ export async function printCollectiveSchoolReport(schoolName: string, students: 
       margin-top: 1px;
     }
 
+    /* FOOTER STATIS DI BAWAH HALAMAN */
     .footer {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
       border-top: 1px dashed #cbd5e1;
-      margin-top: 14px;
-      padding-top: 4px;
+      padding-top: 5px;
       display: flex;
       justify-content: space-between;
-      font-size: 7pt;
-      color: #94a3b8;
+      align-items: center;
+      font-size: 7.5pt;
+      color: #64748b;
+      background: #ffffff;
     }
   </style>
 </head>
@@ -919,10 +933,10 @@ export async function printCollectiveSchoolReport(schoolName: string, students: 
     </div>
   </div>
 
-  <!-- FOOTER -->
+  <!-- FOOTER STATIS DI BAWAH HALAMAN -->
   <div class="footer">
     <span>Dokumen resmi hasil evaluasi otomatis platform <strong>SMK Siap Masuk Kerja</strong> • Powered by <strong>BuatDigital.id</strong> (www.buatdigital.id).</span>
-    <span>Laporan Rekapitulasi Kolektif BKK • Dicetak pada: ${new Date().toLocaleString('id-ID')}</span>
+    <span>Laporan Rekapitulasi Kolektif BKK • Halaman 1 dari ${totalPages} (1/${totalPages}) • Dicetak pada: ${new Date().toLocaleString('id-ID')}</span>
   </div>
 
 </body>
