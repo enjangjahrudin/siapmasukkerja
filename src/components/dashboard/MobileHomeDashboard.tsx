@@ -18,19 +18,23 @@ import {
   Target,
   Flame,
   Brain,
-  Zap
+  Zap,
+  FileText,
+  Download
 } from 'lucide-react';
 
 interface MobileHomeDashboardProps {
   onSelectTest: (test: TestCategory | 'tips' | 'tryout-full') => void;
   targetRole: TargetRole;
   userName: string;
+  onOpenRapor?: () => void;
 }
 
 export const MobileHomeDashboard: React.FC<MobileHomeDashboardProps> = ({
   onSelectTest,
   targetRole,
-  userName
+  userName,
+  onOpenRapor
 }) => {
   const sectorTargets: Record<TargetRole, { sector: string; examples: string; roleLabel: string }> = {
     operator: {
@@ -92,6 +96,43 @@ export const MobileHomeDashboard: React.FC<MobileHomeDashboardProps> = ({
           <span>Passing Grade Rata-rata: <strong className="text-emerald-400 font-bold">75%</strong></span>
           <span className="text-sky-300 font-semibold">Simulasikan Seleksi</span>
         </div>
+      </div>
+
+      {/* Quick Action: Rapor Kesiapan Kerja Siswa (PDF) */}
+      <div 
+        onClick={onOpenRapor}
+        className="bg-white border border-slate-200/90 rounded-2xl p-3.5 shadow-xs flex items-center justify-between gap-3 active:bg-slate-50 transition-all cursor-pointer"
+      >
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center shrink-0 shadow-xs">
+            <FileText className="w-5 h-5" />
+          </div>
+          <div>
+            <div className="flex items-center gap-1.5 mb-0.5">
+              <span className="text-[9px] font-black uppercase px-2 py-0.2 rounded-md bg-red-100 text-red-700">
+                PDF Resmi
+              </span>
+              <span className="text-[10px] text-slate-400 font-semibold">BKK & Industri</span>
+            </div>
+            <strong className="text-xs font-extrabold text-slate-900 block leading-tight">
+              Rapor Kesiapan Kerja Siswa
+            </strong>
+            <p className="text-[10px] text-slate-500 mt-0.5 leading-snug">
+              Lihat skor live & unduh laporan resmi untuk melamar kerja
+            </p>
+          </div>
+        </div>
+
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            if (onOpenRapor) onOpenRapor();
+          }}
+          className="px-3 py-2 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 text-white font-black text-[11px] rounded-xl shadow-xs flex items-center gap-1.5 shrink-0 transition-all transform active:scale-95 cursor-pointer"
+        >
+          <Download className="w-3.5 h-3.5" />
+          <span>Unduh</span>
+        </button>
       </div>
 
       {/* Main Grid App Icons Menu (Android Style) */}

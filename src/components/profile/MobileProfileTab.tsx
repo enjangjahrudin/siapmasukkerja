@@ -28,7 +28,9 @@ import {
   EyeOff,
   Loader2,
   Activity,
-  Ruler
+  Ruler,
+  FileText,
+  Download
 } from 'lucide-react';
 import { sounds } from '../../utils/sound-effects';
 import { useTheme } from '../../utils/theme-context';
@@ -48,6 +50,7 @@ interface MobileProfileTabProps {
   setTargetRole: (role: TargetRole) => void;
   onLogout: () => void;
   onUpdateUser?: (user: RegisteredUser) => void;
+  onOpenRapor?: () => void;
 }
 
 export const MobileProfileTab: React.FC<MobileProfileTabProps> = ({
@@ -55,7 +58,8 @@ export const MobileProfileTab: React.FC<MobileProfileTabProps> = ({
   targetRole,
   setTargetRole,
   onLogout,
-  onUpdateUser
+  onUpdateUser,
+  onOpenRapor
 }) => {
   const { theme, toggleTheme, isDark } = useTheme();
   const [currentUserData, setCurrentUserData] = useState<RegisteredUser | null>(() => getActiveSession());
@@ -813,6 +817,64 @@ export const MobileProfileTab: React.FC<MobileProfileTabProps> = ({
             <span className="text-slate-800 dark:text-slate-200 text-right text-[11px] max-w-[60%] line-clamp-2">
               {activeUser?.address || 'Belum diisi'}
             </span>
+          </div>
+        </div>
+      </div>
+
+      {/* =================================================================== */}
+      {/* RAPOR & SERTIFIKAT KESIAPAN KERJA (PDF) CARD                        */}
+      {/* =================================================================== */}
+      <div className={`border rounded-3xl p-4 sm:p-5 shadow-lg relative overflow-hidden transition-all ${
+        isDark 
+          ? 'bg-gradient-to-br from-slate-900 via-sky-950/70 to-slate-900 border-sky-800/40 text-white' 
+          : 'bg-gradient-to-br from-slate-900 via-brand-950 to-indigo-950 text-white border-brand-800'
+      }`}>
+        <div className="absolute top-0 right-0 w-44 h-44 bg-sky-500/15 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute bottom-0 left-0 w-32 h-32 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none" />
+
+        <div className="relative z-10 space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-400/20 border border-emerald-400/30 text-emerald-300 text-[10px] font-black uppercase tracking-wide">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Dokumen Resmi Terverifikasi BKK</span>
+            </span>
+            <span className="text-[10px] font-bold text-sky-300">
+              Toyota • Astra • Epson
+            </span>
+          </div>
+
+          <div>
+            <h3 className="text-base sm:text-lg font-black tracking-tight text-white leading-tight flex items-center gap-2">
+              <FileText className="w-5 h-5 text-sky-400 shrink-0" />
+              <span>Rapor Kesiapan Kerja Siswa (PDF)</span>
+            </h3>
+            <p className="text-xs text-sky-100/80 mt-1 leading-relaxed">
+              Unduh lembar hasil asesmen seleksi 5 aspek kompetensi, skor komposit, serta rekomendasi penempatan kerja dalam format PDF resmi.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+            <button
+              onClick={() => {
+                sounds.playClick();
+                if (onOpenRapor) onOpenRapor();
+              }}
+              className="w-full py-2.5 px-4 bg-gradient-to-r from-red-600 via-rose-600 to-red-600 hover:from-red-700 hover:to-rose-700 text-white font-extrabold text-xs rounded-2xl shadow-lg shadow-red-500/25 flex items-center justify-center gap-2 transition-all transform active:scale-95 cursor-pointer"
+            >
+              <Download className="w-4 h-4" />
+              <span>Unduh Rapor (PDF)</span>
+            </button>
+
+            <button
+              onClick={() => {
+                sounds.playClick();
+                if (onOpenRapor) onOpenRapor();
+              }}
+              className="w-full py-2.5 px-4 bg-white/10 hover:bg-white/15 border border-white/20 text-white font-bold text-xs rounded-2xl flex items-center justify-center gap-2 transition-all cursor-pointer"
+            >
+              <Eye className="w-4 h-4 text-sky-300" />
+              <span>Lihat Rapor Lengkap</span>
+            </button>
           </div>
         </div>
       </div>

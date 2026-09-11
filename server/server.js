@@ -795,7 +795,7 @@ app.get('/api/users', handleGetCandidates);
 // ----------------------------------------------------------------------------
 // 7B. REALTIME DETAILED CANDIDATE REPORT (FOR INDIVIDUAL RAPOR MODAL & PDF)
 // ----------------------------------------------------------------------------
-app.get('/api/admin/candidate-report/:userId', async (req, res) => {
+app.get(['/api/admin/candidate-report/:userId', '/api/user/my-report/:userId'], async (req, res) => {
   try {
     const { userId } = req.params;
     const [userRows] = await pool.query('SELECT * FROM users WHERE id = ? LIMIT 1', [userId]);

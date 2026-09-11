@@ -18,6 +18,7 @@ import { WarteggCanvas } from './components/wartegg/WarteggCanvas';
 import { TipsHub } from './components/tips/TipsHub';
 import { AiInterviewSimulator } from './components/interview/AiInterviewSimulator';
 import { AiInterviewComingSoon } from './components/interview/AiInterviewComingSoon';
+import { StudentRaporModal } from './components/rapor/StudentRaporModal';
 import { FullTryoutModal } from './components/tryout/FullTryoutModal';
 import { AdminDashboard } from './components/admin/AdminDashboard';
 import { sounds } from './utils/sound-effects';
@@ -48,6 +49,9 @@ export const App: React.FC = () => {
   
   // Tryout modal state
   const [isTryoutOpen, setIsTryoutOpen] = useState<boolean>(false);
+
+  // Student official rapor modal state
+  const [isStudentRaporOpen, setIsStudentRaporOpen] = useState<boolean>(false);
 
   // Main scroll viewport ref
   const mainScrollRef = React.useRef<HTMLElement | null>(null);
@@ -262,6 +266,10 @@ export const App: React.FC = () => {
                   onSelectTest={handleSelectModule}
                   targetRole={userTargetRole}
                   userName={userNameString}
+                  onOpenRapor={() => {
+                    sounds.playClick();
+                    setIsStudentRaporOpen(true);
+                  }}
                 />
               )}
 
@@ -320,6 +328,10 @@ export const App: React.FC = () => {
                   onUpdateUser={(updatedUser) => {
                     setCurrentUser(updatedUser);
                   }}
+                  onOpenRapor={() => {
+                    sounds.playClick();
+                    setIsStudentRaporOpen(true);
+                  }}
                 />
               )}
             </>
@@ -344,6 +356,13 @@ export const App: React.FC = () => {
         <FullTryoutModal
           isOpen={isTryoutOpen}
           onClose={() => setIsTryoutOpen(false)}
+        />
+
+        {/* Global Student Official Rapor & PDF Modal */}
+        <StudentRaporModal
+          isOpen={isStudentRaporOpen}
+          onClose={() => setIsStudentRaporOpen(false)}
+          student={currentUser}
         />
 
       </div>
