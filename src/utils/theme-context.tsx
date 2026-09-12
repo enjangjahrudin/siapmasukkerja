@@ -10,10 +10,10 @@ interface ThemeContextType {
 }
 
 const ThemeContext = createContext<ThemeContextType>({
-  theme: 'dark',
+  theme: 'light',
   toggleTheme: () => {},
   setTheme: () => {},
-  isDark: true
+  isDark: false
 });
 
 const THEME_STORAGE_KEY = 'siapkerja_app_theme';
@@ -23,9 +23,9 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     try {
       const saved = localStorage.getItem(THEME_STORAGE_KEY);
       if (saved === 'light' || saved === 'dark') return saved;
-      return 'dark'; // Default sleek dark theme
+      return 'light'; // Default clean light mode
     } catch {
-      return 'dark';
+      return 'light';
     }
   });
 
