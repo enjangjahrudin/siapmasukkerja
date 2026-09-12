@@ -46,6 +46,9 @@ export interface RegisteredUser {
   testHistory?: UserTestRecord[];
   lastActive: string;
   isAdmin?: boolean;
+  streakDays?: number;
+  lastPracticeDate?: string;
+  practiceDates?: string[];
 }
 
 const STORAGE_USERS_KEY = 'siapkerja_users_database';
@@ -74,7 +77,10 @@ export const initialDefaultUsers: RegisteredUser[] = [
     overallStatus: 'Lolos Unggul',
     completedTestsCount: 14,
     lastActive: '5 menit lalu',
-    isAdmin: false
+    isAdmin: false,
+    streakDays: 3,
+    lastPracticeDate: '2026-09-12',
+    practiceDates: ['2026-09-10', '2026-09-11', '2026-09-12']
   },
   {
     id: 'SMK-2026-0892',
@@ -95,7 +101,10 @@ export const initialDefaultUsers: RegisteredUser[] = [
     overallStatus: 'Lolos Unggul',
     completedTestsCount: 18,
     lastActive: '12 menit lalu',
-    isAdmin: false
+    isAdmin: false,
+    streakDays: 5,
+    lastPracticeDate: '2026-09-12',
+    practiceDates: ['2026-09-08', '2026-09-09', '2026-09-10', '2026-09-11', '2026-09-12']
   },
   {
     id: 'SMK-2026-0893',
@@ -562,7 +571,10 @@ export const fetchUserProfile = async (userId: string): Promise<RegisteredUser |
           multiplicationScore: resData.user.multiplicationScore || current?.multiplicationScore,
           psychotestScore: resData.user.psychotestScore !== null && resData.user.psychotestScore !== undefined ? resData.user.psychotestScore : current?.psychotestScore,
           mechanicalScore: resData.user.mechanicalScore !== null && resData.user.mechanicalScore !== undefined ? resData.user.mechanicalScore : current?.mechanicalScore,
-          interviewScore: resData.user.interviewScore !== null && resData.user.interviewScore !== undefined ? resData.user.interviewScore : current?.interviewScore
+          interviewScore: resData.user.interviewScore !== null && resData.user.interviewScore !== undefined ? resData.user.interviewScore : current?.interviewScore,
+          streakDays: resData.user.streakDays ?? current?.streakDays ?? (cleanHistory.length > 0 ? 3 : 1),
+          lastPracticeDate: resData.user.lastPracticeDate || current?.lastPracticeDate,
+          practiceDates: resData.user.practiceDates || current?.practiceDates
         };
 
         saveUser(merged);
@@ -824,6 +836,27 @@ export const recordUserTestResult = async (
   updatedUser.passingPrediction = stats.passingPrediction;
   updatedUser.overallStatus = stats.overallStatus;
 
+  // Dynamic daily streak tracking
+  const todayStr = getLocalDateString();
+  const yesterdayStr = getYesterdayLocalDateString();
+  const lastDate = current.lastPracticeDate;
+  let currentStreak = current.streakDays || 0;
+
+  if (lastDate === todayStr) {
+    if (currentStreak === 0) currentStreak = 1;
+  } else if (lastDate === yesterdayStr) {
+    currentStreak += 1;
+  } else {
+    currentStreak = 1;
+  }
+
+  const existingPracticeDates = Array.isArray(current.practiceDates) ? current.practiceDates : [];
+  const updatedPracticeDates = Array.from(new Set([todayStr, ...existingPracticeDates])).slice(0, 60);
+
+  updatedUser.streakDays = currentStreak;
+  updatedUser.lastPracticeDate = todayStr;
+  updatedUser.practiceDates = updatedPracticeDates;
+
   // Persist locally
   setActiveSession(updatedUser);
   saveUser(updatedUser);
@@ -987,5 +1020,130 @@ export const adminResetCandidatePassword = async (
     console.error('[adminResetCandidatePassword error]', err);
     return { success: false, message: err.message || 'Gagal mereset kata sandi peserta.' };
   }
+};
+
+// ----------------------------------------------------------------------------
+// STREAK & DAILY PRACTICE HELPERS
+// ----------------------------------------------------------------------------
+
+export const getLocalDateString = (d = new Date()): string => {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+export const getYesterdayLocalDateString = (d = new Date()): string => {
+  const prev = new Date(d);
+  prev.setDate(prev.getDate() - 1);
+  return getLocalDateString(prev);
+};
+
+export interface UserStreakInfo {
+  streakDays: number;
+  isActiveToday: boolean;
+  weeklyHistory: {
+    dayName: string;
+    shortDay: string;
+    dayNumber: number;
+    date: string;
+    isToday: boolean;
+    isCompleted: boolean;
+    isPast: boolean;
+  }[];
+  milestones: {
+    days: number;
+    title: string;
+    desc: string;
+    achieved: boolean;
+  }[];
+}
+
+export const getUserStreakInfo = (user: RegisteredUser | null): UserStreakInfo => {
+  const todayStr = getLocalDateString();
+  const yesterdayStr = getYesterdayLocalDateString();
+
+  // Collect all practice dates
+  const practiceSet = new Set<string>();
+  if (user?.practiceDates && Array.isArray(user.practiceDates)) {
+    user.practiceDates.forEach(d => { if (d) practiceSet.add(d); });
+  }
+  if (user?.testHistory && Array.isArray(user.testHistory)) {
+    user.testHistory.forEach(h => {
+      if (h.completedAt) {
+        const dt = h.completedAt.split('T')[0];
+        if (dt) practiceSet.add(dt);
+      }
+    });
+  }
+
+  const isActiveToday = practiceSet.has(todayStr) || user?.lastPracticeDate === todayStr;
+
+  // Compute streakDays
+  let streakDays = user?.streakDays !== undefined ? user.streakDays : 0;
+  if (streakDays === 0) {
+    if (isActiveToday) {
+      streakDays = 1;
+    } else if (practiceSet.has(yesterdayStr) || user?.lastPracticeDate === yesterdayStr) {
+      streakDays = 1;
+    } else if (user?.completedTestsCount && user.completedTestsCount > 0) {
+      streakDays = 3; // Default baseline for active learners
+    }
+  }
+
+  // Weekly calendar (Monday - Sunday)
+  const now = new Date();
+  const currentDay = now.getDay(); // 0 is Sunday, 1 is Monday...
+  const diffToMonday = currentDay === 0 ? -6 : 1 - currentDay;
+  const mondayDate = new Date(now);
+  mondayDate.setDate(now.getDate() + diffToMonday);
+
+  const dayNames = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
+  const shortDays = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'];
+
+  const weeklyHistory = dayNames.map((name, idx) => {
+    const d = new Date(mondayDate);
+    d.setDate(mondayDate.getDate() + idx);
+    const dateStr = getLocalDateString(d);
+    const isToday = dateStr === todayStr;
+    const isPast = dateStr < todayStr;
+    
+    // Check if practiced that day, or if it falls into current active streak count
+    let isCompleted = practiceSet.has(dateStr);
+    if (!isCompleted && isToday && isActiveToday) {
+      isCompleted = true;
+    }
+    // If user has streakDays >= 3 and it's within recent days of this week
+    if (!isCompleted && streakDays > 0) {
+      const diffDays = Math.round((new Date(todayStr).getTime() - new Date(dateStr).getTime()) / (1000 * 3600 * 24));
+      if (diffDays >= 0 && diffDays < streakDays) {
+        isCompleted = true;
+      }
+    }
+
+    return {
+      dayName: name,
+      shortDay: shortDays[idx],
+      dayNumber: d.getDate(),
+      date: dateStr,
+      isToday,
+      isCompleted,
+      isPast
+    };
+  });
+
+  const milestones = [
+    { days: 3, title: 'Langkah Awal Tangguh', desc: 'Konsisten latihan 3 hari berturut-turut', achieved: streakDays >= 3 },
+    { days: 7, title: 'Pejuang 1 Minggu', desc: 'Rutin seminggu penuh tanpa absen', achieved: streakDays >= 7 },
+    { days: 14, title: 'Disiplin Standar Pabrik', desc: 'Fokus & ritme kerja standar PT Astra & Epson', achieved: streakDays >= 14 },
+    { days: 30, title: 'Master Siap Masuk Kerja', desc: 'Kesiapan 99% lolos seleksi operator & QC', achieved: streakDays >= 30 },
+  ];
+
+  return {
+    streakDays,
+    isActiveToday,
+    weeklyHistory,
+    milestones
+  };
 };
 

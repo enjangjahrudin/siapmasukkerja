@@ -420,6 +420,31 @@ try {
         console.warn("[MySQL Schema Check completed_tests_count]", colErr.message);
       }
 
+      // Migrations for daily practice streak
+      try {
+        const [colStreak] = await pool.query("SHOW COLUMNS FROM users LIKE 'streak_days'");
+        if (colStreak.length === 0) {
+          await pool.query("ALTER TABLE users ADD COLUMN streak_days INT NOT NULL DEFAULT 1");
+          console.log("[MySQL Schema] Successfully added column streak_days to users table");
+        }
+      } catch (e) {}
+
+      try {
+        const [colLastPractice] = await pool.query("SHOW COLUMNS FROM users LIKE 'last_practice_date'");
+        if (colLastPractice.length === 0) {
+          await pool.query("ALTER TABLE users ADD COLUMN last_practice_date VARCHAR(20) NULL");
+          console.log("[MySQL Schema] Successfully added column last_practice_date to users table");
+        }
+      } catch (e) {}
+
+      try {
+        const [colPracticeDates] = await pool.query("SHOW COLUMNS FROM users LIKE 'practice_dates'");
+        if (colPracticeDates.length === 0) {
+          await pool.query("ALTER TABLE users ADD COLUMN practice_dates JSON NULL");
+          console.log("[MySQL Schema] Successfully added column practice_dates to users table");
+        }
+      } catch (e) {}
+
       // Migrations for education_videos (upload & orientation support)
       try {
         await pool.query(`ALTER TABLE education_videos ADD COLUMN video_source VARCHAR(50) DEFAULT 'youtube' AFTER duration`);
@@ -1104,6 +1129,9 @@ app.post('/api/login', async (req, res) => {
         interviewScore: scores.interviewScore,
         createdAt: user.created_at,
         isAdmin: Boolean(user.is_admin),
+        streakDays: user.streak_days !== undefined && user.streak_days !== null ? user.streak_days : 3,
+        lastPracticeDate: user.last_practice_date,
+        practiceDates: user.practice_dates,
         testHistory
       }
     });
@@ -1679,6 +1707,9 @@ app.get('/api/user/profile/:userId', async (req, res) => {
         interviewScore: scores.interviewScore,
         createdAt: u.created_at,
         isAdmin: Boolean(u.is_admin),
+        streakDays: u.streak_days !== undefined && u.streak_days !== null ? u.streak_days : 3,
+        lastPracticeDate: u.last_practice_date,
+        practiceDates: u.practice_dates,
         testHistory
       }
     });
@@ -1914,6 +1945,24 @@ app.post('/api/user/record-test', async (req, res) => {
       await pool.query('UPDATE users SET completed_tests_count = ? WHERE id = ?', [totalCompleted, userId]);
     } catch (countErr) {
       console.warn('[Record Test] Warning updating completed_tests_count:', countErr.message);
+    }
+
+    // Dynamic daily practice streak tracking on user
+    try {
+      const todayIso = new Date().toISOString().split('T')[0];
+      await pool.query(
+        `UPDATE users SET 
+          streak_days = CASE 
+            WHEN last_practice_date = ? THEN streak_days 
+            WHEN last_practice_date = DATE_SUB(?, INTERVAL 1 DAY) THEN COALESCE(streak_days, 0) + 1 
+            ELSE 1 
+          END,
+          last_practice_date = ?
+         WHERE id = ?`,
+        [todayIso, todayIso, todayIso, userId]
+      );
+    } catch (streakErr) {
+      console.warn('[Record Test] Warning updating streak:', streakErr.message);
     }
 
     res.json({ success: true, message: 'Hasil tes berhasil dicatat ke database MySQL.' });

@@ -20,6 +20,7 @@ import { AiInterviewSimulator } from './components/interview/AiInterviewSimulato
 import { AiInterviewComingSoon } from './components/interview/AiInterviewComingSoon';
 import { StudentRaporModal } from './components/rapor/StudentRaporModal';
 import { FullTryoutModal } from './components/tryout/FullTryoutModal';
+import { DailyStreakModal } from './components/streak/DailyStreakModal';
 import { AdminDashboard } from './components/admin/AdminDashboard';
 import { sounds } from './utils/sound-effects';
 import { 
@@ -27,6 +28,7 @@ import {
   setActiveSession, 
   logoutSession, 
   updateActiveUserScore, 
+  getUserStreakInfo,
   RegisteredUser 
 } from './utils/auth-storage';
 
@@ -52,6 +54,9 @@ export const App: React.FC = () => {
 
   // Student official rapor modal state
   const [isStudentRaporOpen, setIsStudentRaporOpen] = useState<boolean>(false);
+
+  // Daily streak modal state
+  const [isStreakOpen, setIsStreakOpen] = useState<boolean>(false);
 
   // Main scroll viewport ref
   const mainScrollRef = React.useRef<HTMLElement | null>(null);
@@ -85,6 +90,9 @@ export const App: React.FC = () => {
   const isStudentRaporOpenRef = React.useRef(isStudentRaporOpen);
   isStudentRaporOpenRef.current = isStudentRaporOpen;
 
+  const isStreakOpenRef = React.useRef(isStreakOpen);
+  isStreakOpenRef.current = isStreakOpen;
+
   // Intercept Mobile Hardware / Browser Back Button
   useEffect(() => {
     // Push an initial history entry to establish the trap
@@ -110,6 +118,11 @@ export const App: React.FC = () => {
 
       if (isStudentRaporOpenRef.current) {
         setIsStudentRaporOpen(false);
+        return;
+      }
+
+      if (isStreakOpenRef.current) {
+        setIsStreakOpen(false);
         return;
       }
 
@@ -221,6 +234,7 @@ export const App: React.FC = () => {
 
   const userTargetRole: TargetRole = currentUser?.targetRole || 'operator';
   const userNameString: string = currentUser?.name || 'Peserta SMK';
+  const streakInfo = getUserStreakInfo(currentUser);
 
   const renderScreen = () => {
     // 1. ADMIN COMMAND CENTER VIEW (Laptop / Desktop View)
@@ -310,6 +324,8 @@ export const App: React.FC = () => {
             }}
             userName={userNameString}
             onOpenTryout={() => setIsTryoutOpen(true)}
+            streakDays={streakInfo.streakDays}
+            onOpenStreak={() => setIsStreakOpen(true)}
           />
 
           {/* Scrollable / Flexible Mobile Viewport */}
@@ -458,6 +474,17 @@ export const App: React.FC = () => {
             isOpen={isStudentRaporOpen}
             onClose={() => setIsStudentRaporOpen(false)}
             student={currentUser}
+          />
+
+          {/* Global Daily Practice Streak Modal */}
+          <DailyStreakModal
+            isOpen={isStreakOpen}
+            onClose={() => setIsStreakOpen(false)}
+            user={currentUser}
+            onStartPractice={() => {
+              setIsStreakOpen(false);
+              handleSelectModule('tryout-full');
+            }}
           />
 
         </div>

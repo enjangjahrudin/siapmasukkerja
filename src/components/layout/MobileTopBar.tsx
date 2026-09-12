@@ -22,6 +22,8 @@ interface MobileTopBarProps {
   setTargetRole: (role: TargetRole) => void;
   userName: string;
   onOpenTryout: () => void;
+  streakDays?: number;
+  onOpenStreak?: () => void;
 }
 
 export const MobileTopBar: React.FC<MobileTopBarProps> = ({
@@ -31,7 +33,9 @@ export const MobileTopBar: React.FC<MobileTopBarProps> = ({
   targetRole,
   setTargetRole,
   userName,
-  onOpenTryout
+  onOpenTryout,
+  streakDays = 1,
+  onOpenStreak
 }) => {
   const { isDark, toggleTheme } = useTheme();
 
@@ -67,6 +71,16 @@ export const MobileTopBar: React.FC<MobileTopBarProps> = ({
               title={isDark ? 'Mode Terang' : 'Mode Gelap'}
             >
               {isDark ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
+            </button>
+
+            {/* Streak Flame Button */}
+            <button
+              onClick={onOpenStreak}
+              className="flex items-center gap-1 bg-gradient-to-r from-orange-500/10 to-amber-500/10 hover:from-orange-500/20 hover:to-amber-500/20 border border-orange-300/80 dark:border-orange-500/40 text-orange-600 dark:text-orange-400 px-2 py-1 rounded-xl text-[10px] font-black transition-all active:scale-95 shadow-xs cursor-pointer group"
+              title="Lihat Streak Latihan Harian"
+            >
+              <Flame className="w-3.5 h-3.5 fill-orange-500 text-orange-500 animate-pulse group-hover:scale-110 transition-transform" />
+              <span>{streakDays}H</span>
             </button>
 
             <button
@@ -132,10 +146,15 @@ export const MobileTopBar: React.FC<MobileTopBarProps> = ({
             {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
           </button>
 
-          <div className="flex items-center gap-1 bg-orange-50 border border-orange-200 text-orange-700 px-2 py-1 rounded-xl text-[11px] font-extrabold">
-            <Flame className="w-3.5 h-3.5 fill-orange-500 text-orange-500" />
-            <span>3 Hari</span>
-          </div>
+          {/* Streak Flame Interactive Button */}
+          <button
+            onClick={onOpenStreak}
+            className="flex items-center gap-1 bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-orange-500/10 hover:from-orange-500/20 hover:to-amber-500/20 border border-orange-300 dark:border-orange-500/40 text-orange-600 dark:text-orange-400 px-2 py-1 rounded-xl text-[11px] font-extrabold transition-all active:scale-95 cursor-pointer shadow-xs group"
+            title="Lihat Streak Latihan Harian (Klik untuk membuka)"
+          >
+            <Flame className="w-3.5 h-3.5 fill-orange-500 text-orange-500 animate-pulse group-hover:scale-110 transition-transform" />
+            <span>{streakDays} Hari</span>
+          </button>
 
           <button
             onClick={onOpenTryout}
