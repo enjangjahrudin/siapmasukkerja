@@ -304,7 +304,7 @@ try {
           email VARCHAR(191) NOT NULL,
           otp VARCHAR(10) NOT NULL,
           type ENUM('register', 'forgot_password') NOT NULL,
-          payload JSON NULL,
+          payload LONGTEXT NULL,
           expires_at DATETIME NOT NULL,
           created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
           INDEX (email),
