@@ -240,7 +240,7 @@ export const App: React.FC = () => {
       case 'arithmetic': return 'Aritmatika & Deret';
       case 'wartegg': return 'Kanvas Tes Wartegg';
       case 'interview': return 'AI Voice Interview';
-      default: return 'SMK — Siap Masuk Kerja';
+      default: return 'SMK - Siap Masuk Kerja';
     }
   };
 

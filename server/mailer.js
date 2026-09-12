@@ -22,7 +22,7 @@ function createTransporter() {
   return null;
 }
 
-const defaultSender = process.env.SMTP_FROM || process.env.SMTP_USER || '"SMK — Siap Masuk Kerja" <noreply@buatdigital.id>';
+const defaultSender = process.env.SMTP_FROM || process.env.SMTP_USER || '"SMK - Siap Masuk Kerja" <noreply@buatdigital.id>';
 
 /**
  * Send 6-digit OTP email for Registration verification
@@ -50,13 +50,13 @@ async function sendRegistrationOtpEmail(toEmail, toName, otpCode) {
     <body>
       <div class="container">
         <div class="header">
-          <h1>SMK — Siap Masuk Kerja</h1>
+          <h1>SMK - Siap Masuk Kerja</h1>
           <p>Simulasikan Seleksi. Tingkatkan Kesiapan Kerja.</p>
         </div>
         <div class="content">
           <h2 style="font-size: 18px; margin-top: 0; color: #0f172a;">Halo, ${toName || 'Calon Pekerja'}! 👋</h2>
           <p style="font-size: 13px; line-height: 1.6; color: #475569;">
-            Terima kasih telah mendaftar di platform persiapan tes masuk industri <strong>SMK — Siap Masuk Kerja</strong>. 
+            Terima kasih telah mendaftar di platform persiapan tes masuk industri <strong>SMK - Siap Masuk Kerja</strong>. 
             Gunakan kode verifikasi berikut untuk menyelesaikan pendaftaran akun Anda:
           </p>
           <div class="otp-box">
@@ -68,7 +68,7 @@ async function sendRegistrationOtpEmail(toEmail, toName, otpCode) {
           </p>
         </div>
         <div class="footer">
-          &copy; 2026 SMK — Siap Masuk Kerja &bull; Powered by <a href="https://buatdigital.id" style="color: #0284c7; text-decoration: none; font-weight: bold;">BuatDigital.id</a>
+          &copy; 2026 SMK - Siap Masuk Kerja &bull; Powered by <a href="https://buatdigital.id" style="color: #0284c7; text-decoration: none; font-weight: bold;">BuatDigital.id</a>
         </div>
       </div>
     </body>
@@ -83,18 +83,15 @@ async function sendRegistrationOtpEmail(toEmail, toName, otpCode) {
         subject: `[${otpCode}] Kode Verifikasi Pendaftaran Akun - SMK Siap Masuk Kerja`,
         html: htmlContent
       });
-      console.log(`[Mailer] OTP sent to ${toEmail}`);
       return { success: true, method: 'smtp' };
     } catch (err) {
-      console.error(`[Mailer Error] Failed to send email to ${toEmail}:`, err.message);
-      // Fallback: log to console
-      console.log(`[Mailer Fallback] OTP for ${toEmail}: ${otpCode}`);
+      console.error(`[Mailer Error] Failed to send registration email:`, err.message);
       return { success: true, method: 'console_fallback', error: err.message };
     }
   } else {
     console.log(`\n========================================`);
-    console.log(`[SMTP NOT CONFIGURED] SIMULATED EMAIL OTP`);
-    console.log(`TO: ${toEmail} (${toName})`);
+    console.log(`[SMTP NOT CONFIGURED] SIMULATED REGISTRATION OTP`);
+    console.log(`TO: ${toEmail}`);
     console.log(`OTP CODE: ${otpCode}`);
     console.log(`========================================\n`);
     return { success: true, method: 'simulated', otp: otpCode };
@@ -102,7 +99,7 @@ async function sendRegistrationOtpEmail(toEmail, toName, otpCode) {
 }
 
 /**
- * Send Password Reset OTP Email
+ * Send 6-digit OTP email for Password Reset
  */
 async function sendPasswordResetOtpEmail(toEmail, toName, otpCode) {
   const transporter = createTransporter();
@@ -115,7 +112,7 @@ async function sendPasswordResetOtpEmail(toEmail, toName, otpCode) {
       <style>
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #f8fafc; margin: 0; padding: 20px; color: #1e293b; }
         .container { max-width: 520px; margin: 0 auto; background: #ffffff; border-radius: 20px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.06); border: 1px solid #e2e8f0; }
-        .header { background: linear-gradient(135deg, #e11d48, #be123c); padding: 30px 24px; text-align: center; color: #ffffff; }
+        .header { background: linear-gradient(135deg, #be123c, #e11d48); padding: 30px 24px; text-align: center; color: #ffffff; }
         .header h1 { margin: 0; font-size: 22px; font-weight: 800; letter-spacing: -0.5px; }
         .header p { margin: 6px 0 0 0; font-size: 13px; opacity: 0.9; }
         .content { padding: 32px 24px; text-align: center; }
@@ -127,7 +124,7 @@ async function sendPasswordResetOtpEmail(toEmail, toName, otpCode) {
     <body>
       <div class="container">
         <div class="header">
-          <h1>SMK — Siap Masuk Kerja</h1>
+          <h1>SMK - Siap Masuk Kerja</h1>
           <p>Permintaan Reset Kata Sandi Akun</p>
         </div>
         <div class="content">
@@ -144,7 +141,7 @@ async function sendPasswordResetOtpEmail(toEmail, toName, otpCode) {
           </p>
         </div>
         <div class="footer">
-          &copy; 2026 SMK — Siap Masuk Kerja &bull; Powered by <a href="https://buatdigital.id" style="color: #0284c7; text-decoration: none; font-weight: bold;">BuatDigital.id</a>
+          &copy; 2026 SMK - Siap Masuk Kerja &bull; Powered by <a href="https://buatdigital.id" style="color: #0284c7; text-decoration: none; font-weight: bold;">BuatDigital.id</a>
         </div>
       </div>
     </body>
@@ -220,7 +217,7 @@ async function sendWelcomeEmail(toEmail, toName, targetRole, targetCompany) {
           <a href="https://siapkerja.buatdigital.id" class="btn">Mulai Latihan Sekarang &rarr;</a>
         </div>
         <div class="footer">
-          &copy; 2026 SMK — Siap Masuk Kerja &bull; Powered by <a href="https://buatdigital.id" style="color: #0284c7; text-decoration: none; font-weight: bold;">BuatDigital.id</a>
+          &copy; 2026 SMK - Siap Masuk Kerja &bull; Powered by <a href="https://buatdigital.id" style="color: #0284c7; text-decoration: none; font-weight: bold;">BuatDigital.id</a>
         </div>
       </div>
     </body>

@@ -1,4 +1,4 @@
-// Service Worker for SMK — Siap Masuk Kerja PWA
+// Service Worker for SMK - Siap Masuk Kerja PWA
 const CACHE_NAME = 'siapkerja-pwa-v1';
 const STATIC_ASSETS = [
   '/',

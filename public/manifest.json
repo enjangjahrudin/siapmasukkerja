@@ -1,6 +1,6 @@
 {
-  "name": "SMK — Siap Masuk Kerja",
-  "short_name": "SiapKerja",
+  "name": "SMK - Siap Masuk Kerja",
+  "short_name": "Siap Masuk Kerja",
   "description": "Platform Persiapan Tes Masuk Kerja, Simulasi CAT Kraepelin, Pauli, Ketelitian QC, & AI Mock Interview.",
   "start_url": "/?source=pwa",
   "id": "/?source=pwa",

@@ -1,4 +1,4 @@
-# 🎓 SMK — Siap Masuk Kerja
+# 🎓 SMK - Siap Masuk Kerja
 > *"Simulasikan Seleksi. Tingkatkan Kesiapan"*
 
 Platform simulasi persiapan tes kerja komprehensif berbasis web/mobile untuk lulusan SMA/SMK yang mempersiapkan diri memasuki dunia industri manufaktur, otomotif, dan logistik (PT Astra Daihatsu, PT Epson Indonesia, PT Yamaha Motor, PT Denso, PT Mayora Indah, dll.).
@@ -76,4 +76,4 @@ Platform simulasi persiapan tes kerja komprehensif berbasis web/mobile untuk lul
 
 ---
 
-© 2026 SMK — Siap Masuk Kerja.
+© 2026 SMK - Siap Masuk Kerja.

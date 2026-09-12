@@ -12,7 +12,7 @@ export const Footer: React.FC = () => {
               <div className="w-8 h-8 rounded-lg bg-brand-600 flex items-center justify-center text-white font-bold">
                 <Briefcase className="w-4 h-4" />
               </div>
-              <span className="font-extrabold text-base text-white">SiapKerja</span>
+              <span className="font-extrabold text-base text-white">SMK - Siap Masuk Kerja</span>
               <span className="text-[10px] bg-brand-900 text-brand-300 font-semibold px-2 py-0.5 rounded border border-brand-700">
                 Official Prep
               </span>
@@ -46,7 +46,7 @@ export const Footer: React.FC = () => {
 
         <div className="border-t border-slate-800 pt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
           <p className="text-slate-500 text-[11px]">
-            &copy; {new Date().getFullYear()} SiapKerja. Dibuat untuk kesuksesan lulusan SMA/SMK Indonesia.
+            &copy; {new Date().getFullYear()} SMK - Siap Masuk Kerja. Dibuat untuk kesuksesan lulusan SMA/SMK Indonesia.
           </p>
           <div className="flex items-center gap-2 text-[11px] text-slate-400">
             <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />

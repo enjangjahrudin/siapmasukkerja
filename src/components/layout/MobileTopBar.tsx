@@ -56,7 +56,7 @@ export const MobileTopBar: React.FC<MobileTopBarProps> = ({
           </button>
 
           <span className={`font-extrabold text-sm truncate max-w-[240px] sm:max-w-md ${isDark ? 'text-white' : 'text-slate-900'}`}>
-            {title || 'SMK — Siap Masuk Kerja'}
+            {title || 'SMK - Siap Masuk Kerja'}
           </span>
 
           <div className="flex items-center gap-1.5">

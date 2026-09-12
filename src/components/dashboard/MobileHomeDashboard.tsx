@@ -180,7 +180,7 @@ export const MobileHomeDashboard: React.FC<MobileHomeDashboardProps> = ({
                 <span className="text-[10px] text-sky-300 font-semibold">Layar Utama HP / Tablet</span>
               </div>
               <strong className="text-xs font-extrabold text-white block leading-tight">
-                Pasang Aplikasi SiapKerja
+                Pasang Aplikasi SMK - Siap Masuk Kerja
               </strong>
               <p className="text-[10px] text-slate-300 mt-0.5 leading-snug">
                 Buka instan tanpa browser, layar penuh & hemat kuota

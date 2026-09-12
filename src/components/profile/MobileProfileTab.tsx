@@ -1140,7 +1140,7 @@ export const MobileProfileTab: React.FC<MobileProfileTabProps> = ({
                     Layar Utama HP / Tablet
                   </span>
                 </div>
-                <strong className="text-xs font-black block">Pasang Aplikasi SiapKerja</strong>
+                <strong className="text-xs font-black block">Pasang Aplikasi SMK - Siap Masuk Kerja</strong>
                 <span className="text-[10px] text-slate-400 block mt-0.5">
                   Akses cepat instan tanpa browser & hemat kuota
                 </span>
@@ -1170,7 +1170,7 @@ export const MobileProfileTab: React.FC<MobileProfileTabProps> = ({
       </div>
 
       <div className="text-center text-[10px] text-slate-400 pt-2 leading-relaxed">
-        <strong>SMK — Siap Masuk Kerja</strong> v1.0.0<br />
+        <strong>SMK - Siap Masuk Kerja</strong> v1.0.0<br />
         <em>“Simulasikan Seleksi. Tingkatkan Kesiapan”</em>
       </div>
 

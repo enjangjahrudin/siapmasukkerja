@@ -83,7 +83,7 @@ export const PwaInstallModal: React.FC<PwaInstallModalProps> = ({
                 Install Aplikasi (PWA)
               </h2>
               <p className={`text-[11px] font-medium ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-                Aplikasi Resmi SMK Siap Masuk Kerja
+                Aplikasi Resmi SMK - Siap Masuk Kerja
               </p>
             </div>
           </div>
@@ -112,7 +112,7 @@ export const PwaInstallModal: React.FC<PwaInstallModalProps> = ({
             </div>
 
             <h3 className="text-base sm:text-lg font-black tracking-tight">
-              SMK — Siap Masuk Kerja
+              SMK - Siap Masuk Kerja
             </h3>
             <p className={`text-xs mt-1 leading-relaxed max-w-xs mx-auto ${
               isDark ? 'text-slate-300' : 'text-slate-600'
@@ -203,7 +203,7 @@ export const PwaInstallModal: React.FC<PwaInstallModalProps> = ({
                   Gulir ke bawah dan pilih menu <strong className="inline-flex items-center gap-1 font-extrabold"><PlusSquare className="w-3.5 h-3.5 inline text-emerald-500" /> Tambahkan ke Layar Utama (Add to Home Screen)</strong>.
                 </li>
                 <li>
-                  Ketuk tombol <strong>"Tambah" (Add)</strong> di pojok kanan atas layar. Ikon SiapKerja akan langsung muncul di HP Anda!
+                  Ketuk tombol <strong>"Tambah" (Add)</strong> di pojok kanan atas layar. Ikon SMK - Siap Masuk Kerja akan langsung muncul di HP Anda!
                 </li>
               </ol>
             </div>
