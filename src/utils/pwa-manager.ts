@@ -28,6 +28,8 @@ export const registerServiceWorker = () => {
       navigator.serviceWorker.register('/sw.js')
         .then((reg) => {
           console.log('[PWA] Service Worker registered with scope:', reg.scope);
+          // Check for service worker updates immediately
+          reg.update();
         })
         .catch((err) => {
           console.warn('[PWA] Service Worker registration failed:', err);

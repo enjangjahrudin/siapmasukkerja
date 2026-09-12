@@ -1,16 +1,17 @@
 // Service Worker for SMK - Siap Masuk Kerja PWA
-const CACHE_NAME = 'siapkerja-pwa-v2';
+const CACHE_NAME = 'siapkerja-pwa-v4';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
-  '/manifest.json',
   '/favicon.ico',
   '/favicon-16x16.png',
   '/favicon-32x32.png',
+  '/pwa-icon-192.png',
+  '/pwa-icon-512.png',
+  '/pwa-icon-maskable-192.png',
+  '/pwa-icon-maskable-512.png',
   '/android-chrome-192x192.png',
   '/android-chrome-512x512.png',
-  '/pwa-192x192.png',
-  '/pwa-512x512.png',
   '/apple-touch-icon.png',
   '/logo.png'
 ];
@@ -48,8 +49,8 @@ self.addEventListener('fetch', (event) => {
   const req = event.request;
   const url = new URL(req.url);
 
-  // 1. API routes & uploads bypass cache completely (Network-only)
-  if (url.pathname.startsWith('/api') || url.pathname.startsWith('/uploads')) {
+  // 1. API routes, uploads, and web manifest bypass cache completely (Network-only)
+  if (url.pathname.startsWith('/api') || url.pathname.startsWith('/uploads') || url.pathname.includes('manifest')) {
     return;
   }
 
