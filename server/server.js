@@ -368,7 +368,11 @@ try {
       } catch (e) {}
       try {
         await pool.query(`ALTER TABLE users ADD COLUMN npsn VARCHAR(20) NULL AFTER school`);
-      } catch (e) {}
+      } catch (e) {
+        try {
+          await pool.query(`ALTER TABLE users ADD COLUMN npsn VARCHAR(20) NULL`);
+        } catch (_) {}
+      }
 
       // Migrations for education_videos (upload & orientation support)
       try {
@@ -531,10 +535,18 @@ app.post('/api/auth/verify-registration-otp', async (req, res) => {
     const otpRecord = rows[0];
     const data = typeof otpRecord.payload === 'string' ? JSON.parse(otpRecord.payload) : otpRecord.payload;
 
-    // Generate User ID
-    const [[countRow]] = await pool.query('SELECT COUNT(*) as total FROM users WHERE is_admin = FALSE');
-    const idSuffix = String(countRow.total + 1).padStart(4, '0');
-    const userId = `SMK-2026-${idSuffix}`;
+    // Generate collision-free User ID
+    const [existingIdRows] = await pool.query("SELECT id FROM users WHERE id LIKE 'SMK-2026-%'");
+    const existingNums = new Set();
+    existingIdRows.forEach(r => {
+      const m = r.id && r.id.match(/^SMK-2026-(\d+)$/);
+      if (m) existingNums.add(parseInt(m[1], 10));
+    });
+    let nextNum = 1;
+    while (existingNums.has(nextNum)) {
+      nextNum++;
+    }
+    const userId = `SMK-2026-${String(nextNum).padStart(4, '0')}`;
 
     const targetCompanies = {
       operator: 'Manufaktur Otomotif & Assembling (Toyota, Astra Group, Yamaha, Honda)',
@@ -543,7 +555,8 @@ app.post('/api/auth/verify-registration-otp', async (req, res) => {
       logistics: 'Logistik & Pergudangan FMCG (Mayora, Indofood, Unilever)'
     };
 
-    const role = data.targetRole || 'operator';
+    const validRoles = ['operator', 'qc', 'maintenance', 'logistics'];
+    const role = validRoles.includes(data.targetRole) ? data.targetRole : 'operator';
     const company = targetCompanies[role] || 'PT Astra Daihatsu Motor';
 
     await pool.query(
@@ -551,6 +564,8 @@ app.post('/api/auth/verify-registration-otp', async (req, res) => {
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Perlu Latihan', FALSE, TRUE, NOW(), NOW())`,
       [userId, data.name, data.phone, cleanEmail, data.school, data.npsn || null, data.major, data.password, role, company]
     );
+
+    console.log(`[User Registered OK] ${userId} - ${data.name} (${cleanEmail}) - ${data.school}`);
 
     // Delete verified OTP record
     await pool.query('DELETE FROM otp_verifications WHERE email = ? AND type = "register"', [cleanEmail]);
@@ -823,12 +838,12 @@ const handleGetCandidates = async (req, res) => {
   try {
     const [users] = await pool.query(`
       SELECT 
-        u.id, u.name, u.phone, u.email, u.school, u.major, u.gender, u.height, u.weight, u.avatar_url, u.address,
+        u.id, u.name, u.phone, u.email, u.school, u.npsn, u.major, u.gender, u.height, u.weight, u.avatar_url, u.address,
         u.target_role, u.target_company, u.overall_status, u.is_admin, u.created_at, u.last_active,
         COUNT(ts.id) as completed_tests_count
       FROM users u
       LEFT JOIN test_scores ts ON u.id = ts.user_id
-      WHERE u.is_admin = FALSE
+      WHERE (u.is_admin = FALSE OR u.is_admin = 0 OR u.is_admin IS NULL)
       GROUP BY u.id
       ORDER BY u.created_at DESC
     `);
@@ -841,11 +856,14 @@ const handleGetCandidates = async (req, res) => {
       let kraepelinScore, qcAccuracy, mathScore, interviewScore;
 
       userScores.forEach(sr => {
-        const details = typeof sr.score_details === 'string' ? JSON.parse(sr.score_details) : sr.score_details;
+        let details = sr.score_details;
+        if (typeof details === 'string') {
+          try { details = JSON.parse(details); } catch (_) { details = {}; }
+        }
         if (sr.test_type === 'kraepelin' && !kraepelinScore) kraepelinScore = details;
-        if (sr.test_type === 'qc' && !qcAccuracy) qcAccuracy = details?.accuracy || 90;
-        if (sr.test_type === 'math' && !mathScore) mathScore = details?.score || 85;
-        if (sr.test_type === 'interview' && !interviewScore) interviewScore = details?.probability || 88;
+        if (sr.test_type === 'qc' && qcAccuracy === undefined) qcAccuracy = details?.accuracy !== undefined ? details.accuracy : undefined;
+        if (sr.test_type === 'math' && mathScore === undefined) mathScore = details?.score !== undefined ? details.score : undefined;
+        if (sr.test_type === 'interview' && interviewScore === undefined) interviewScore = details?.probability !== undefined ? details.probability : undefined;
       });
 
       return {
@@ -854,6 +872,7 @@ const handleGetCandidates = async (req, res) => {
         phone: u.phone,
         email: u.email,
         school: u.school,
+        npsn: u.npsn || undefined,
         major: u.major,
         gender: u.gender || 'Laki-laki',
         height: u.height ? parseFloat(u.height) : undefined,

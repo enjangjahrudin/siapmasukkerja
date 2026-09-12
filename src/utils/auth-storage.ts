@@ -223,9 +223,16 @@ export const requestRegistrationOtp = async (data: RegistrationData): Promise<{
       body: JSON.stringify(data)
     });
 
-    const resData = await response.json();
+    let resData: any = {};
+    try {
+      resData = await response.json();
+    } catch (_) {}
+
     if (!response.ok) {
-      throw new Error(resData.message || 'Gagal mengirim kode verifikasi.');
+      return {
+        success: false,
+        message: resData.message || `Gagal mengirim kode verifikasi (HTTP ${response.status}).`
+      };
     }
 
     // Save temporary local payload
@@ -237,28 +244,20 @@ export const requestRegistrationOtp = async (data: RegistrationData): Promise<{
 
     return {
       success: true,
-      message: resData.message,
+      message: resData.message || 'Kode verifikasi telah dikirim.',
       simulatedOtp: resData.simulatedOtp
     };
   } catch (err: any) {
-    // Offline / Local fallback simulation
-    const localOtp = Math.floor(100000 + Math.random() * 900000).toString();
-    localStorage.setItem(STORAGE_PENDING_REGISTRATION_KEY, JSON.stringify({
-      ...data,
-      otp: localOtp,
-      timestamp: Date.now()
-    }));
-
+    console.error('[Request Registration OTP Error]', err);
     return {
-      success: true,
-      message: `[Simulasi Mode] Kode verifikasi: ${localOtp} (dikirimkan ke email ${data.email})`,
-      simulatedOtp: localOtp
+      success: false,
+      message: `Tidak dapat terhubung ke server: ${err.message || 'Periksa koneksi internet Anda.'}`
     };
   }
 };
 
 /**
- * Step 2: Verify Registration OTP and Create User
+ * Step 2: Verify Registration OTP and Create User in Database
  */
 export const verifyRegistrationOtp = async (email: string, otp: string): Promise<{ 
   success: boolean; 
@@ -272,9 +271,16 @@ export const verifyRegistrationOtp = async (email: string, otp: string): Promise
       body: JSON.stringify({ email: email.trim().toLowerCase(), otp: otp.trim() })
     });
 
-    const resData = await response.json();
+    let resData: any = {};
+    try {
+      resData = await response.json();
+    } catch (_) {}
+
     if (!response.ok) {
-      throw new Error(resData.message || 'Kode verifikasi tidak valid.');
+      return {
+        success: false,
+        message: resData.message || 'Kode verifikasi salah atau sudah kadaluarsa (lebih dari 10 menit).'
+      };
     }
 
     if (resData.user) {
@@ -283,47 +289,15 @@ export const verifyRegistrationOtp = async (email: string, otp: string): Promise
       localStorage.removeItem(STORAGE_PENDING_REGISTRATION_KEY);
       return { success: true, user: resData.user, message: resData.message };
     }
+
+    return { success: false, message: 'Data user tidak diterima dari server.' };
   } catch (err: any) {
-    // Offline fallback verification
-    const pending = localStorage.getItem(STORAGE_PENDING_REGISTRATION_KEY);
-    if (pending) {
-      const pData = JSON.parse(pending);
-      if (pData.email === email.trim().toLowerCase() && pData.otp === otp.trim()) {
-        const targetCompanies: Record<TargetRole, string> = {
-          operator: 'Manufaktur Otomotif & Assembling (Toyota, Astra Group, Yamaha, Honda)',
-          qc: 'Industri Elektronika & Presisi (Epson, Omron, Panasonic, Denso)',
-          maintenance: 'Teknik Otomasi & Alat Berat (Astra Otoparts, Komatsu, Denso)',
-          logistics: 'Logistik & Pergudangan FMCG (Mayora, Indofood, Unilever)'
-        };
-
-        const users = getStoredUsers();
-        const idSuffix = String(users.length + 1).padStart(4, '0');
-        const newUser: RegisteredUser = {
-          id: `SMK-2026-${idSuffix}`,
-          name: pData.name,
-          phone: pData.phone,
-          email: pData.email,
-          school: pData.school || 'SMK Buat Digital',
-          major: pData.major || 'Teknik Mesin',
-          password: pData.password || '123456',
-          targetRole: pData.targetRole,
-          targetCompany: targetCompanies[pData.targetRole as TargetRole],
-          createdAt: new Date().toISOString(),
-          overallStatus: 'Perlu Latihan',
-          completedTestsCount: 0,
-          lastActive: 'Baru saja mendaftar',
-          isAdmin: false
-        };
-
-        saveUser(newUser);
-        setActiveSession(newUser);
-        localStorage.removeItem(STORAGE_PENDING_REGISTRATION_KEY);
-        return { success: true, user: newUser };
-      }
-    }
-    return { success: false, message: err.message || 'Kode verifikasi salah atau kadaluarsa.' };
+    console.error('[Verify Registration OTP Error]', err);
+    return {
+      success: false,
+      message: `Gagal terhubung ke server verifikasi: ${err.message || 'Koneksi terputus.'}`
+    };
   }
-  return { success: false, message: 'Gagal memverifikasi OTP.' };
 };
 
 /**

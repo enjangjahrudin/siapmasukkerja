@@ -466,6 +466,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
     const matchRole = selectedRoleFilter === 'all' || c.targetRole === selectedRoleFilter;
     const matchSearch = (c.name || '').toLowerCase().includes(searchCandidate.toLowerCase()) ||
                         (c.school || '').toLowerCase().includes(searchCandidate.toLowerCase()) ||
+                        (c.npsn || '').toLowerCase().includes(searchCandidate.toLowerCase()) ||
                         (c.major || '').toLowerCase().includes(searchCandidate.toLowerCase()) ||
                         (c.phone || '').toLowerCase().includes(searchCandidate.toLowerCase()) ||
                         (c.id || '').toLowerCase().includes(searchCandidate.toLowerCase());
