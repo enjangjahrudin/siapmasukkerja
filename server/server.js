@@ -776,9 +776,9 @@ app.post('/api/login', async (req, res) => {
     scoreRows.forEach(sr => {
       const details = typeof sr.score_details === 'string' ? JSON.parse(sr.score_details) : sr.score_details;
       if (sr.test_type === 'kraepelin' && !kraepelinScore) kraepelinScore = details;
-      if (sr.test_type === 'qc' && !qcAccuracy) qcAccuracy = details?.accuracy || 90;
-      if (sr.test_type === 'math' && !mathScore) mathScore = details?.score || 85;
-      if (sr.test_type === 'interview' && !interviewScore) interviewScore = details?.probability || 88;
+      if (sr.test_type === 'qc' && qcAccuracy === undefined) qcAccuracy = details?.accuracy !== undefined ? details.accuracy : null;
+      if (sr.test_type === 'math' && mathScore === undefined) mathScore = details?.score !== undefined ? details.score : null;
+      if (sr.test_type === 'interview' && interviewScore === undefined) interviewScore = details?.probability ?? details?.totalAcceptanceProbability ?? null;
     });
 
     res.json({
@@ -922,10 +922,10 @@ app.get(['/api/admin/candidate-report/:userId', '/api/user/my-report/:userId'], 
       }
 
       if (sr.test_type === 'kraepelin' && !kraepelinScore) kraepelinScore = details;
-      if (sr.test_type === 'qc' && qcAccuracy === null) qcAccuracy = details?.accuracy ?? 90;
-      if (sr.test_type === 'math' && mathScore === null) mathScore = details?.score ?? 85;
+      if (sr.test_type === 'qc' && qcAccuracy === null) qcAccuracy = details?.accuracy !== undefined ? details.accuracy : null;
+      if (sr.test_type === 'math' && mathScore === null) mathScore = details?.score !== undefined ? details.score : null;
       if (sr.test_type === 'interview' && interviewScore === null) {
-        interviewScore = details?.probability ?? details?.totalAcceptanceProbability ?? 88;
+        interviewScore = details?.probability ?? details?.totalAcceptanceProbability ?? null;
         interviewRubric = details;
       }
 
@@ -933,19 +933,19 @@ app.get(['/api/admin/candidate-report/:userId', '/api/user/my-report/:userId'], 
         id: `score-${sr.id}`,
         testType: sr.test_type,
         testName: sr.score_summary || sr.test_type,
-        score: details?.score ?? details?.accuracy ?? details?.probability ?? 80,
+        score: details?.score ?? details?.accuracy ?? details?.probability ?? 0,
         completedAt: sr.created_at,
         details
       };
     });
 
-    // Fallback sensible defaults if candidate has not completed specific module yet
     const candidateData = {
       id: u.id,
       name: u.name,
       phone: u.phone,
       email: u.email,
       school: u.school,
+      npsn: u.npsn || undefined,
       major: u.major,
       gender: u.gender || 'Laki-laki',
       height: u.height ? parseFloat(u.height) : undefined,
@@ -956,10 +956,10 @@ app.get(['/api/admin/candidate-report/:userId', '/api/user/my-report/:userId'], 
       targetCompany: u.target_company,
       overallStatus: u.overall_status,
       completedTestsCount: scoreRows.length,
-      kraepelinScore: kraepelinScore || { panker: 15.5, janker: 94.0, grade: 'Baik' },
-      qcAccuracy: qcAccuracy ?? 92,
-      mathScore: mathScore ?? 85,
-      interviewScore: interviewScore ?? 84,
+      kraepelinScore: kraepelinScore || null,
+      qcAccuracy: qcAccuracy !== null ? qcAccuracy : null,
+      mathScore: mathScore !== null ? mathScore : null,
+      interviewScore: interviewScore !== null ? interviewScore : null,
       interviewRubric,
       createdAt: u.created_at,
       lastActive: u.last_active ? new Date(u.last_active).toLocaleString('id-ID') : 'Baru saja',

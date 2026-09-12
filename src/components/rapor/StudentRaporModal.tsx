@@ -92,6 +92,16 @@ export const StudentRaporModal: React.FC<StudentRaporModalProps> = ({
   if (!isOpen || !student) return null;
 
   const current = realtimeData || student;
+  const hasCompletedTests = Boolean(
+    (current.completedTestsCount && current.completedTestsCount > 0) ||
+    (current.testHistory && current.testHistory.length > 0) ||
+    current.kraepelinScore ||
+    (current.qcAccuracy !== undefined && current.qcAccuracy !== null) ||
+    (current.mathScore !== undefined && current.mathScore !== null) ||
+    (current.interviewScore !== undefined && current.interviewScore !== null) ||
+    (current.psychotestScore !== undefined && current.psychotestScore !== null)
+  );
+  const completedCount = current.completedTestsCount || current.testHistory?.length || 0;
   const compositeScore = calculateCompositeScore(current);
   const isLolosUnggul = current.overallStatus === 'Lolos Unggul';
   const isLolosStandar = current.overallStatus === 'Lolos Standar';
@@ -200,22 +210,25 @@ export const StudentRaporModal: React.FC<StudentRaporModalProps> = ({
               <div className="flex items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400">
                 <span>Fisik: <strong className={isDark ? 'text-slate-200' : 'text-slate-700'}>{current.height ? `${current.height}cm` : '-'} / {current.weight ? `${current.weight}kg` : '-'}</strong></span>
                 <span>•</span>
-                <span>Tes: <strong className="text-emerald-500">{current.completedTestsCount || current.testHistory?.length || 1} Modul</strong></span>
+                <span>Tes: <strong className={completedCount > 0 ? "text-emerald-500" : "text-slate-400"}>{completedCount} Modul</strong></span>
               </div>
             </div>
 
             <div className="text-right border-l pl-3 border-slate-200 dark:border-slate-800 shrink-0">
               <span className={`inline-block text-[10px] font-black px-2 py-0.5 rounded-md ${
-                isLolosUnggul 
-                  ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' 
-                  : isLolosStandar
-                    ? 'bg-sky-500/20 text-sky-400 border border-sky-500/30'
-                    : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                !hasCompletedTests
+                  ? 'bg-slate-500/20 text-slate-400 border border-slate-500/30'
+                  : isLolosUnggul 
+                    ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' 
+                    : isLolosStandar
+                      ? 'bg-sky-500/20 text-sky-400 border border-sky-500/30'
+                      : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
               }`}>
-                {current.overallStatus || 'Lolos Standar'}
+                {hasCompletedTests ? (current.overallStatus || 'Lolos Standar') : 'Belum Ada Tes'}
               </span>
               <div className="text-lg font-black text-sky-400 mt-0.5">
-                {compositeScore} <span className="text-[10px] text-slate-400 font-medium">/ 100</span>
+                {hasCompletedTests ? compositeScore : '-'}{' '}
+                <span className="text-[10px] text-slate-400 font-medium">{hasCompletedTests ? '/ 100' : ''}</span>
               </div>
             </div>
           </div>
@@ -240,14 +253,22 @@ export const StudentRaporModal: React.FC<StudentRaporModalProps> = ({
                   <span className="text-sky-400">Ritme</span>
                 </div>
                 <div className="text-lg font-black text-sky-400">
-                  {current.kraepelinScore?.panker || '16.8'} <span className="text-[9px] font-bold text-slate-400">angk/mnt</span>
+                  {current.kraepelinScore?.panker ? (
+                    <>
+                      {current.kraepelinScore.panker} <span className="text-[9px] font-bold text-slate-400">angk/mnt</span>
+                    </>
+                  ) : (
+                    <span className="text-xs font-bold text-slate-400">Belum Tes</span>
+                  )}
                 </div>
                 <div className="text-[10px] flex justify-between text-slate-300">
                   <span>Ketelitian:</span>
-                  <strong className="text-emerald-400">{current.kraepelinScore?.janker ? `${current.kraepelinScore.janker}%` : '95.5%'}</strong>
+                  <strong className={current.kraepelinScore?.janker ? "text-emerald-400" : "text-slate-500"}>
+                    {current.kraepelinScore?.janker ? `${current.kraepelinScore.janker}%` : '-'}
+                  </strong>
                 </div>
                 <div className="text-[9px] text-slate-400 pt-0.5 border-t border-slate-800/60 truncate">
-                  Grade: <strong className="text-emerald-400">{current.kraepelinScore?.grade || 'Baik (Lolos Standar)'}</strong>
+                  Grade: <strong className={current.kraepelinScore?.grade ? "text-emerald-400" : "text-slate-500"}>{current.kraepelinScore?.grade || 'Belum Diuji'}</strong>
                 </div>
               </div>
 
@@ -260,14 +281,22 @@ export const StudentRaporModal: React.FC<StudentRaporModalProps> = ({
                   <span className="text-emerald-400">Presisi</span>
                 </div>
                 <div className="text-lg font-black text-emerald-400">
-                  {current.qcAccuracy ? `${current.qcAccuracy}%` : '92%'}
+                  {current.qcAccuracy !== undefined && current.qcAccuracy !== null ? (
+                    `${current.qcAccuracy}%`
+                  ) : (
+                    <span className="text-xs font-bold text-slate-400">Belum Tes</span>
+                  )}
                 </div>
                 <div className="text-[10px] flex justify-between text-slate-300">
                   <span>Cacat (NG):</span>
-                  <strong className="text-emerald-400">Presisi Tinggi</strong>
+                  <strong className={current.qcAccuracy !== undefined && current.qcAccuracy !== null ? "text-emerald-400" : "text-slate-500"}>
+                    {current.qcAccuracy !== undefined && current.qcAccuracy !== null ? (current.qcAccuracy >= 85 ? 'Presisi Tinggi' : 'Standar') : '-'}
+                  </strong>
                 </div>
                 <div className="text-[9px] text-slate-400 pt-0.5 border-t border-slate-800/60 truncate">
-                  Standar: <strong>Lolos QC</strong>
+                  Standar: <strong className={current.qcAccuracy !== undefined && current.qcAccuracy !== null ? "text-slate-200" : "text-slate-500"}>
+                    {current.qcAccuracy !== undefined && current.qcAccuracy !== null ? 'Lolos QC' : 'Belum Diuji'}
+                  </strong>
                 </div>
               </div>
 
@@ -280,14 +309,24 @@ export const StudentRaporModal: React.FC<StudentRaporModalProps> = ({
                   <span className="text-amber-400">Hitung</span>
                 </div>
                 <div className="text-lg font-black text-amber-400">
-                  {current.mathScore || 85} <span className="text-[9px] font-bold text-slate-400">/ 100</span>
+                  {current.mathScore !== undefined && current.mathScore !== null ? (
+                    <>
+                      {current.mathScore} <span className="text-[9px] font-bold text-slate-400">/ 100</span>
+                    </>
+                  ) : (
+                    <span className="text-xs font-bold text-slate-400">Belum Tes</span>
+                  )}
                 </div>
                 <div className="text-[10px] flex justify-between text-slate-300">
                   <span>Perkalian 2m:</span>
-                  <strong className="text-sky-400">{current.multiplicationScore?.accuracy ? `${current.multiplicationScore.accuracy}%` : '96%'}</strong>
+                  <strong className={current.multiplicationScore?.accuracy ? "text-sky-400" : "text-slate-500"}>
+                    {current.multiplicationScore?.accuracy ? `${current.multiplicationScore.accuracy}%` : '-'}
+                  </strong>
                 </div>
                 <div className="text-[9px] text-slate-400 pt-0.5 border-t border-slate-800/60 truncate">
-                  Kecepatan: <strong>Sangat Cepat</strong>
+                  Kecepatan: <strong className={current.mathScore !== undefined && current.mathScore !== null ? "text-slate-200" : "text-slate-500"}>
+                    {current.mathScore !== undefined && current.mathScore !== null ? 'Teruji' : 'Belum Diuji'}
+                  </strong>
                 </div>
               </div>
 
@@ -300,14 +339,24 @@ export const StudentRaporModal: React.FC<StudentRaporModalProps> = ({
                   <span className="text-purple-400">SOP</span>
                 </div>
                 <div className="text-lg font-black text-purple-400">
-                  {current.psychotestScore || 88} <span className="text-[9px] font-bold text-slate-400">/ 100</span>
+                  {current.psychotestScore !== undefined && current.psychotestScore !== null ? (
+                    <>
+                      {current.psychotestScore} <span className="text-[9px] font-bold text-slate-400">/ 100</span>
+                    </>
+                  ) : (
+                    <span className="text-xs font-bold text-slate-400">Belum Tes</span>
+                  )}
                 </div>
                 <div className="text-[10px] flex justify-between text-slate-300">
                   <span>Aturan K3:</span>
-                  <strong className="text-purple-400">Disiplin</strong>
+                  <strong className={current.psychotestScore !== undefined && current.psychotestScore !== null ? "text-purple-400" : "text-slate-500"}>
+                    {current.psychotestScore !== undefined && current.psychotestScore !== null ? 'Disiplin' : '-'}
+                  </strong>
                 </div>
                 <div className="text-[9px] text-slate-400 pt-0.5 border-t border-slate-800/60 truncate">
-                  Standar: <strong>SOP Industri</strong>
+                  Standar: <strong className={current.psychotestScore !== undefined && current.psychotestScore !== null ? "text-slate-200" : "text-slate-500"}>
+                    {current.psychotestScore !== undefined && current.psychotestScore !== null ? 'SOP Industri' : 'Belum Diuji'}
+                  </strong>
                 </div>
               </div>
 
@@ -322,18 +371,32 @@ export const StudentRaporModal: React.FC<StudentRaporModalProps> = ({
                 <div className="flex items-baseline justify-between">
                   <div className="flex items-baseline gap-1.5">
                     <span className="text-lg font-black text-emerald-400">
-                      {current.interviewScore ? `${current.interviewScore}%` : '84%'}
+                      {current.interviewScore !== undefined && current.interviewScore !== null ? (
+                        `${current.interviewScore}%`
+                      ) : (
+                        <span className="text-xs font-bold text-slate-400">Belum Tes</span>
+                      )}
                     </span>
-                    <span className="text-[10px] text-slate-400">Keyakinan Asesor</span>
+                    <span className="text-[10px] text-slate-400">
+                      {current.interviewScore !== undefined && current.interviewScore !== null ? 'Keyakinan Asesor' : ''}
+                    </span>
                   </div>
-                  <span className="text-[9px] text-emerald-500 font-bold">Teruji STAR</span>
+                  {current.interviewScore !== undefined && current.interviewScore !== null && (
+                    <span className="text-[9px] text-emerald-500 font-bold">Teruji STAR</span>
+                  )}
                 </div>
-                <div className="grid grid-cols-4 gap-1 text-[9px] font-bold text-center">
-                  <div className="py-1 px-0.5 rounded bg-slate-800/60 text-slate-300 truncate">STAR: 85%</div>
-                  <div className="py-1 px-0.5 rounded bg-slate-800/60 text-slate-300 truncate">Vokal: 88%</div>
-                  <div className="py-1 px-0.5 rounded bg-slate-800/60 text-slate-300 truncate">Etika: 95%</div>
-                  <div className="py-1 px-0.5 rounded bg-slate-800/60 text-slate-300 truncate">Fit: 85%</div>
-                </div>
+                {current.interviewScore !== undefined && current.interviewScore !== null ? (
+                  <div className="grid grid-cols-4 gap-1 text-[9px] font-bold text-center">
+                    <div className="py-1 px-0.5 rounded bg-slate-800/60 text-slate-300 truncate">STAR: {current.interviewRubric?.starScore || 85}%</div>
+                    <div className="py-1 px-0.5 rounded bg-slate-800/60 text-slate-300 truncate">Vokal: {current.interviewRubric?.vocalScore || 88}%</div>
+                    <div className="py-1 px-0.5 rounded bg-slate-800/60 text-slate-300 truncate">Etika: {current.interviewRubric?.ethicsScore || 95}%</div>
+                    <div className="py-1 px-0.5 rounded bg-slate-800/60 text-slate-300 truncate">Fit: {current.interviewRubric?.jobFitScore || 85}%</div>
+                  </div>
+                ) : (
+                  <div className="py-1.5 px-2 rounded bg-slate-800/40 text-slate-500 text-[10px] text-center">
+                    Simulasi wawancara AI belum dilaksanakan
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -346,9 +409,15 @@ export const StudentRaporModal: React.FC<StudentRaporModalProps> = ({
               <Sparkles className="w-3.5 h-3.5" />
               <span>Rekomendasi Penempatan Kerja:</span>
             </div>
-            <p className={`text-[11px] leading-relaxed ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
-              Kandidat memiliki stamina kerja dan konsistensi hitung di atas ambang batas industri manufaktur. Direkomendasikan untuk posisi <strong>{current.targetRole === 'qc' ? 'Quality Control (QC Inspector)' : current.targetRole === 'maintenance' ? 'Maintenance Operator & Teknisi Mesin' : 'Operator Line Perakitan / Assembly'}</strong> di {current.targetCompany || 'perusahaan mitra BKK'}.
-            </p>
+            {hasCompletedTests ? (
+              <p className={`text-[11px] leading-relaxed ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+                Kandidat telah menyelesaikan modul asesmen. Direkomendasikan untuk posisi <strong>{current.targetRole === 'qc' ? 'Quality Control (QC Inspector)' : current.targetRole === 'maintenance' ? 'Maintenance Operator & Teknisi Mesin' : 'Operator Line Perakitan / Assembly'}</strong> di {current.targetCompany || 'perusahaan mitra BKK'}.
+              </p>
+            ) : (
+              <p className={`text-[11px] leading-relaxed text-slate-400 italic`}>
+                Siswa baru mendaftar dan belum menyelesaikan tes. Silakan kerjakan modul uji (Kraepelin, QC, Matematika, Psikotes, atau AI Interview) pada menu Tes untuk menerbitkan analisis kompetensi dan rekomendasi penempatan kerja industri.
+              </p>
+            )}
           </div>
 
           {/* Status Validasi Resmi BKK & Platform Asesor (Read-only untuk Siswa) */}

@@ -2106,14 +2106,22 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
                       <span className="text-sky-500 font-extrabold">Fisik & Ritme</span>
                     </div>
                     <div className="text-2xl font-black text-sky-400">
-                      {cand.kraepelinScore?.panker || '16.5'} <span className="text-[11px] font-bold text-slate-400">angk/mnt</span>
+                      {cand.kraepelinScore?.panker ? (
+                        <>
+                          {cand.kraepelinScore.panker} <span className="text-[11px] font-bold text-slate-400">angk/mnt</span>
+                        </>
+                      ) : (
+                        <span className="text-sm font-bold text-slate-400">Belum Tes</span>
+                      )}
                     </div>
                     <div className="text-[11px] flex justify-between font-semibold text-slate-300">
                       <span>Ketelitian:</span>
-                      <strong className="text-emerald-400">{cand.kraepelinScore?.janker ? `${cand.kraepelinScore.janker}%` : '95.2%'}</strong>
+                      <strong className={cand.kraepelinScore?.janker ? "text-emerald-400" : "text-slate-500"}>
+                        {cand.kraepelinScore?.janker ? `${cand.kraepelinScore.janker}%` : '-'}
+                      </strong>
                     </div>
                     <div className="text-[10px] text-slate-400 pt-0.5 border-t border-slate-800/60 truncate">
-                      Grade: <strong className="text-emerald-400">{cand.kraepelinScore?.grade || 'Sangat Baik'}</strong>
+                      Grade: <strong className={cand.kraepelinScore?.grade ? "text-emerald-400" : "text-slate-500"}>{cand.kraepelinScore?.grade || 'Belum Diuji'}</strong>
                     </div>
                   </div>
 
@@ -2126,14 +2134,22 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
                       <span className="text-emerald-500 font-extrabold">Speed Match</span>
                     </div>
                     <div className="text-2xl font-black text-emerald-400">
-                      {cand.qcAccuracy ? `${cand.qcAccuracy}%` : '94%'}
+                      {cand.qcAccuracy !== undefined && cand.qcAccuracy !== null ? (
+                        `${cand.qcAccuracy}%`
+                      ) : (
+                        <span className="text-sm font-bold text-slate-400">Belum Tes</span>
+                      )}
                     </div>
                     <div className="text-[11px] flex justify-between font-semibold text-slate-300">
                       <span>Deteksi Cacat (NG):</span>
-                      <strong className="text-emerald-400">Presisi Tinggi</strong>
+                      <strong className={cand.qcAccuracy !== undefined && cand.qcAccuracy !== null ? "text-emerald-400" : "text-slate-500"}>
+                        {cand.qcAccuracy !== undefined && cand.qcAccuracy !== null ? (cand.qcAccuracy >= 85 ? 'Presisi Tinggi' : 'Standar') : '-'}
+                      </strong>
                     </div>
                     <div className="text-[10px] text-slate-400 pt-0.5 border-t border-slate-800/60 truncate">
-                      Standar: <strong>Lolos Kualifikasi QC</strong>
+                      Standar: <strong className={cand.qcAccuracy !== undefined && cand.qcAccuracy !== null ? "text-slate-200" : "text-slate-500"}>
+                        {cand.qcAccuracy !== undefined && cand.qcAccuracy !== null ? 'Lolos Kualifikasi QC' : 'Belum Diuji'}
+                      </strong>
                     </div>
                   </div>
 
@@ -2146,14 +2162,24 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
                       <span className="text-amber-500 font-extrabold">Hitung Cepat</span>
                     </div>
                     <div className="text-2xl font-black text-amber-400">
-                      {cand.mathScore || 88} <span className="text-[11px] font-bold text-slate-400">/ 100</span>
+                      {cand.mathScore !== undefined && cand.mathScore !== null ? (
+                        <>
+                          {cand.mathScore} <span className="text-[11px] font-bold text-slate-400">/ 100</span>
+                        </>
+                      ) : (
+                        <span className="text-sm font-bold text-slate-400">Belum Tes</span>
+                      )}
                     </div>
                     <div className="text-[11px] flex justify-between font-semibold text-slate-300">
                       <span>Perkalian 2 Menit:</span>
-                      <strong className="text-sky-400">{cand.multiplicationScore?.accuracy ? `${cand.multiplicationScore.accuracy}%` : '96%'}</strong>
+                      <strong className={cand.multiplicationScore?.accuracy ? "text-sky-400" : "text-slate-500"}>
+                        {cand.multiplicationScore?.accuracy ? `${cand.multiplicationScore.accuracy}%` : '-'}
+                      </strong>
                     </div>
                     <div className="text-[10px] text-slate-400 pt-0.5 border-t border-slate-800/60 truncate">
-                      Kemampuan hitung: <strong>Sangat Cepat</strong>
+                      Kemampuan hitung: <strong className={cand.mathScore !== undefined && cand.mathScore !== null ? "text-slate-200" : "text-slate-500"}>
+                        {cand.mathScore !== undefined && cand.mathScore !== null ? 'Teruji' : 'Belum Diuji'}
+                      </strong>
                     </div>
                   </div>
 
@@ -2166,14 +2192,24 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
                       <span className="text-purple-500 font-extrabold">Penalaran SOP</span>
                     </div>
                     <div className="text-2xl font-black text-purple-400">
-                      {cand.psychotestScore || 88} <span className="text-[11px] font-bold text-slate-400">/ 100</span>
+                      {cand.psychotestScore !== undefined && cand.psychotestScore !== null ? (
+                        <>
+                          {cand.psychotestScore} <span className="text-[11px] font-bold text-slate-400">/ 100</span>
+                        </>
+                      ) : (
+                        <span className="text-sm font-bold text-slate-400">Belum Tes</span>
+                      )}
                     </div>
                     <div className="text-[11px] flex justify-between font-semibold text-slate-300">
                       <span>Deduksi Aturan K3:</span>
-                      <strong className="text-purple-400">Disiplin Tinggi</strong>
+                      <strong className={cand.psychotestScore !== undefined && cand.psychotestScore !== null ? "text-purple-400" : "text-slate-500"}>
+                        {cand.psychotestScore !== undefined && cand.psychotestScore !== null ? 'Disiplin Tinggi' : '-'}
+                      </strong>
                     </div>
                     <div className="text-[10px] text-slate-400 pt-0.5 border-t border-slate-800/60 truncate">
-                      Kepatuhan SOP: <strong>Sesuai Standar</strong>
+                      Kepatuhan SOP: <strong className={cand.psychotestScore !== undefined && cand.psychotestScore !== null ? "text-slate-200" : "text-slate-500"}>
+                        {cand.psychotestScore !== undefined && cand.psychotestScore !== null ? 'Sesuai Standar' : 'Belum Diuji'}
+                      </strong>
                     </div>
                   </div>
 
@@ -2187,16 +2223,28 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
                     </div>
                     <div className="flex items-baseline gap-2">
                       <span className="text-2xl font-black text-emerald-400">
-                        {cand.interviewScore ? `${cand.interviewScore}%` : '86%'}
+                        {cand.interviewScore !== undefined && cand.interviewScore !== null ? (
+                          `${cand.interviewScore}%`
+                        ) : (
+                          <span className="text-sm font-bold text-slate-400">Belum Tes</span>
+                        )}
                       </span>
-                      <span className="text-[11px] text-slate-400">Tingkat Keyakinan Tim Asesor</span>
+                      <span className="text-[11px] text-slate-400">
+                        {cand.interviewScore !== undefined && cand.interviewScore !== null ? 'Tingkat Keyakinan Tim Asesor' : ''}
+                      </span>
                     </div>
-                    <div className="grid grid-cols-4 gap-1 text-[10px] pt-1 font-bold text-center">
-                      <div className="p-1 rounded bg-slate-800/60 text-slate-300">STAR: 85%</div>
-                      <div className="p-1 rounded bg-slate-800/60 text-slate-300">Artikulasi: 88%</div>
-                      <div className="p-1 rounded bg-slate-800/60 text-slate-300">Etika: 95%</div>
-                      <div className="p-1 rounded bg-slate-800/60 text-slate-300">Job Fit: 85%</div>
-                    </div>
+                    {cand.interviewScore !== undefined && cand.interviewScore !== null ? (
+                      <div className="grid grid-cols-4 gap-1 text-[10px] pt-1 font-bold text-center">
+                        <div className="p-1 rounded bg-slate-800/60 text-slate-300">STAR: {cand.interviewRubric?.starScore || 85}%</div>
+                        <div className="p-1 rounded bg-slate-800/60 text-slate-300">Artikulasi: {cand.interviewRubric?.vocalScore || 88}%</div>
+                        <div className="p-1 rounded bg-slate-800/60 text-slate-300">Etika: {cand.interviewRubric?.ethicsScore || 95}%</div>
+                        <div className="p-1 rounded bg-slate-800/60 text-slate-300">Job Fit: {cand.interviewRubric?.jobFitScore || 85}%</div>
+                      </div>
+                    ) : (
+                      <div className="py-1 px-2 rounded bg-slate-800/40 text-slate-500 text-[10px] text-center">
+                        Simulasi wawancara AI belum dilaksanakan
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

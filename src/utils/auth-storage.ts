@@ -37,6 +37,7 @@ export interface RegisteredUser {
   spatialScore?: number;
   arithmeticScore?: number;
   interviewScore?: number;
+  interviewRubric?: { starScore?: number; vocalScore?: number; ethicsScore?: number; jobFitScore?: number; [key: string]: any };
   interviewTokens?: number; // Saldo Kredit / Token Simulasi AI Interview
   averageAccuracy?: number;
   passingPrediction?: number;
