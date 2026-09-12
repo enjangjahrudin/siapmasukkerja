@@ -16,20 +16,33 @@ function formatIndonesianDate(dateStr?: string | Date): string {
 export function calculateCompositeScore(user: RegisteredUser): number {
   const parts: { score: number; weight: number }[] = [];
 
+  // 1. Tes Kraepelin & Pauli (Ritme & Ketelitian Fisik)
   if (user.kraepelinScore?.janker !== undefined && user.kraepelinScore?.janker !== null) {
-    parts.push({ score: Number(user.kraepelinScore.janker), weight: 0.25 });
+    parts.push({ score: Number(user.kraepelinScore.janker), weight: 0.20 });
   }
+  // 2. Ketelitian Kode QC (Speed Match & NG Reject)
   if (user.qcAccuracy !== undefined && user.qcAccuracy !== null) {
-    parts.push({ score: Number(user.qcAccuracy), weight: 0.25 });
+    parts.push({ score: Number(user.qcAccuracy), weight: 0.20 });
   }
+  // 3. Matematika Dasar (Kabataku, Persen & Aljabar)
   if (user.mathScore !== undefined && user.mathScore !== null) {
-    parts.push({ score: Number(user.mathScore), weight: 0.20 });
+    parts.push({ score: Number(user.mathScore), weight: 0.15 });
   }
-  if (user.interviewScore !== undefined && user.interviewScore !== null) {
-    parts.push({ score: Number(user.interviewScore), weight: 0.30 });
+  // 4. Tabel Perkalian Kilat (Matriks 120 Detik)
+  if (user.multiplicationScore?.accuracy !== undefined && user.multiplicationScore?.accuracy !== null) {
+    parts.push({ score: Number(user.multiplicationScore.accuracy), weight: 0.15 });
   }
+  // 5. Psikotes & Penalaran (Logika, Analogi & Silogisme)
   if (user.psychotestScore !== undefined && user.psychotestScore !== null) {
-    parts.push({ score: Number(user.psychotestScore), weight: 0.20 });
+    parts.push({ score: Number(user.psychotestScore), weight: 0.15 });
+  }
+  // 6. Mekanika Bennett (Roda Gigi, Katrol & Tuas)
+  if (user.mechanicalScore !== undefined && user.mechanicalScore !== null) {
+    parts.push({ score: Number(user.mechanicalScore), weight: 0.15 });
+  }
+  // 7. Interview AI HRD (Opsional/Bonus)
+  if (user.interviewScore !== undefined && user.interviewScore !== null) {
+    parts.push({ score: Number(user.interviewScore), weight: 0.15 });
   }
 
   if (parts.length === 0) {
@@ -120,29 +133,45 @@ export function generateIndividualStudentReportHtml(student: RegisteredUser, sig
     student.kraepelinScore ||
     (student.qcAccuracy !== undefined && student.qcAccuracy !== null) ||
     (student.mathScore !== undefined && student.mathScore !== null) ||
-    (student.interviewScore !== undefined && student.interviewScore !== null) ||
-    (student.psychotestScore !== undefined && student.psychotestScore !== null)
+    (student.multiplicationScore?.accuracy !== undefined && student.multiplicationScore?.accuracy !== null) ||
+    (student.psychotestScore !== undefined && student.psychotestScore !== null) ||
+    (student.mechanicalScore !== undefined && student.mechanicalScore !== null) ||
+    (student.interviewScore !== undefined && student.interviewScore !== null)
   );
 
   const compositeScore = calculateCompositeScore(student);
   const printDate = formatIndonesianDate();
   const documentId = `RAPOR-BKK/${student.id}/${new Date().getFullYear()}`;
 
+  // 1. Kraepelin & Pauli
   const kraepelinPanker = student.kraepelinScore?.panker ? `${student.kraepelinScore.panker} angka/menit` : '-';
   const kraepelinJanker = student.kraepelinScore?.janker ? `${student.kraepelinScore.janker}%` : '-';
   const kraepelinGrade = student.kraepelinScore?.grade || (hasCompletedTests ? 'Belum Diuji' : 'Belum Mengikuti Tes');
 
+  // 2. Ketelitian Kode QC
   const qcAccuracy = student.qcAccuracy !== undefined && student.qcAccuracy !== null ? `${student.qcAccuracy}%` : '-';
   const qcStatus = student.qcAccuracy !== undefined && student.qcAccuracy !== null ? (student.qcAccuracy >= 85 ? 'Memenuhi Standar Inspeksi' : 'Perlu Peningkatan Akurasi') : (hasCompletedTests ? 'Belum Diuji' : 'Belum Mengikuti Tes');
 
+  // 3. Matematika Dasar
   const mathScore = student.mathScore !== undefined && student.mathScore !== null ? `${student.mathScore} / 100` : '-';
-  const mathStatus = student.mathScore !== undefined && student.mathScore !== null ? (student.mathScore >= 75 ? 'Logika Hitung Baik' : 'Perlu Latihan Hitung') : (hasCompletedTests ? 'Belum Diuji' : 'Belum Mengikuti Tes');
+  const mathStatus = student.mathScore !== undefined && student.mathScore !== null ? (student.mathScore >= 70 ? 'Logika Hitung Baik' : 'Perlu Latihan Hitung') : (hasCompletedTests ? 'Belum Diuji' : 'Belum Mengikuti Tes');
 
+  // 4. Tabel Perkalian Kilat
+  const multAcc = student.multiplicationScore?.accuracy !== undefined && student.multiplicationScore?.accuracy !== null ? `${student.multiplicationScore.accuracy}%` : '-';
+  const multDetail = student.multiplicationScore?.completed ? `${student.multiplicationScore.correct || 0}/${student.multiplicationScore.completed} benar` : '';
+  const multStatus = student.multiplicationScore?.accuracy !== undefined && student.multiplicationScore?.accuracy !== null ? (student.multiplicationScore.accuracy >= 80 ? 'Hitung Kilat Prima' : 'Perlu Pembiasaan') : (hasCompletedTests ? 'Belum Diuji' : 'Belum Mengikuti Tes');
+
+  // 5. Psikotes & Penalaran
   const psychotestScore = student.psychotestScore !== undefined && student.psychotestScore !== null ? `${student.psychotestScore} / 100` : '-';
-  const psychotestStatus = student.psychotestScore !== undefined && student.psychotestScore !== null ? (student.psychotestScore >= 75 ? 'Kepatuhan SOP Prima' : 'Perlu Pembinaan SOP') : (hasCompletedTests ? 'Belum Diuji' : 'Belum Mengikuti Tes');
+  const psychotestStatus = student.psychotestScore !== undefined && student.psychotestScore !== null ? (student.psychotestScore >= 70 ? 'Kepatuhan SOP Prima' : 'Perlu Pembinaan SOP') : (hasCompletedTests ? 'Belum Diuji' : 'Belum Mengikuti Tes');
 
+  // 6. Mekanika Bennett
+  const mechanicalScore = student.mechanicalScore !== undefined && student.mechanicalScore !== null ? `${student.mechanicalScore} / 100` : '-';
+  const mechanicalStatus = student.mechanicalScore !== undefined && student.mechanicalScore !== null ? (student.mechanicalScore >= 70 ? 'Pemahaman Mekanik Siap' : 'Perlu Pemahaman Tuas/Katrol') : (hasCompletedTests ? 'Belum Diuji' : 'Belum Mengikuti Tes');
+
+  // 7. Interview (Opsional)
   const interviewScore = student.interviewScore !== undefined && student.interviewScore !== null ? `${student.interviewScore}%` : '-';
-  const interviewStatus = student.interviewScore !== undefined && student.interviewScore !== null ? (student.interviewScore >= 75 ? 'Siap Menghadapi HRD Pabrik' : 'Perlu Latihan Wawancara') : (hasCompletedTests ? 'Belum Diuji' : 'Belum Mengikuti Tes');
+  const interviewStatus = student.interviewScore !== undefined && student.interviewScore !== null ? (student.interviewScore >= 70 ? 'Siap Interview HRD' : 'Perlu Latihan Wawancara') : (hasCompletedTests ? 'Belum Diuji' : 'Belum Mengikuti Tes');
 
   const displayStatus = hasCompletedTests ? student.overallStatus : 'Belum Ada Data Tes';
   const isLolosUnggul = displayStatus === 'Lolos Unggul';
@@ -151,11 +180,11 @@ export function generateIndividualStudentReportHtml(student: RegisteredUser, sig
   const statusBg = !hasCompletedTests ? '#f8fafc' : isLolosUnggul ? '#ecfdf5' : isLolosStandar ? '#f0f9ff' : '#fffbeb';
 
   return `
-    <div style="font-family: 'Segoe UI', Arial, Helvetica, sans-serif; color: #0f172a; font-size: 8.5pt; width: 794px; height: 1122px; box-sizing: border-box; background: #ffffff; padding: 20px 24px 54px 24px; position: relative; overflow: hidden;">
+    <div style="font-family: 'Segoe UI', Arial, Helvetica, sans-serif; color: #0f172a; font-size: 8pt; width: 794px; height: 1122px; box-sizing: border-box; background: #ffffff; padding: 18px 22px 50px 22px; position: relative; overflow: hidden;">
       
       <!-- KOP RESMI -->
-      <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 2.5px double #0f172a; padding-bottom: 5px; margin-bottom: 7px;">
-        <svg style="width: 48px; height: 48px; flex-shrink: 0;" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 2px double #0f172a; padding-bottom: 4px; margin-bottom: 6px;">
+        <svg style="width: 44px; height: 44px; flex-shrink: 0;" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
           <rect width="48" height="48" rx="10" fill="#090d16"/>
           <path d="M10 34 L16 34 L16 25 L10 27 Z" fill="#38bdf8"/>
           <path d="M19 34 L25 34 L25 18 L19 21 Z" fill="#0ea5e9"/>
@@ -163,155 +192,178 @@ export function generateIndividualStudentReportHtml(student: RegisteredUser, sig
           <polygon points="40,8 43,11 40,14 37,11" fill="#34d399"/>
         </svg>
         <div style="flex: 1; text-align: center; padding: 0 10px;">
-          <div style="font-size: 7.5pt; font-weight: 800; letter-spacing: 1px; color: #0284c7; text-transform: uppercase;">
-            PLATFORM ASESMEN KESIAPAN KERJA & SELEKSI INDUSTRI • BUATDIGITAL.ID
+          <div style="font-size: 7.2pt; font-weight: 800; letter-spacing: 1px; color: #0284c7; text-transform: uppercase;">
+            PLATFORM ASESMEN KESIAPAN KERJA &amp; SELEKSI INDUSTRI • BUATDIGITAL.ID
           </div>
-          <div style="font-size: 12.5pt; font-weight: 900; color: #0f172a; margin: 1px 0; letter-spacing: 0.3px;">
+          <div style="font-size: 11.5pt; font-weight: 900; color: #0f172a; margin: 1px 0; letter-spacing: 0.3px;">
             SIAP MASUK KERJA • PUSAT ASESMEN PSIKOMETRIK
           </div>
-          <p style="font-size: 7pt; color: #475569; margin: 0; line-height: 1.25;">
-            Platform Uji Kompetensi Kesiapan Kerja, Psikometrik & Simulasi Interview Standar PT Toyota, PT Astra, PT Epson, PT Yamaha Motor Mfg<br/>
+          <p style="font-size: 6.8pt; color: #475569; margin: 0; line-height: 1.2;">
+            Platform Uji Kompetensi Kesiapan Kerja, Psikometrik &amp; Simulasi Interview Standar PT Toyota, PT Astra, PT Epson, PT Yamaha Motor Mfg<br/>
             Website: siapkerja.buatdigital.id dan www.buatdigital.id • Email: info@buatdigital.id
           </p>
         </div>
-        <div style="text-align: right; font-size: 6.8pt; color: #64748b; font-weight: 600; min-width: 85px; flex-shrink: 0;">
+        <div style="text-align: right; font-size: 6.5pt; color: #64748b; font-weight: 600; min-width: 80px; flex-shrink: 0;">
           <strong style="color: #0f172a;">KODE DOKUMEN:</strong><br/>
           ${documentId}
         </div>
       </div>
 
       <!-- JUDUL DOKUMEN -->
-      <div style="text-align: center; margin-bottom: 7px;">
-        <h1 style="font-size: 11pt; font-weight: 900; text-transform: uppercase; letter-spacing: 0.5px; color: #0f172a; margin: 0;">
+      <div style="text-align: center; margin-bottom: 5px;">
+        <h1 style="font-size: 10.5pt; font-weight: 900; text-transform: uppercase; letter-spacing: 0.5px; color: #0f172a; margin: 0;">
           RAPOR HASIL SELEKSI PSIKOMETRIK &amp; KESIAPAN KERJA
         </h1>
-        <div style="font-size: 7.5pt; color: #64748b; margin-top: 1px; font-weight: 600;">
+        <div style="font-size: 7pt; color: #64748b; margin-top: 1px; font-weight: 600;">
           Nomor Registrasi Asesmen: ${student.id} • Diterbitkan: ${printDate}
         </div>
       </div>
 
       <!-- BIODATA SISWA -->
-      <table style="width: 100%; border-collapse: collapse; margin-bottom: 7px; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 4px;">
+      <table style="width: 100%; border-collapse: collapse; margin-bottom: 5px; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 4px;">
         <tr>
-          <td style="padding: 3px 6px; font-size: 8pt; color: #475569; font-weight: 600; width: 18%;">Nama Lengkap</td>
-          <td style="padding: 3px 2px; font-size: 8pt; color: #64748b; width: 2%;">:</td>
-          <td style="padding: 3px 6px; font-size: 8pt; color: #0f172a; font-weight: 800; width: 30%;">${student.name}</td>
-          <td style="padding: 3px 6px; font-size: 8pt; color: #475569; font-weight: 600; width: 18%;">Asal Sekolah</td>
-          <td style="padding: 3px 2px; font-size: 8pt; color: #64748b; width: 2%;">:</td>
-          <td style="padding: 3px 6px; font-size: 8pt; color: #0f172a; font-weight: 800; width: 30%;">${student.school}</td>
+          <td style="padding: 2.5px 5px; font-size: 7.5pt; color: #475569; font-weight: 600; width: 18%;">Nama Lengkap</td>
+          <td style="padding: 2.5px 2px; font-size: 7.5pt; color: #64748b; width: 2%;">:</td>
+          <td style="padding: 2.5px 5px; font-size: 7.5pt; color: #0f172a; font-weight: 800; width: 30%;">${student.name}</td>
+          <td style="padding: 2.5px 5px; font-size: 7.5pt; color: #475569; font-weight: 600; width: 18%;">Asal Sekolah</td>
+          <td style="padding: 2.5px 2px; font-size: 7.5pt; color: #64748b; width: 2%;">:</td>
+          <td style="padding: 2.5px 5px; font-size: 7.5pt; color: #0f172a; font-weight: 800; width: 30%;">${student.school}</td>
         </tr>
         <tr>
-          <td style="padding: 3px 6px; font-size: 8pt; color: #475569; font-weight: 600;">NIS / ID Peserta</td>
-          <td style="padding: 3px 2px; font-size: 8pt; color: #64748b;">:</td>
-          <td style="padding: 3px 6px; font-size: 8pt; color: #0f172a; font-weight: 800;">${student.id}</td>
-          <td style="padding: 3px 6px; font-size: 8pt; color: #475569; font-weight: 600;">Kompetensi Keahlian</td>
-          <td style="padding: 3px 2px; font-size: 8pt; color: #64748b;">:</td>
-          <td style="padding: 3px 6px; font-size: 8pt; color: #0f172a; font-weight: 800;">${student.major}</td>
+          <td style="padding: 2.5px 5px; font-size: 7.5pt; color: #475569; font-weight: 600;">NIS / ID Peserta</td>
+          <td style="padding: 2.5px 2px; font-size: 7.5pt; color: #64748b;">:</td>
+          <td style="padding: 2.5px 5px; font-size: 7.5pt; color: #0f172a; font-weight: 800;">${student.id}</td>
+          <td style="padding: 2.5px 5px; font-size: 7.5pt; color: #475569; font-weight: 600;">Kompetensi Keahlian</td>
+          <td style="padding: 2.5px 2px; font-size: 7.5pt; color: #64748b;">:</td>
+          <td style="padding: 2.5px 5px; font-size: 7.5pt; color: #0f172a; font-weight: 800;">${student.major}</td>
         </tr>
         <tr>
-          <td style="padding: 3px 6px; font-size: 8pt; color: #475569; font-weight: 600;">No. WhatsApp</td>
-          <td style="padding: 3px 2px; font-size: 8pt; color: #64748b;">:</td>
-          <td style="padding: 3px 6px; font-size: 8pt; color: #0f172a; font-weight: 800;">${student.phone}</td>
-          <td style="padding: 3px 6px; font-size: 8pt; color: #475569; font-weight: 600;">Target Posisi</td>
-          <td style="padding: 3px 2px; font-size: 8pt; color: #64748b;">:</td>
-          <td style="padding: 3px 6px; font-size: 8pt; color: #0f172a; font-weight: 800; text-transform: capitalize;">${student.targetRole}</td>
+          <td style="padding: 2.5px 5px; font-size: 7.5pt; color: #475569; font-weight: 600;">No. WhatsApp</td>
+          <td style="padding: 2.5px 2px; font-size: 7.5pt; color: #64748b;">:</td>
+          <td style="padding: 2.5px 5px; font-size: 7.5pt; color: #0f172a; font-weight: 800;">${student.phone}</td>
+          <td style="padding: 2.5px 5px; font-size: 7.5pt; color: #475569; font-weight: 600;">Target Posisi</td>
+          <td style="padding: 2.5px 2px; font-size: 7.5pt; color: #64748b;">:</td>
+          <td style="padding: 2.5px 5px; font-size: 7.5pt; color: #0f172a; font-weight: 800; text-transform: capitalize;">${student.targetRole}</td>
         </tr>
         <tr>
-          <td style="padding: 3px 6px; font-size: 8pt; color: #475569; font-weight: 600;">Perusahaan Sasaran</td>
-          <td style="padding: 3px 2px; font-size: 8pt; color: #64748b;">:</td>
-          <td style="padding: 3px 6px; font-size: 8pt; color: #0f172a; font-weight: 800;">${student.targetCompany || 'Industri Manufaktur Otomotif / Elektronika'}</td>
-          <td style="padding: 3px 6px; font-size: 8pt; color: #475569; font-weight: 600;">Tinggi / Berat Badan</td>
-          <td style="padding: 3px 2px; font-size: 8pt; color: #64748b;">:</td>
-          <td style="padding: 3px 6px; font-size: 8pt; color: #0f172a; font-weight: 800;">${student.height ? `${student.height} cm` : '-'} / ${student.weight ? `${student.weight} kg` : '-'}</td>
+          <td style="padding: 2.5px 5px; font-size: 7.5pt; color: #475569; font-weight: 600;">Perusahaan Sasaran</td>
+          <td style="padding: 2.5px 2px; font-size: 7.5pt; color: #64748b;">:</td>
+          <td style="padding: 2.5px 5px; font-size: 7.5pt; color: #0f172a; font-weight: 800;">${student.targetCompany || 'Industri Manufaktur Otomotif / Elektronika'}</td>
+          <td style="padding: 2.5px 5px; font-size: 7.5pt; color: #475569; font-weight: 600;">Tinggi / Berat Badan</td>
+          <td style="padding: 2.5px 2px; font-size: 7.5pt; color: #64748b;">:</td>
+          <td style="padding: 2.5px 5px; font-size: 7.5pt; color: #0f172a; font-weight: 800;">${student.height ? `${student.height} cm` : '-'} / ${student.weight ? `${student.weight} kg` : '-'}</td>
         </tr>
       </table>
 
       <!-- STATUS KELAYAKAN HASIL AKHIR -->
-      <div style="border: 1.5px solid ${statusColor}; background-color: ${statusBg}; padding: 5px 10px; border-radius: 6px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 7px;">
+      <div style="border: 1.5px solid ${statusColor}; background-color: ${statusBg}; padding: 4px 8px; border-radius: 5px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 5px;">
         <div>
-          <span style="font-size: 6.8pt; font-weight: 800; color: #64748b; text-transform: uppercase; display: block;">Hasil Keputusan Asesmen:</span>
-          <span style="display: inline-block; font-weight: 900; font-size: 10pt; color: ${statusColor}; text-transform: uppercase; letter-spacing: 0.5px;">${displayStatus}</span>
+          <span style="font-size: 6.5pt; font-weight: 800; color: #64748b; text-transform: uppercase; display: block;">Hasil Keputusan Asesmen:</span>
+          <span style="display: inline-block; font-weight: 900; font-size: 9.5pt; color: ${statusColor}; text-transform: uppercase; letter-spacing: 0.5px;">${displayStatus}</span>
         </div>
         <div style="text-align: right;">
-          <span style="font-size: 6.8pt; font-weight: 800; color: #64748b; text-transform: uppercase; display: block;">Skor Komposit Terbobot:</span>
-          <span style="font-size: 14pt; font-weight: 900; color: ${statusColor};">${hasCompletedTests ? compositeScore : '-'} <span style="font-size: 7.5pt; color: #64748b;">${hasCompletedTests ? '/ 100' : ''}</span></span>
+          <span style="font-size: 6.5pt; font-weight: 800; color: #64748b; text-transform: uppercase; display: block;">Skor Komposit Terbobot:</span>
+          <span style="font-size: 13pt; font-weight: 900; color: ${statusColor};">${hasCompletedTests ? compositeScore : '-'} <span style="font-size: 7pt; color: #64748b;">${hasCompletedTests ? '/ 100' : ''}</span></span>
         </div>
       </div>
 
-      <!-- TABEL NILAI 5 ASPEK KOMPETENSI -->
-      <div style="font-size: 8pt; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: #0f172a; border-left: 3.5px solid #0284c7; padding-left: 6px; margin: 6px 0 4px 0;">
-        Rekapitulasi Nilai 5 Aspek Kompetensi Seleksi Pabrik
+      <!-- TABEL NILAI 6 ASPEK UJIAN SELEKSI INDUSTRI -->
+      <div style="font-size: 7.8pt; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: #0f172a; border-left: 3.5px solid #0284c7; padding-left: 6px; margin: 5px 0 3px 0;">
+        Rekapitulasi Nilai 6 Modul Ujian Seleksi Kesiapan Kerja Industri
       </div>
-      <table style="width: 100%; border-collapse: collapse; margin-bottom: 7px;">
+      <table style="width: 100%; border-collapse: collapse; margin-bottom: 5px;">
         <thead>
           <tr style="background-color: #f1f5f9;">
-            <th style="width: 5%; border: 1px solid #cbd5e1; padding: 4px 6px; font-size: 7.2pt; font-weight: 800; text-align: center;">No</th>
-            <th style="width: 38%; border: 1px solid #cbd5e1; padding: 4px 6px; font-size: 7.2pt; font-weight: 800; text-align: left;">Aspek Uji / Modul Tes</th>
-            <th style="width: 18%; border: 1px solid #cbd5e1; padding: 4px 6px; font-size: 7.2pt; font-weight: 800; text-align: center;">Hasil & Capaian</th>
-            <th style="width: 16%; border: 1px solid #cbd5e1; padding: 4px 6px; font-size: 7.2pt; font-weight: 800; text-align: center;">Standar Industri</th>
-            <th style="width: 23%; border: 1px solid #cbd5e1; padding: 4px 6px; font-size: 7.2pt; font-weight: 800; text-align: left;">Status Kelayakan</th>
+            <th style="width: 4%; border: 1px solid #cbd5e1; padding: 3px 5px; font-size: 7pt; font-weight: 800; text-align: center;">No</th>
+            <th style="width: 38%; border: 1px solid #cbd5e1; padding: 3px 5px; font-size: 7pt; font-weight: 800; text-align: left;">Aspek Uji / Modul Tes</th>
+            <th style="width: 18%; border: 1px solid #cbd5e1; padding: 3px 5px; font-size: 7pt; font-weight: 800; text-align: center;">Hasil &amp; Capaian</th>
+            <th style="width: 17%; border: 1px solid #cbd5e1; padding: 3px 5px; font-size: 7pt; font-weight: 800; text-align: center;">Standar Industri</th>
+            <th style="width: 23%; border: 1px solid #cbd5e1; padding: 3px 5px; font-size: 7pt; font-weight: 800; text-align: left;">Status Kelayakan</th>
           </tr>
         </thead>
         <tbody>
+          <!-- 1. Kraepelin -->
           <tr>
-            <td style="border: 1px solid #cbd5e1; padding: 3.5px 6px; font-size: 7.8pt; text-align: center; font-weight: 700;">1</td>
-            <td style="border: 1px solid #cbd5e1; padding: 3.5px 6px; font-size: 7.8pt;">
-              <strong style="color: #0f172a;">Tes Kraepelin & Pauli</strong><br/>
-              <span style="font-size: 6.8pt; color: #64748b;">Kecepatan, Ketelitian & Ketahanan Kerja Shift</span>
+            <td style="border: 1px solid #cbd5e1; padding: 2.5px 5px; font-size: 7.2pt; text-align: center; font-weight: 700;">1</td>
+            <td style="border: 1px solid #cbd5e1; padding: 2.5px 5px; font-size: 7.2pt;">
+              <strong style="color: #0f172a;">Tes Kraepelin &amp; Pauli</strong><br/>
+              <span style="font-size: 6.2pt; color: #64748b;">Kecepatan, Ritme &amp; Daya Tahan Kerja Shift</span>
             </td>
-            <td style="border: 1px solid #cbd5e1; padding: 3.5px 6px; font-size: 7.8pt; text-align: center; font-weight: 800; color: #0284c7;">
-              ${student.kraepelinScore ? `${kraepelinPanker}<br/><span style="font-size: 7pt; font-weight: 600;">Akurasi: ${kraepelinJanker}</span>` : '<span style="color:#94a3b8; font-weight:600;">Belum Tes</span>'}
+            <td style="border: 1px solid #cbd5e1; padding: 2.5px 5px; font-size: 7.2pt; text-align: center; font-weight: 800; color: #0284c7;">
+              ${student.kraepelinScore ? `${kraepelinPanker}<br/><span style="font-size: 6.2pt; font-weight: 600;">Akurasi: ${kraepelinJanker}</span>` : '<span style="color:#94a3b8; font-weight:600;">Belum Tes</span>'}
             </td>
-            <td style="border: 1px solid #cbd5e1; padding: 3.5px 6px; font-size: 7pt; text-align: center; color: #475569;">≥ 14.0 angk/mnt<br/>Akurasi ≥ 90%</td>
-            <td style="border: 1px solid #cbd5e1; padding: 3.5px 6px; font-size: 7.8pt;"><strong style="color: ${student.kraepelinScore ? '#059669' : '#94a3b8'};">${kraepelinGrade}</strong></td>
+            <td style="border: 1px solid #cbd5e1; padding: 2.5px 5px; font-size: 6.5pt; text-align: center; color: #475569;">≥ 14.0 angk/mnt<br/>Akurasi ≥ 90%</td>
+            <td style="border: 1px solid #cbd5e1; padding: 2.5px 5px; font-size: 7.2pt;"><strong style="color: ${student.kraepelinScore ? '#059669' : '#94a3b8'};">${kraepelinGrade}</strong></td>
           </tr>
+
+          <!-- 2. QC -->
           <tr style="background-color: #f8fafc;">
-            <td style="border: 1px solid #cbd5e1; padding: 3.5px 6px; font-size: 7.8pt; text-align: center; font-weight: 700;">2</td>
-            <td style="border: 1px solid #cbd5e1; padding: 3.5px 6px; font-size: 7.8pt;">
-              <strong style="color: #0f172a;">Tes Akurasi QC & Barcode</strong><br/>
-              <span style="font-size: 6.8pt; color: #64748b;">Speed Match 45 Detik & Deteksi Cacat Produk (NG)</span>
+            <td style="border: 1px solid #cbd5e1; padding: 2.5px 5px; font-size: 7.2pt; text-align: center; font-weight: 700;">2</td>
+            <td style="border: 1px solid #cbd5e1; padding: 2.5px 5px; font-size: 7.2pt;">
+              <strong style="color: #0f172a;">Ketelitian Kode QC</strong><br/>
+              <span style="font-size: 6.2pt; color: #64748b;">Speed Match 45s &amp; Deteksi Cacat Produk (NG)</span>
             </td>
-            <td style="border: 1px solid #cbd5e1; padding: 3.5px 6px; font-size: 7.8pt; text-align: center; font-weight: 800; color: #059669;">
+            <td style="border: 1px solid #cbd5e1; padding: 2.5px 5px; font-size: 7.2pt; text-align: center; font-weight: 800; color: #059669;">
               ${student.qcAccuracy !== undefined && student.qcAccuracy !== null ? qcAccuracy : '<span style="color:#94a3b8; font-weight:600;">Belum Tes</span>'}
             </td>
-            <td style="border: 1px solid #cbd5e1; padding: 3.5px 6px; font-size: 7pt; text-align: center; color: #475569;">Akurasi ≥ 90%</td>
-            <td style="border: 1px solid #cbd5e1; padding: 3.5px 6px; font-size: 7.8pt;"><strong style="color: ${student.qcAccuracy !== undefined && student.qcAccuracy !== null ? '#059669' : '#94a3b8'};">${qcStatus}</strong></td>
+            <td style="border: 1px solid #cbd5e1; padding: 2.5px 5px; font-size: 6.5pt; text-align: center; color: #475569;">Akurasi ≥ 85%</td>
+            <td style="border: 1px solid #cbd5e1; padding: 2.5px 5px; font-size: 7.2pt;"><strong style="color: ${student.qcAccuracy !== undefined && student.qcAccuracy !== null ? '#059669' : '#94a3b8'};">${qcStatus}</strong></td>
           </tr>
+
+          <!-- 3. Matematika Dasar -->
           <tr>
-            <td style="border: 1px solid #cbd5e1; padding: 3.5px 6px; font-size: 7.8pt; text-align: center; font-weight: 700;">3</td>
-            <td style="border: 1px solid #cbd5e1; padding: 3.5px 6px; font-size: 7.8pt;">
-              <strong style="color: #0f172a;">Matematika Terapan & Kabataku</strong><br/>
-              <span style="font-size: 6.8pt; color: #64748b;">Kalkulasi Beban Line, Persentase Diskon & Satuan</span>
+            <td style="border: 1px solid #cbd5e1; padding: 2.5px 5px; font-size: 7.2pt; text-align: center; font-weight: 700;">3</td>
+            <td style="border: 1px solid #cbd5e1; padding: 2.5px 5px; font-size: 7.2pt;">
+              <strong style="color: #0f172a;">Matematika Dasar</strong><br/>
+              <span style="font-size: 6.2pt; color: #64748b;">Kabataku, Persentase, Aljabar &amp; Soal Cerita Line</span>
             </td>
-            <td style="border: 1px solid #cbd5e1; padding: 3.5px 6px; font-size: 7.8pt; text-align: center; font-weight: 800; color: #0284c7;">
+            <td style="border: 1px solid #cbd5e1; padding: 2.5px 5px; font-size: 7.2pt; text-align: center; font-weight: 800; color: #0284c7;">
               ${student.mathScore !== undefined && student.mathScore !== null ? mathScore : '<span style="color:#94a3b8; font-weight:600;">Belum Tes</span>'}
             </td>
-            <td style="border: 1px solid #cbd5e1; padding: 3.5px 6px; font-size: 7pt; text-align: center; color: #475569;">Nilai ≥ 75</td>
-            <td style="border: 1px solid #cbd5e1; padding: 3.5px 6px; font-size: 7.8pt;"><strong style="color: ${student.mathScore !== undefined && student.mathScore !== null ? '#059669' : '#94a3b8'};">${mathStatus}</strong></td>
+            <td style="border: 1px solid #cbd5e1; padding: 2.5px 5px; font-size: 6.5pt; text-align: center; color: #475569;">Nilai ≥ 70 / 100</td>
+            <td style="border: 1px solid #cbd5e1; padding: 2.5px 5px; font-size: 7.2pt;"><strong style="color: ${student.mathScore !== undefined && student.mathScore !== null ? '#059669' : '#94a3b8'};">${mathStatus}</strong></td>
           </tr>
+
+          <!-- 4. Perkalian Kilat -->
           <tr style="background-color: #f8fafc;">
-            <td style="border: 1px solid #cbd5e1; padding: 3.5px 6px; font-size: 7.8pt; text-align: center; font-weight: 700;">4</td>
-            <td style="border: 1px solid #cbd5e1; padding: 3.5px 6px; font-size: 7.8pt;">
-              <strong style="color: #0f172a;">Psikotes Penalaran & Logika SOP</strong><br/>
-              <span style="font-size: 6.8pt; color: #64748b;">Sinonim, Analogi Alat Ukur & Silogisme Keselamatan K3</span>
+            <td style="border: 1px solid #cbd5e1; padding: 2.5px 5px; font-size: 7.2pt; text-align: center; font-weight: 700;">4</td>
+            <td style="border: 1px solid #cbd5e1; padding: 2.5px 5px; font-size: 7.2pt;">
+              <strong style="color: #0f172a;">Tabel Perkalian Kilat</strong><br/>
+              <span style="font-size: 6.2pt; color: #64748b;">Refleks &amp; Ketepatan Hitung Matriks 120 Detik</span>
             </td>
-            <td style="border: 1px solid #cbd5e1; padding: 3.5px 6px; font-size: 7.8pt; text-align: center; font-weight: 800; color: #7c3aed;">
+            <td style="border: 1px solid #cbd5e1; padding: 2.5px 5px; font-size: 7.2pt; text-align: center; font-weight: 800; color: #d97706;">
+              ${student.multiplicationScore?.accuracy !== undefined && student.multiplicationScore?.accuracy !== null ? `${multAcc}<br/><span style="font-size: 6.2pt; font-weight: 600;">${multDetail}</span>` : '<span style="color:#94a3b8; font-weight:600;">Belum Tes</span>'}
+            </td>
+            <td style="border: 1px solid #cbd5e1; padding: 2.5px 5px; font-size: 6.5pt; text-align: center; color: #475569;">Akurasi ≥ 80%</td>
+            <td style="border: 1px solid #cbd5e1; padding: 2.5px 5px; font-size: 7.2pt;"><strong style="color: ${student.multiplicationScore?.accuracy !== undefined && student.multiplicationScore?.accuracy !== null ? '#059669' : '#94a3b8'};">${multStatus}</strong></td>
+          </tr>
+
+          <!-- 5. Psikotes & Penalaran -->
+          <tr>
+            <td style="border: 1px solid #cbd5e1; padding: 2.5px 5px; font-size: 7.2pt; text-align: center; font-weight: 700;">5</td>
+            <td style="border: 1px solid #cbd5e1; padding: 2.5px 5px; font-size: 7.2pt;">
+              <strong style="color: #0f172a;">Psikotes &amp; Penalaran</strong><br/>
+              <span style="font-size: 6.2pt; color: #64748b;">Sinonim, Antonim, Analogi &amp; Silogisme K3/SOP</span>
+            </td>
+            <td style="border: 1px solid #cbd5e1; padding: 2.5px 5px; font-size: 7.2pt; text-align: center; font-weight: 800; color: #7c3aed;">
               ${student.psychotestScore !== undefined && student.psychotestScore !== null ? psychotestScore : '<span style="color:#94a3b8; font-weight:600;">Belum Tes</span>'}
             </td>
-            <td style="border: 1px solid #cbd5e1; padding: 3.5px 6px; font-size: 7pt; text-align: center; color: #475569;">Nilai ≥ 75</td>
-            <td style="border: 1px solid #cbd5e1; padding: 3.5px 6px; font-size: 7.8pt;"><strong style="color: ${student.psychotestScore !== undefined && student.psychotestScore !== null ? '#059669' : '#94a3b8'};">${psychotestStatus}</strong></td>
+            <td style="border: 1px solid #cbd5e1; padding: 2.5px 5px; font-size: 6.5pt; text-align: center; color: #475569;">Nilai ≥ 70 / 100</td>
+            <td style="border: 1px solid #cbd5e1; padding: 2.5px 5px; font-size: 7.2pt;"><strong style="color: ${student.psychotestScore !== undefined && student.psychotestScore !== null ? '#059669' : '#94a3b8'};">${psychotestStatus}</strong></td>
           </tr>
-          <tr>
-            <td style="border: 1px solid #cbd5e1; padding: 3.5px 6px; font-size: 7.8pt; text-align: center; font-weight: 700;">5</td>
-            <td style="border: 1px solid #cbd5e1; padding: 3.5px 6px; font-size: 7.8pt;">
-              <strong style="color: #0f172a;">Simulasi Wawancara AI HRD Industri</strong><br/>
-              <span style="font-size: 6.8pt; color: #64748b;">Evaluasi 4 Pilar (Metode STAR, Artikulasi, Etika, Job Fit)</span>
+
+          <!-- 6. Mekanika Bennett -->
+          <tr style="background-color: #f8fafc;">
+            <td style="border: 1px solid #cbd5e1; padding: 2.5px 5px; font-size: 7.2pt; text-align: center; font-weight: 700;">6</td>
+            <td style="border: 1px solid #cbd5e1; padding: 2.5px 5px; font-size: 7.2pt;">
+              <strong style="color: #0f172a;">Mekanika Bennett</strong><br/>
+              <span style="font-size: 6.2pt; color: #64748b;">Prinsip Mekanik: Roda Gigi, Katrol, Tuas &amp; Fluida</span>
             </td>
-            <td style="border: 1px solid #cbd5e1; padding: 3.5px 6px; font-size: 7.8pt; text-align: center; font-weight: 800; color: #059669;">
-              ${student.interviewScore !== undefined && student.interviewScore !== null ? interviewScore : '<span style="color:#94a3b8; font-weight:600;">Belum Tes</span>'}
+            <td style="border: 1px solid #cbd5e1; padding: 2.5px 5px; font-size: 7.2pt; text-align: center; font-weight: 800; color: #0284c7;">
+              ${student.mechanicalScore !== undefined && student.mechanicalScore !== null ? mechanicalScore : '<span style="color:#94a3b8; font-weight:600;">Belum Tes</span>'}
             </td>
-            <td style="border: 1px solid #cbd5e1; padding: 3.5px 6px; font-size: 7pt; text-align: center; color: #475569;">Peluang ≥ 70%</td>
-            <td style="border: 1px solid #cbd5e1; padding: 3.5px 6px; font-size: 7.8pt;"><strong style="color: ${student.interviewScore !== undefined && student.interviewScore !== null ? '#059669' : '#94a3b8'};">${interviewStatus}</strong></td>
+            <td style="border: 1px solid #cbd5e1; padding: 2.5px 5px; font-size: 6.5pt; text-align: center; color: #475569;">Nilai ≥ 70 / 100</td>
+            <td style="border: 1px solid #cbd5e1; padding: 2.5px 5px; font-size: 7.2pt;"><strong style="color: ${student.mechanicalScore !== undefined && student.mechanicalScore !== null ? '#059669' : '#94a3b8'};">${mechanicalStatus}</strong></td>
           </tr>
         </tbody>
       </table>
@@ -524,21 +576,24 @@ export function generateCollectiveSchoolReportHtml(schoolName: string, students:
       <table style="width: 100%; border-collapse: collapse; margin-bottom: 8px;">
         <thead>
           <tr style="background-color: #f1f5f9;">
-            <th style="width: 4%; border: 1px solid #cbd5e1; padding: 3px 5px; font-size: 7pt; font-weight: 800; text-align: center;">No</th>
-            <th style="width: 11%; border: 1px solid #cbd5e1; padding: 3px 5px; font-size: 7pt; font-weight: 800; text-align: left;">NIS / ID</th>
-            <th style="width: 18%; border: 1px solid #cbd5e1; padding: 3px 5px; font-size: 7pt; font-weight: 800; text-align: left;">Nama Siswa</th>
-            <th style="width: 16%; border: 1px solid #cbd5e1; padding: 3px 5px; font-size: 7pt; font-weight: 800; text-align: left;">Jurusan & Sekolah</th>
-            <th style="width: 12%; border: 1px solid #cbd5e1; padding: 3px 5px; font-size: 7pt; font-weight: 800; text-align: center;">Kraepelin</th>
-            <th style="width: 8%; border: 1px solid #cbd5e1; padding: 3px 5px; font-size: 7pt; font-weight: 800; text-align: center;">QC</th>
-            <th style="width: 8%; border: 1px solid #cbd5e1; padding: 3px 5px; font-size: 7pt; font-weight: 800; text-align: center;">Math</th>
-            <th style="width: 8%; border: 1px solid #cbd5e1; padding: 3px 5px; font-size: 7pt; font-weight: 800; text-align: center;">Interview</th>
-            <th style="width: 15%; border: 1px solid #cbd5e1; padding: 3px 5px; font-size: 7pt; font-weight: 800; text-align: center;">Keputusan</th>
+            <th style="width: 3%; border: 1px solid #cbd5e1; padding: 3px 4px; font-size: 6.8pt; font-weight: 800; text-align: center;">No</th>
+            <th style="width: 9%; border: 1px solid #cbd5e1; padding: 3px 4px; font-size: 6.8pt; font-weight: 800; text-align: left;">NIS / ID</th>
+            <th style="width: 15%; border: 1px solid #cbd5e1; padding: 3px 4px; font-size: 6.8pt; font-weight: 800; text-align: left;">Nama Siswa</th>
+            <th style="width: 11%; border: 1px solid #cbd5e1; padding: 3px 4px; font-size: 6.8pt; font-weight: 800; text-align: left;">Jurusan</th>
+            <th style="width: 10%; border: 1px solid #cbd5e1; padding: 3px 4px; font-size: 6.8pt; font-weight: 800; text-align: center;">Kraepelin</th>
+            <th style="width: 7%; border: 1px solid #cbd5e1; padding: 3px 4px; font-size: 6.8pt; font-weight: 800; text-align: center;">QC</th>
+            <th style="width: 7%; border: 1px solid #cbd5e1; padding: 3px 4px; font-size: 6.8pt; font-weight: 800; text-align: center;">Mat. Dasar</th>
+            <th style="width: 7%; border: 1px solid #cbd5e1; padding: 3px 4px; font-size: 6.8pt; font-weight: 800; text-align: center;">Perkalian</th>
+            <th style="width: 7%; border: 1px solid #cbd5e1; padding: 3px 4px; font-size: 6.8pt; font-weight: 800; text-align: center;">Psikotes</th>
+            <th style="width: 7%; border: 1px solid #cbd5e1; padding: 3px 4px; font-size: 6.8pt; font-weight: 800; text-align: center;">Mekanika</th>
+            <th style="width: 7%; border: 1px solid #cbd5e1; padding: 3px 4px; font-size: 6.8pt; font-weight: 800; text-align: center;">Interview</th>
+            <th style="width: 10%; border: 1px solid #cbd5e1; padding: 3px 4px; font-size: 6.8pt; font-weight: 800; text-align: center;">Keputusan</th>
           </tr>
         </thead>
         <tbody>
           ${students.length === 0 ? `
             <tr>
-              <td colspan="9" style="text-align: center; padding: 15px; color: #64748b; font-size: 8pt; border: 1px solid #cbd5e1;">
+              <td colspan="12" style="text-align: center; padding: 15px; color: #64748b; font-size: 8pt; border: 1px solid #cbd5e1;">
                 Belum ada data siswa terdaftar untuk kriteria sekolah ini.
               </td>
             </tr>
@@ -551,24 +606,33 @@ export function generateCollectiveSchoolReportHtml(schoolName: string, students:
 
             return `
             <tr style="background-color: ${idx % 2 === 1 ? '#f8fafc' : '#ffffff'};">
-              <td style="border: 1px solid #cbd5e1; padding: 3px 5px; font-size: 7.2pt; text-align: center;">${idx + 1}</td>
-              <td style="border: 1px solid #cbd5e1; padding: 3px 5px; font-size: 7.2pt; font-weight: 700; color: #0284c7;">${s.id}</td>
-              <td style="border: 1px solid #cbd5e1; padding: 3px 5px; font-size: 7.5pt; font-weight: 700; color: #0f172a;">${s.name}</td>
-              <td style="border: 1px solid #cbd5e1; padding: 3px 5px; font-size: 7pt; color: #475569;">${s.major}<br/><span style="font-size: 6.5pt; color: #64748b;">${s.school}</span></td>
-              <td style="border: 1px solid #cbd5e1; padding: 3px 5px; font-size: 7pt; text-align: center; font-weight: 700; color: #0284c7;">
+              <td style="border: 1px solid #cbd5e1; padding: 2.5px 4px; font-size: 6.8pt; text-align: center;">${idx + 1}</td>
+              <td style="border: 1px solid #cbd5e1; padding: 2.5px 4px; font-size: 6.8pt; font-weight: 700; color: #0284c7;">${s.id}</td>
+              <td style="border: 1px solid #cbd5e1; padding: 2.5px 4px; font-size: 7.2pt; font-weight: 700; color: #0f172a;">${s.name}</td>
+              <td style="border: 1px solid #cbd5e1; padding: 2.5px 4px; font-size: 6.5pt; color: #475569;">${s.major || '-'}</td>
+              <td style="border: 1px solid #cbd5e1; padding: 2.5px 4px; font-size: 6.8pt; text-align: center; font-weight: 700; color: #0284c7;">
                 ${s.kraepelinScore?.panker ? `${s.kraepelinScore.panker} a/m (${s.kraepelinScore.janker}%)` : '-'}
               </td>
-              <td style="border: 1px solid #cbd5e1; padding: 3px 5px; font-size: 7pt; text-align: center; font-weight: 700; color: #059669;">
+              <td style="border: 1px solid #cbd5e1; padding: 2.5px 4px; font-size: 6.8pt; text-align: center; font-weight: 700; color: #059669;">
                 ${s.qcAccuracy !== undefined && s.qcAccuracy !== null ? `${s.qcAccuracy}%` : '-'}
               </td>
-              <td style="border: 1px solid #cbd5e1; padding: 3px 5px; font-size: 7pt; text-align: center; font-weight: 700; color: #0284c7;">
+              <td style="border: 1px solid #cbd5e1; padding: 2.5px 4px; font-size: 6.8pt; text-align: center; font-weight: 700; color: #0284c7;">
                 ${s.mathScore !== undefined && s.mathScore !== null ? s.mathScore : '-'}
               </td>
-              <td style="border: 1px solid #cbd5e1; padding: 3px 5px; font-size: 7pt; text-align: center; font-weight: 700; color: #059669;">
+              <td style="border: 1px solid #cbd5e1; padding: 2.5px 4px; font-size: 6.8pt; text-align: center; font-weight: 700; color: #d97706;">
+                ${s.multiplicationScore?.accuracy !== undefined && s.multiplicationScore?.accuracy !== null ? `${s.multiplicationScore.accuracy}%` : '-'}
+              </td>
+              <td style="border: 1px solid #cbd5e1; padding: 2.5px 4px; font-size: 6.8pt; text-align: center; font-weight: 700; color: #7c3aed;">
+                ${s.psychotestScore !== undefined && s.psychotestScore !== null ? s.psychotestScore : '-'}
+              </td>
+              <td style="border: 1px solid #cbd5e1; padding: 2.5px 4px; font-size: 6.8pt; text-align: center; font-weight: 700; color: #0284c7;">
+                ${s.mechanicalScore !== undefined && s.mechanicalScore !== null ? s.mechanicalScore : '-'}
+              </td>
+              <td style="border: 1px solid #cbd5e1; padding: 2.5px 4px; font-size: 6.8pt; text-align: center; font-weight: 700; color: #059669;">
                 ${s.interviewScore !== undefined && s.interviewScore !== null ? `${s.interviewScore}%` : '-'}
               </td>
-              <td style="border: 1px solid #cbd5e1; padding: 3px 5px; font-size: 7pt; text-align: center;">
-                <span style="display: inline-block; padding: 1.5px 6px; border-radius: 3px; font-size: 6.8pt; font-weight: 800; background-color: ${bg}; color: ${color}; border: 1px solid ${color};">
+              <td style="border: 1px solid #cbd5e1; padding: 2.5px 4px; font-size: 6.8pt; text-align: center;">
+                <span style="display: inline-block; padding: 1.5px 4px; border-radius: 3px; font-size: 6.5pt; font-weight: 800; background-color: ${bg}; color: ${color}; border: 1px solid ${color};">
                   ${s.overallStatus} (${comp})
                 </span>
               </td>

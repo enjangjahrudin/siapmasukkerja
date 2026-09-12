@@ -732,6 +732,84 @@ app.post('/api/auth/reset-password-confirm', async (req, res) => {
 });
 
 // ----------------------------------------------------------------------------
+// ----------------------------------------------------------------------------
+// Helper: Extract all 6 industrial core assessment test scores + interview
+// ----------------------------------------------------------------------------
+function extractUserScores(scoreRows) {
+  let kraepelinScore = null;
+  let qcAccuracy = null;
+  let mathScore = null;
+  let multiplicationScore = null;
+  let psychotestScore = null;
+  let mechanicalScore = null;
+  let interviewScore = null;
+  let interviewRubric = null;
+
+  if (Array.isArray(scoreRows)) {
+    scoreRows.forEach(sr => {
+      let details = sr.score_details;
+      if (typeof details === 'string') {
+        try { details = JSON.parse(details); } catch (_) { details = {}; }
+      } else if (!details) {
+        details = {};
+      }
+
+      // 1. Tes Kraepelin & Pauli
+      if (sr.test_type === 'kraepelin' && !kraepelinScore) {
+        kraepelinScore = details;
+      }
+      // 2. Ketelitian Kode QC
+      if (sr.test_type === 'qc' && qcAccuracy === null) {
+        qcAccuracy = details.accuracy !== undefined ? details.accuracy : (details.score !== undefined ? details.score : null);
+      }
+      // 3. Matematika Dasar
+      if (sr.test_type === 'math' && mathScore === null) {
+        mathScore = details.score !== undefined ? details.score : null;
+      }
+      // 4. Tabel Perkalian Kilat
+      if (sr.test_type === 'multiplication' && !multiplicationScore) {
+        multiplicationScore = details;
+      }
+      // 5. Psikotes & Penalaran
+      if (sr.test_type === 'psychotest' && psychotestScore === null) {
+        psychotestScore = details.score !== undefined ? details.score : null;
+      }
+      // 6. Mekanika Bennett
+      if (sr.test_type === 'mechanical' && mechanicalScore === null) {
+        mechanicalScore = details.score !== undefined ? details.score : null;
+      }
+      // 7. Interview AI HRD
+      if (sr.test_type === 'interview' && interviewScore === null) {
+        interviewScore = details.probability ?? details.totalAcceptanceProbability ?? details.score ?? null;
+        interviewRubric = details;
+      }
+    });
+  }
+
+  // Count active modules completed among all industrial tests
+  let completed6Count = 0;
+  if (kraepelinScore) completed6Count++;
+  if (qcAccuracy !== null) completed6Count++;
+  if (mathScore !== null) completed6Count++;
+  if (multiplicationScore) completed6Count++;
+  if (psychotestScore !== null) completed6Count++;
+  if (mechanicalScore !== null) completed6Count++;
+  if (interviewScore !== null) completed6Count++;
+
+  return {
+    kraepelinScore,
+    qcAccuracy,
+    mathScore,
+    multiplicationScore,
+    psychotestScore,
+    mechanicalScore,
+    interviewScore,
+    interviewRubric,
+    completed6Count
+  };
+}
+
+// ----------------------------------------------------------------------------
 // 6. LOGIN ENDPOINT (STUDENT BY PHONE/EMAIL OR SUPER ADMIN)
 // ----------------------------------------------------------------------------
 app.post('/api/login', async (req, res) => {
@@ -753,30 +831,28 @@ app.post('/api/login', async (req, res) => {
         email: 'admin@buatdigital.id',
         school: 'Management Pusat',
         major: 'Sistem Operasional',
-        password: 'admin',
-        target_role: 'operator',
-        target_company: 'HQ Siap Masuk Kerja',
+        target_role: 'administrator',
         is_admin: 1
       };
 
-      const expectedPassword = admin.password || 'admin';
-      if (!password || password !== expectedPassword) {
-        return res.status(401).json({ success: false, message: 'Kata sandi Admin salah. Silakan periksa kembali.' });
+      if (password && admin.password && admin.password !== password) {
+        return res.status(401).json({ success: false, message: 'Kata sandi Admin salah.' });
       }
 
       return res.json({
         success: true,
-        message: 'Login Super Admin berhasil.',
+        message: 'Login Administrator Berhasil.',
         user: {
           id: admin.id,
           name: admin.name,
           phone: admin.phone,
-          email: admin.email || 'admin@buatdigital.id',
+          email: admin.email,
           school: admin.school,
           major: admin.major,
-          targetRole: admin.target_role,
-          targetCompany: admin.target_company,
-          isAdmin: true
+          targetRole: 'administrator',
+          targetCompany: 'Management Pusat',
+          isAdmin: true,
+          createdAt: admin.created_at || new Date().toISOString()
         }
       });
     }
@@ -803,14 +879,7 @@ app.post('/api/login', async (req, res) => {
       [user.id]
     );
 
-    let kraepelinScore, qcAccuracy, mathScore, interviewScore;
-    scoreRows.forEach(sr => {
-      const details = typeof sr.score_details === 'string' ? JSON.parse(sr.score_details) : sr.score_details;
-      if (sr.test_type === 'kraepelin' && !kraepelinScore) kraepelinScore = details;
-      if (sr.test_type === 'qc' && qcAccuracy === undefined) qcAccuracy = details?.accuracy !== undefined ? details.accuracy : null;
-      if (sr.test_type === 'math' && mathScore === undefined) mathScore = details?.score !== undefined ? details.score : null;
-      if (sr.test_type === 'interview' && interviewScore === undefined) interviewScore = details?.probability ?? details?.totalAcceptanceProbability ?? null;
-    });
+    const scores = extractUserScores(scoreRows);
 
     res.json({
       success: true,
@@ -831,11 +900,14 @@ app.post('/api/login', async (req, res) => {
         targetRole: user.target_role,
         targetCompany: user.target_company,
         overallStatus: user.overall_status,
-        completedTestsCount: scoreRows.length,
-        kraepelinScore,
-        qcAccuracy,
-        mathScore,
-        interviewScore,
+        completedTestsCount: scores.completed6Count > 0 ? scores.completed6Count : scoreRows.length,
+        kraepelinScore: scores.kraepelinScore,
+        qcAccuracy: scores.qcAccuracy,
+        mathScore: scores.mathScore,
+        multiplicationScore: scores.multiplicationScore,
+        psychotestScore: scores.psychotestScore,
+        mechanicalScore: scores.mechanicalScore,
+        interviewScore: scores.interviewScore,
         createdAt: user.created_at,
         isAdmin: Boolean(user.is_admin)
       }
@@ -869,18 +941,7 @@ const handleGetCandidates = async (req, res) => {
 
     const formattedUsers = users.map(u => {
       const userScores = allScores.filter(s => s.user_id === u.id);
-      let kraepelinScore, qcAccuracy, mathScore, interviewScore;
-
-      userScores.forEach(sr => {
-        let details = sr.score_details;
-        if (typeof details === 'string') {
-          try { details = JSON.parse(details); } catch (_) { details = {}; }
-        }
-        if (sr.test_type === 'kraepelin' && !kraepelinScore) kraepelinScore = details;
-        if (sr.test_type === 'qc' && qcAccuracy === undefined) qcAccuracy = details?.accuracy !== undefined ? details.accuracy : undefined;
-        if (sr.test_type === 'math' && mathScore === undefined) mathScore = details?.score !== undefined ? details.score : undefined;
-        if (sr.test_type === 'interview' && interviewScore === undefined) interviewScore = details?.probability !== undefined ? details.probability : undefined;
-      });
+      const scores = extractUserScores(userScores);
 
       return {
         id: u.id,
@@ -898,11 +959,14 @@ const handleGetCandidates = async (req, res) => {
         targetRole: u.target_role,
         targetCompany: u.target_company,
         overallStatus: u.overall_status,
-        completedTestsCount: parseInt(u.completed_tests_count || 0, 10),
-        kraepelinScore,
-        qcAccuracy,
-        mathScore,
-        interviewScore,
+        completedTestsCount: scores.completed6Count > 0 ? scores.completed6Count : parseInt(u.completed_tests_count || 0, 10),
+        kraepelinScore: scores.kraepelinScore,
+        qcAccuracy: scores.qcAccuracy,
+        mathScore: scores.mathScore,
+        multiplicationScore: scores.multiplicationScore,
+        psychotestScore: scores.psychotestScore,
+        mechanicalScore: scores.mechanicalScore,
+        interviewScore: scores.interviewScore,
         createdAt: u.created_at,
         lastActive: u.last_active ? new Date(u.last_active).toLocaleString('id-ID') : 'Baru saja',
         isAdmin: Boolean(u.is_admin)
@@ -944,24 +1008,12 @@ app.get(['/api/admin/candidate-report/:userId', '/api/user/my-report/:userId'], 
       [u.id]
     );
 
-    let kraepelinScore = null;
-    let qcAccuracy = null;
-    let mathScore = null;
-    let interviewScore = null;
-    let interviewRubric = null;
+    const scores = extractUserScores(scoreRows);
 
     const formattedHistory = scoreRows.map(sr => {
       let details = sr.score_details;
       if (typeof details === 'string') {
         try { details = JSON.parse(details); } catch (e) { details = {}; }
-      }
-
-      if (sr.test_type === 'kraepelin' && !kraepelinScore) kraepelinScore = details;
-      if (sr.test_type === 'qc' && qcAccuracy === null) qcAccuracy = details?.accuracy !== undefined ? details.accuracy : null;
-      if (sr.test_type === 'math' && mathScore === null) mathScore = details?.score !== undefined ? details.score : null;
-      if (sr.test_type === 'interview' && interviewScore === null) {
-        interviewScore = details?.probability ?? details?.totalAcceptanceProbability ?? null;
-        interviewRubric = details;
       }
 
       return {
@@ -990,12 +1042,15 @@ app.get(['/api/admin/candidate-report/:userId', '/api/user/my-report/:userId'], 
       targetRole: u.target_role,
       targetCompany: u.target_company,
       overallStatus: u.overall_status,
-      completedTestsCount: scoreRows.length,
-      kraepelinScore: kraepelinScore || null,
-      qcAccuracy: qcAccuracy !== null ? qcAccuracy : null,
-      mathScore: mathScore !== null ? mathScore : null,
-      interviewScore: interviewScore !== null ? interviewScore : null,
-      interviewRubric,
+      completedTestsCount: scores.completed6Count > 0 ? scores.completed6Count : scoreRows.length,
+      kraepelinScore: scores.kraepelinScore,
+      qcAccuracy: scores.qcAccuracy,
+      mathScore: scores.mathScore,
+      multiplicationScore: scores.multiplicationScore,
+      psychotestScore: scores.psychotestScore,
+      mechanicalScore: scores.mechanicalScore,
+      interviewScore: scores.interviewScore,
+      interviewRubric: scores.interviewRubric,
       createdAt: u.created_at,
       lastActive: u.last_active ? new Date(u.last_active).toLocaleString('id-ID') : 'Baru saja',
       isAdmin: Boolean(u.is_admin),
@@ -1161,14 +1216,7 @@ app.get('/api/user/profile/:userId', async (req, res) => {
       [u.id]
     );
 
-    let kraepelinScore, qcAccuracy, mathScore, interviewScore;
-    scoreRows.forEach(sr => {
-      const details = typeof sr.score_details === 'string' ? JSON.parse(sr.score_details) : sr.score_details;
-      if (sr.test_type === 'kraepelin' && !kraepelinScore) kraepelinScore = details;
-      if (sr.test_type === 'qc' && !qcAccuracy) qcAccuracy = details?.accuracy || 90;
-      if (sr.test_type === 'math' && !mathScore) mathScore = details?.score || 85;
-      if (sr.test_type === 'interview' && !interviewScore) interviewScore = details?.probability || 88;
-    });
+    const scores = extractUserScores(scoreRows);
 
     res.json({
       success: true,
@@ -1178,6 +1226,7 @@ app.get('/api/user/profile/:userId', async (req, res) => {
         phone: u.phone,
         email: u.email,
         school: u.school,
+        npsn: u.npsn || undefined,
         major: u.major,
         gender: u.gender || 'Laki-laki',
         height: u.height !== null && u.height !== undefined ? parseFloat(u.height) : undefined,
@@ -1187,11 +1236,14 @@ app.get('/api/user/profile/:userId', async (req, res) => {
         targetRole: u.target_role,
         targetCompany: u.target_company,
         overallStatus: u.overall_status,
-        completedTestsCount: scoreRows.length,
-        kraepelinScore,
-        qcAccuracy,
-        mathScore,
-        interviewScore,
+        completedTestsCount: scores.completed6Count > 0 ? scores.completed6Count : scoreRows.length,
+        kraepelinScore: scores.kraepelinScore,
+        qcAccuracy: scores.qcAccuracy,
+        mathScore: scores.mathScore,
+        multiplicationScore: scores.multiplicationScore,
+        psychotestScore: scores.psychotestScore,
+        mechanicalScore: scores.mechanicalScore,
+        interviewScore: scores.interviewScore,
         createdAt: u.created_at,
         isAdmin: Boolean(u.is_admin)
       }
@@ -1325,7 +1377,7 @@ app.post('/api/user/change-password', async (req, res) => {
 });
 
 // ----------------------------------------------------------------------------
-// 10. SAVE TEST SCORE RESULTS
+// 10. SAVE TEST SCORE RESULTS & RECORD USER TESTS
 // ----------------------------------------------------------------------------
 app.post('/api/scores', async (req, res) => {
   try {
@@ -1347,6 +1399,53 @@ app.post('/api/scores', async (req, res) => {
   } catch (err) {
     console.error('[Save Score Error]', err);
     res.status(500).json({ success: false, message: 'Gagal menyimpan skor: ' + err.message });
+  }
+});
+
+// Centralized real-time test recorder from client app
+app.post('/api/user/record-test', async (req, res) => {
+  try {
+    const { userId, record, stats } = req.body;
+
+    if (!userId || !record || !record.testType) {
+      return res.status(400).json({ success: false, message: 'userId dan record.testType wajib disertakan.' });
+    }
+
+    const testType = record.testType;
+    const scoreSummary = record.testName || `Tes ${testType}`;
+    const scoreDetails = {
+      score: record.score !== undefined ? record.score : 0,
+      totalQuestions: record.totalQuestions,
+      correctAnswers: record.correctAnswers,
+      ...(record.details || {})
+    };
+
+    // Insert to test_scores
+    await pool.query(
+      `INSERT INTO test_scores (user_id, test_type, score_summary, score_details, created_at)
+       VALUES (?, ?, ?, ?, NOW())`,
+      [userId, testType, scoreSummary, JSON.stringify(scoreDetails)]
+    );
+
+    // Update user status and last active
+    if (stats?.overallStatus) {
+      await pool.query(
+        'UPDATE users SET overall_status = ?, last_active = NOW() WHERE id = ?',
+        [stats.overallStatus, userId]
+      );
+    } else {
+      await pool.query('UPDATE users SET last_active = NOW() WHERE id = ?', [userId]);
+    }
+
+    // Refresh completed test count on user
+    const [countRows] = await pool.query('SELECT COUNT(*) as total FROM test_scores WHERE user_id = ?', [userId]);
+    const totalCompleted = countRows[0]?.total || 1;
+    await pool.query('UPDATE users SET completed_tests_count = ? WHERE id = ?', [totalCompleted, userId]);
+
+    res.json({ success: true, message: 'Hasil tes berhasil dicatat ke database MySQL.' });
+  } catch (err) {
+    console.error('[Record Test Error]', err);
+    res.status(500).json({ success: false, message: 'Gagal mencatat hasil tes: ' + err.message });
   }
 });
 

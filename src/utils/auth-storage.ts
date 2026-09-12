@@ -476,6 +476,7 @@ export const updateActiveUserScore = (update: Partial<RegisteredUser>): void => 
   setActiveSession(updated);
   saveUser(updated);
 
+  // Sync to server scores
   if (update.kraepelinScore) {
     fetch(`${API_BASE_URL}/scores`, {
       method: 'POST',
@@ -488,6 +489,125 @@ export const updateActiveUserScore = (update: Partial<RegisteredUser>): void => 
       })
     }).catch(() => {});
   }
+  if (update.qcAccuracy !== undefined) {
+    fetch(`${API_BASE_URL}/scores`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId: current.id,
+        testType: 'qc',
+        scoreSummary: `Akurasi QC ${update.qcAccuracy}%`,
+        scoreDetails: { accuracy: update.qcAccuracy, score: update.qcAccuracy }
+      })
+    }).catch(() => {});
+  }
+  if (update.mathScore !== undefined) {
+    fetch(`${API_BASE_URL}/scores`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId: current.id,
+        testType: 'math',
+        scoreSummary: `Matematika Dasar ${update.mathScore}/100`,
+        scoreDetails: { score: update.mathScore }
+      })
+    }).catch(() => {});
+  }
+  if (update.multiplicationScore) {
+    fetch(`${API_BASE_URL}/scores`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId: current.id,
+        testType: 'multiplication',
+        scoreSummary: `Perkalian Kilat ${update.multiplicationScore.accuracy}%`,
+        scoreDetails: update.multiplicationScore
+      })
+    }).catch(() => {});
+  }
+  if (update.psychotestScore !== undefined) {
+    fetch(`${API_BASE_URL}/scores`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId: current.id,
+        testType: 'psychotest',
+        scoreSummary: `Psikotes & Penalaran ${update.psychotestScore}/100`,
+        scoreDetails: { score: update.psychotestScore }
+      })
+    }).catch(() => {});
+  }
+  if (update.mechanicalScore !== undefined) {
+    fetch(`${API_BASE_URL}/scores`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId: current.id,
+        testType: 'mechanical',
+        scoreSummary: `Mekanika Bennett ${update.mechanicalScore}/100`,
+        scoreDetails: { score: update.mechanicalScore }
+      })
+    }).catch(() => {});
+  }
+};
+
+/**
+ * Synchronize all locally saved test history records to the server database
+ */
+export const syncLocalTestScoresToServer = async (targetUser?: RegisteredUser): Promise<void> => {
+  const user = targetUser || getActiveSession();
+  if (!user || !user.id || user.isAdmin) return;
+
+  if (Array.isArray(user.testHistory) && user.testHistory.length > 0) {
+    for (const record of user.testHistory) {
+      try {
+        await fetch(`${API_BASE_URL}/user/record-test`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: user.id,
+            record,
+            stats: {
+              completedTestsCount: user.completedTestsCount,
+              averageAccuracy: user.averageAccuracy,
+              overallStatus: user.overallStatus
+            }
+          })
+        });
+      } catch (_) {}
+    }
+  } else {
+    const testsToSync: { testType: string; score: number; details?: any }[] = [];
+    if (user.kraepelinScore) testsToSync.push({ testType: 'kraepelin', score: Math.round(user.kraepelinScore.janker), details: user.kraepelinScore });
+    if (user.qcAccuracy !== undefined && user.qcAccuracy !== null) testsToSync.push({ testType: 'qc', score: user.qcAccuracy, details: { accuracy: user.qcAccuracy } });
+    if (user.mathScore !== undefined && user.mathScore !== null) testsToSync.push({ testType: 'math', score: user.mathScore, details: { score: user.mathScore } });
+    if (user.multiplicationScore) testsToSync.push({ testType: 'multiplication', score: user.multiplicationScore.accuracy, details: user.multiplicationScore });
+    if (user.psychotestScore !== undefined && user.psychotestScore !== null) testsToSync.push({ testType: 'psychotest', score: user.psychotestScore, details: { score: user.psychotestScore } });
+    if (user.mechanicalScore !== undefined && user.mechanicalScore !== null) testsToSync.push({ testType: 'mechanical', score: user.mechanicalScore, details: { score: user.mechanicalScore } });
+    if (user.interviewScore !== undefined && user.interviewScore !== null) testsToSync.push({ testType: 'interview', score: user.interviewScore, details: { score: user.interviewScore } });
+
+    for (const t of testsToSync) {
+      try {
+        await fetch(`${API_BASE_URL}/user/record-test`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: user.id,
+            record: {
+              testType: t.testType,
+              testName: `Tes ${t.testType}`,
+              score: t.score,
+              details: t.details
+            },
+            stats: {
+              completedTestsCount: testsToSync.length,
+              overallStatus: user.overallStatus
+            }
+          })
+        });
+      } catch (_) {}
+    }
+  }
 };
 
 /**
@@ -499,12 +619,30 @@ export const fetchUserProfile = async (userId: string): Promise<RegisteredUser |
     if (response.ok) {
       const resData = await response.json();
       if (resData.user) {
-        saveUser(resData.user);
         const current = getActiveSession();
+        // Merge server data with any existing local test history
+        const merged: RegisteredUser = {
+          ...resData.user,
+          testHistory: (current?.testHistory && current.testHistory.length > 0) ? current.testHistory : (resData.user.testHistory || []),
+          // Preserve local scores if server doesn't have them yet
+          kraepelinScore: resData.user.kraepelinScore || current?.kraepelinScore,
+          qcAccuracy: resData.user.qcAccuracy !== null && resData.user.qcAccuracy !== undefined ? resData.user.qcAccuracy : current?.qcAccuracy,
+          mathScore: resData.user.mathScore !== null && resData.user.mathScore !== undefined ? resData.user.mathScore : current?.mathScore,
+          multiplicationScore: resData.user.multiplicationScore || current?.multiplicationScore,
+          psychotestScore: resData.user.psychotestScore !== null && resData.user.psychotestScore !== undefined ? resData.user.psychotestScore : current?.psychotestScore,
+          mechanicalScore: resData.user.mechanicalScore !== null && resData.user.mechanicalScore !== undefined ? resData.user.mechanicalScore : current?.mechanicalScore,
+          interviewScore: resData.user.interviewScore !== null && resData.user.interviewScore !== undefined ? resData.user.interviewScore : current?.interviewScore
+        };
+
+        saveUser(merged);
         if (current && current.id === userId) {
-          setActiveSession(resData.user);
+          setActiveSession(merged);
         }
-        return resData.user;
+
+        // Sync local scores to server in background
+        syncLocalTestScoresToServer(merged).catch(() => {});
+
+        return merged;
       }
     }
   } catch (e) {
@@ -617,9 +755,20 @@ export const calculateUserRealtimeStats = (user: RegisteredUser): {
   overallStatus: 'Lolos Unggul' | 'Lolos Standar' | 'Perlu Latihan';
 } => {
   const history = user.testHistory || [];
-  const testCount = history.length > 0 ? history.length : (user.completedTestsCount || 0);
 
-  if (testCount === 0 && history.length === 0) {
+  // Calculate based on saved individual scores
+  const availableScores: number[] = [];
+  if (user.kraepelinScore?.janker !== undefined && user.kraepelinScore?.janker !== null) availableScores.push(Math.round(user.kraepelinScore.janker));
+  if (user.qcAccuracy !== undefined && user.qcAccuracy !== null) availableScores.push(user.qcAccuracy);
+  if (user.mathScore !== undefined && user.mathScore !== null) availableScores.push(user.mathScore);
+  if (user.multiplicationScore?.accuracy !== undefined && user.multiplicationScore?.accuracy !== null) availableScores.push(user.multiplicationScore.accuracy);
+  if (user.psychotestScore !== undefined && user.psychotestScore !== null) availableScores.push(user.psychotestScore);
+  if (user.mechanicalScore !== undefined && user.mechanicalScore !== null) availableScores.push(user.mechanicalScore);
+  if (user.interviewScore !== undefined && user.interviewScore !== null) availableScores.push(user.interviewScore);
+
+  const testCount = history.length > 0 ? history.length : Math.max(availableScores.length, user.completedTestsCount || 0);
+
+  if (testCount === 0 && availableScores.length === 0) {
     return {
       completedTestsCount: 0,
       averageAccuracy: 0,
@@ -628,26 +777,15 @@ export const calculateUserRealtimeStats = (user: RegisteredUser): {
     };
   }
 
-  // 1. Calculate weighted / arithmetic average accuracy from history if available
+  // 1. Calculate weighted / arithmetic average accuracy from history or individual scores
   let avgAccuracy = 0;
   if (history.length > 0) {
     const validScores = history.map(h => h.score).filter(s => typeof s === 'number' && !isNaN(s));
     if (validScores.length > 0) {
       avgAccuracy = Math.round(validScores.reduce((a, b) => a + b, 0) / validScores.length);
     }
-  } else {
-    // Fallback based on saved individual scores
-    const availableScores: number[] = [];
-    if (user.mathScore !== undefined) availableScores.push(user.mathScore);
-    if (user.qcAccuracy !== undefined) availableScores.push(user.qcAccuracy);
-    if (user.psychotestScore !== undefined) availableScores.push(user.psychotestScore);
-    if (user.mechanicalScore !== undefined) availableScores.push(user.mechanicalScore);
-    if (user.multiplicationScore?.accuracy !== undefined) availableScores.push(user.multiplicationScore.accuracy);
-    if (user.kraepelinScore?.janker !== undefined) availableScores.push(Math.round(user.kraepelinScore.janker));
-    
-    if (availableScores.length > 0) {
-      avgAccuracy = Math.round(availableScores.reduce((a, b) => a + b, 0) / availableScores.length);
-    }
+  } else if (availableScores.length > 0) {
+    avgAccuracy = Math.round(availableScores.reduce((a, b) => a + b, 0) / availableScores.length);
   }
 
   // 2. Dynamic Industrial Recruitment Passing Prediction (%)

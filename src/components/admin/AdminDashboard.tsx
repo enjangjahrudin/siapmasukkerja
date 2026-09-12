@@ -2575,11 +2575,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
                 </div>
               </div>
 
-              {/* 5 Core Competency Score Cards Grid */}
+              {/* 6 Core Competency Score Cards Grid */}
               <div className="space-y-2">
                 <h4 className="text-xs font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
                   <Award className="w-3.5 h-3.5 text-sky-400" />
-                  <span>Rincian Nilai 5 Aspek Asesmen Industri</span>
+                  <span>Rincian Nilai 6 Modul Asesmen Industri</span>
                 </h4>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
@@ -2639,13 +2639,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
                     </div>
                   </div>
 
-                  {/* 3. Matematika Terapan */}
+                  {/* 3. Matematika Dasar */}
                   <div className={`border rounded-2xl p-3.5 space-y-1 ${
                     isDark ? 'bg-slate-900 border-slate-800' : 'bg-slate-50 border-slate-200'
                   }`}>
                     <div className="flex items-center justify-between text-[10px] text-slate-400 uppercase font-bold">
-                      <span>3. Matematika Terapan</span>
-                      <span className="text-amber-500 font-extrabold">Hitung Cepat</span>
+                      <span>3. Matematika Dasar</span>
+                      <span className="text-amber-500 font-extrabold">Kabataku & Aljabar</span>
                     </div>
                     <div className="text-2xl font-black text-amber-400">
                       {cand.mathScore !== undefined && cand.mathScore !== null ? (
@@ -2657,25 +2657,55 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
                       )}
                     </div>
                     <div className="text-[11px] flex justify-between font-semibold text-slate-300">
-                      <span>Perkalian 2 Menit:</span>
-                      <strong className={cand.multiplicationScore?.accuracy ? "text-sky-400" : "text-slate-500"}>
-                        {cand.multiplicationScore?.accuracy ? `${cand.multiplicationScore.accuracy}%` : '-'}
+                      <span>Logika & Hitung:</span>
+                      <strong className={cand.mathScore !== undefined && cand.mathScore !== null ? "text-amber-400" : "text-slate-500"}>
+                        {cand.mathScore !== undefined && cand.mathScore !== null ? (cand.mathScore >= 75 ? 'Diatas Standar' : 'Cukup') : '-'}
                       </strong>
                     </div>
                     <div className="text-[10px] text-slate-400 pt-0.5 border-t border-slate-800/60 truncate">
-                      Kemampuan hitung: <strong className={cand.mathScore !== undefined && cand.mathScore !== null ? "text-slate-200" : "text-slate-500"}>
-                        {cand.mathScore !== undefined && cand.mathScore !== null ? 'Teruji' : 'Belum Diuji'}
+                      Status: <strong className={cand.mathScore !== undefined && cand.mathScore !== null ? "text-slate-200" : "text-slate-500"}>
+                        {cand.mathScore !== undefined && cand.mathScore !== null ? 'Lolos Standar' : 'Belum Diuji'}
                       </strong>
                     </div>
                   </div>
 
-                  {/* 4. Logika & Silogisme */}
+                  {/* 4. Tabel Perkalian Kilat */}
                   <div className={`border rounded-2xl p-3.5 space-y-1 ${
                     isDark ? 'bg-slate-900 border-slate-800' : 'bg-slate-50 border-slate-200'
                   }`}>
                     <div className="flex items-center justify-between text-[10px] text-slate-400 uppercase font-bold">
-                      <span>4. Psikotes Logika</span>
-                      <span className="text-purple-500 font-extrabold">Penalaran SOP</span>
+                      <span>4. Tabel Perkalian Kilat</span>
+                      <span className="text-orange-500 font-extrabold">120s Speed</span>
+                    </div>
+                    <div className="text-2xl font-black text-orange-400">
+                      {cand.multiplicationScore?.accuracy !== undefined && cand.multiplicationScore?.accuracy !== null ? (
+                        `${cand.multiplicationScore.accuracy}%`
+                      ) : cand.multiplicationScore?.completed ? (
+                        `${cand.multiplicationScore.completed} Soal`
+                      ) : (
+                        <span className="text-sm font-bold text-slate-400">Belum Tes</span>
+                      )}
+                    </div>
+                    <div className="text-[11px] flex justify-between font-semibold text-slate-300">
+                      <span>Benar / Terjawab:</span>
+                      <strong className={cand.multiplicationScore ? "text-orange-400" : "text-slate-500"}>
+                        {cand.multiplicationScore ? `${cand.multiplicationScore.correct || 0} / ${cand.multiplicationScore.completed || 0}` : '-'}
+                      </strong>
+                    </div>
+                    <div className="text-[10px] text-slate-400 pt-0.5 border-t border-slate-800/60 truncate">
+                      Refleks: <strong className={cand.multiplicationScore ? "text-slate-200" : "text-slate-500"}>
+                        {cand.multiplicationScore ? ((cand.multiplicationScore.completed || 0) >= 30 ? 'Cepat & Tanggap' : 'Standar') : 'Belum Diuji'}
+                      </strong>
+                    </div>
+                  </div>
+
+                  {/* 5. Psikotes & Penalaran */}
+                  <div className={`border rounded-2xl p-3.5 space-y-1 ${
+                    isDark ? 'bg-slate-900 border-slate-800' : 'bg-slate-50 border-slate-200'
+                  }`}>
+                    <div className="flex items-center justify-between text-[10px] text-slate-400 uppercase font-bold">
+                      <span>5. Psikotes & Penalaran</span>
+                      <span className="text-purple-500 font-extrabold">Verbal & SOP</span>
                     </div>
                     <div className="text-2xl font-black text-purple-400">
                       {cand.psychotestScore !== undefined && cand.psychotestScore !== null ? (
@@ -2689,7 +2719,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
                     <div className="text-[11px] flex justify-between font-semibold text-slate-300">
                       <span>Deduksi Aturan K3:</span>
                       <strong className={cand.psychotestScore !== undefined && cand.psychotestScore !== null ? "text-purple-400" : "text-slate-500"}>
-                        {cand.psychotestScore !== undefined && cand.psychotestScore !== null ? 'Disiplin Tinggi' : '-'}
+                        {cand.psychotestScore !== undefined && cand.psychotestScore !== null ? (cand.psychotestScore >= 75 ? 'Disiplin Tinggi' : 'Standar') : '-'}
                       </strong>
                     </div>
                     <div className="text-[10px] text-slate-400 pt-0.5 border-t border-slate-800/60 truncate">
@@ -2699,39 +2729,61 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
                     </div>
                   </div>
 
-                  {/* 5. AI Interview HRD */}
-                  <div className={`border rounded-2xl p-3.5 space-y-1 sm:col-span-2 ${
+                  {/* 6. Mekanika Bennett */}
+                  <div className={`border rounded-2xl p-3.5 space-y-1 ${
                     isDark ? 'bg-slate-900 border-slate-800' : 'bg-slate-50 border-slate-200'
                   }`}>
                     <div className="flex items-center justify-between text-[10px] text-slate-400 uppercase font-bold">
-                      <span>5. Simulasi Interview AI HRD</span>
-                      <span className="text-emerald-400 font-extrabold">Peluang Lolos</span>
+                      <span>6. Mekanika Bennett</span>
+                      <span className="text-cyan-500 font-extrabold">Teknik & Mesin</span>
                     </div>
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-2xl font-black text-emerald-400">
-                        {cand.interviewScore !== undefined && cand.interviewScore !== null ? (
-                          `${cand.interviewScore}%`
-                        ) : (
-                          <span className="text-sm font-bold text-slate-400">Belum Tes</span>
-                        )}
-                      </span>
-                      <span className="text-[11px] text-slate-400">
-                        {cand.interviewScore !== undefined && cand.interviewScore !== null ? 'Tingkat Keyakinan Tim Asesor' : ''}
-                      </span>
+                    <div className="text-2xl font-black text-cyan-400">
+                      {cand.mechanicalScore !== undefined && cand.mechanicalScore !== null ? (
+                        <>
+                          {cand.mechanicalScore} <span className="text-[11px] font-bold text-slate-400">/ 100</span>
+                        </>
+                      ) : (
+                        <span className="text-sm font-bold text-slate-400">Belum Tes</span>
+                      )}
                     </div>
-                    {cand.interviewScore !== undefined && cand.interviewScore !== null ? (
+                    <div className="text-[11px] flex justify-between font-semibold text-slate-300">
+                      <span>Pemahaman Fisika:</span>
+                      <strong className={cand.mechanicalScore !== undefined && cand.mechanicalScore !== null ? "text-cyan-400" : "text-slate-500"}>
+                        {cand.mechanicalScore !== undefined && cand.mechanicalScore !== null ? (cand.mechanicalScore >= 70 ? 'Analisis Kuat' : 'Standar') : '-'}
+                      </strong>
+                    </div>
+                    <div className="text-[10px] text-slate-400 pt-0.5 border-t border-slate-800/60 truncate">
+                      Kualifikasi: <strong className={cand.mechanicalScore !== undefined && cand.mechanicalScore !== null ? "text-slate-200" : "text-slate-500"}>
+                        {cand.mechanicalScore !== undefined && cand.mechanicalScore !== null ? 'Siap Operasional' : 'Belum Diuji'}
+                      </strong>
+                    </div>
+                  </div>
+
+                  {/* Extra / Optional: AI Interview HRD */}
+                  {(cand.interviewScore !== undefined && cand.interviewScore !== null) && (
+                    <div className={`border rounded-2xl p-3.5 space-y-1 sm:col-span-2 md:col-span-3 ${
+                      isDark ? 'bg-slate-900 border-slate-800' : 'bg-slate-50 border-slate-200'
+                    }`}>
+                      <div className="flex items-center justify-between text-[10px] text-slate-400 uppercase font-bold">
+                        <span>Modul Tambahan: Simulasi Interview AI HRD</span>
+                        <span className="text-emerald-400 font-extrabold">Peluang Lolos</span>
+                      </div>
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-2xl font-black text-emerald-400">
+                          {cand.interviewScore}%
+                        </span>
+                        <span className="text-[11px] text-slate-400">
+                          Tingkat Keyakinan Tim Asesor
+                        </span>
+                      </div>
                       <div className="grid grid-cols-4 gap-1 text-[10px] pt-1 font-bold text-center">
                         <div className="p-1 rounded bg-slate-800/60 text-slate-300">STAR: {cand.interviewRubric?.starScore || 85}%</div>
                         <div className="p-1 rounded bg-slate-800/60 text-slate-300">Artikulasi: {cand.interviewRubric?.vocalScore || 88}%</div>
                         <div className="p-1 rounded bg-slate-800/60 text-slate-300">Etika: {cand.interviewRubric?.ethicsScore || 95}%</div>
                         <div className="p-1 rounded bg-slate-800/60 text-slate-300">Job Fit: {cand.interviewRubric?.jobFitScore || 85}%</div>
                       </div>
-                    ) : (
-                      <div className="py-1 px-2 rounded bg-slate-800/40 text-slate-500 text-[10px] text-center">
-                        Simulasi wawancara AI belum dilaksanakan
-                      </div>
-                    )}
-                  </div>
+                    </div>
+                  )}
                 </div>
               </div>
 

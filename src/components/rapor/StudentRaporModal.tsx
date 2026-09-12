@@ -233,12 +233,12 @@ export const StudentRaporModal: React.FC<StudentRaporModalProps> = ({
             </div>
           </div>
 
-          {/* 5 Core Competency Score Cards */}
+          {/* 6 Core Competency Score Cards */}
           <div className="space-y-2">
             <div className="flex items-center justify-between px-0.5">
               <h4 className="text-[11px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
                 <Award className="w-3.5 h-3.5 text-sky-400" />
-                <span>5 Dimensi Asesmen Standar Industri</span>
+                <span>6 Dimensi Asesmen Standar Industri</span>
               </h4>
               <span className="text-[10px] text-slate-400">Astra • Toyota • Epson</span>
             </div>
@@ -249,8 +249,8 @@ export const StudentRaporModal: React.FC<StudentRaporModalProps> = ({
                 isDark ? 'bg-slate-900 border-slate-800' : 'bg-slate-50 border-slate-200'
               }`}>
                 <div className="text-[9px] text-slate-400 uppercase font-bold flex justify-between">
-                  <span>1. Kraepelin</span>
-                  <span className="text-sky-400">Ritme</span>
+                  <span>1. Kraepelin & Pauli</span>
+                  <span className="text-sky-400">Ritme Kerja</span>
                 </div>
                 <div className="text-lg font-black text-sky-400">
                   {current.kraepelinScore?.panker ? (
@@ -278,7 +278,7 @@ export const StudentRaporModal: React.FC<StudentRaporModalProps> = ({
               }`}>
                 <div className="text-[9px] text-slate-400 uppercase font-bold flex justify-between">
                   <span>2. Ketelitian QC</span>
-                  <span className="text-emerald-400">Presisi</span>
+                  <span className="text-emerald-400">Speed Match</span>
                 </div>
                 <div className="text-lg font-black text-emerald-400">
                   {current.qcAccuracy !== undefined && current.qcAccuracy !== null ? (
@@ -300,13 +300,13 @@ export const StudentRaporModal: React.FC<StudentRaporModalProps> = ({
                 </div>
               </div>
 
-              {/* 3. Matematika Terapan */}
+              {/* 3. Matematika Dasar */}
               <div className={`border rounded-2xl p-2.5 space-y-0.5 ${
                 isDark ? 'bg-slate-900 border-slate-800' : 'bg-slate-50 border-slate-200'
               }`}>
                 <div className="text-[9px] text-slate-400 uppercase font-bold flex justify-between">
-                  <span>3. Matematika</span>
-                  <span className="text-amber-400">Hitung</span>
+                  <span>3. Matematika Dasar</span>
+                  <span className="text-amber-400">Kabataku</span>
                 </div>
                 <div className="text-lg font-black text-amber-400">
                   {current.mathScore !== undefined && current.mathScore !== null ? (
@@ -318,25 +318,55 @@ export const StudentRaporModal: React.FC<StudentRaporModalProps> = ({
                   )}
                 </div>
                 <div className="text-[10px] flex justify-between text-slate-300">
-                  <span>Perkalian 2m:</span>
-                  <strong className={current.multiplicationScore?.accuracy ? "text-sky-400" : "text-slate-500"}>
-                    {current.multiplicationScore?.accuracy ? `${current.multiplicationScore.accuracy}%` : '-'}
+                  <span>Akurasi:</span>
+                  <strong className={current.mathScore !== undefined && current.mathScore !== null ? "text-amber-400" : "text-slate-500"}>
+                    {current.mathScore !== undefined && current.mathScore !== null ? (current.mathScore >= 75 ? 'Diatas Rata-rata' : 'Standar') : '-'}
                   </strong>
                 </div>
                 <div className="text-[9px] text-slate-400 pt-0.5 border-t border-slate-800/60 truncate">
-                  Kecepatan: <strong className={current.mathScore !== undefined && current.mathScore !== null ? "text-slate-200" : "text-slate-500"}>
-                    {current.mathScore !== undefined && current.mathScore !== null ? 'Teruji' : 'Belum Diuji'}
+                  Status: <strong className={current.mathScore !== undefined && current.mathScore !== null ? "text-slate-200" : "text-slate-500"}>
+                    {current.mathScore !== undefined && current.mathScore !== null ? 'Lolos Standar' : 'Belum Diuji'}
                   </strong>
                 </div>
               </div>
 
-              {/* 4. Logika SOP */}
+              {/* 4. Tabel Perkalian Kilat */}
               <div className={`border rounded-2xl p-2.5 space-y-0.5 ${
                 isDark ? 'bg-slate-900 border-slate-800' : 'bg-slate-50 border-slate-200'
               }`}>
                 <div className="text-[9px] text-slate-400 uppercase font-bold flex justify-between">
-                  <span>4. Psikotes Logika</span>
-                  <span className="text-purple-400">SOP</span>
+                  <span>4. Perkalian Kilat</span>
+                  <span className="text-orange-400">120s Speed</span>
+                </div>
+                <div className="text-lg font-black text-orange-400">
+                  {current.multiplicationScore?.accuracy !== undefined && current.multiplicationScore?.accuracy !== null ? (
+                    `${current.multiplicationScore.accuracy}%`
+                  ) : current.multiplicationScore?.completed ? (
+                    `${current.multiplicationScore.completed} Soal`
+                  ) : (
+                    <span className="text-xs font-bold text-slate-400">Belum Tes</span>
+                  )}
+                </div>
+                <div className="text-[10px] flex justify-between text-slate-300">
+                  <span>Benar / Terjawab:</span>
+                  <strong className={current.multiplicationScore ? "text-orange-400" : "text-slate-500"}>
+                    {current.multiplicationScore ? `${current.multiplicationScore.correct || 0} / ${current.multiplicationScore.completed || 0}` : '-'}
+                  </strong>
+                </div>
+                <div className="text-[9px] text-slate-400 pt-0.5 border-t border-slate-800/60 truncate">
+                  Kecepatan: <strong className={current.multiplicationScore ? "text-slate-200" : "text-slate-500"}>
+                    {current.multiplicationScore ? ((current.multiplicationScore.completed || 0) >= 30 ? 'Cepat & Tanggap' : 'Standar') : 'Belum Diuji'}
+                  </strong>
+                </div>
+              </div>
+
+              {/* 5. Psikotes & Penalaran */}
+              <div className={`border rounded-2xl p-2.5 space-y-0.5 ${
+                isDark ? 'bg-slate-900 border-slate-800' : 'bg-slate-50 border-slate-200'
+              }`}>
+                <div className="text-[9px] text-slate-400 uppercase font-bold flex justify-between">
+                  <span>5. Psikotes Logika</span>
+                  <span className="text-purple-400">Verbal & SOP</span>
                 </div>
                 <div className="text-lg font-black text-purple-400">
                   {current.psychotestScore !== undefined && current.psychotestScore !== null ? (
@@ -350,54 +380,74 @@ export const StudentRaporModal: React.FC<StudentRaporModalProps> = ({
                 <div className="text-[10px] flex justify-between text-slate-300">
                   <span>Aturan K3:</span>
                   <strong className={current.psychotestScore !== undefined && current.psychotestScore !== null ? "text-purple-400" : "text-slate-500"}>
-                    {current.psychotestScore !== undefined && current.psychotestScore !== null ? 'Disiplin' : '-'}
+                    {current.psychotestScore !== undefined && current.psychotestScore !== null ? (current.psychotestScore >= 75 ? 'Disiplin Tinggi' : 'Standar') : '-'}
                   </strong>
                 </div>
                 <div className="text-[9px] text-slate-400 pt-0.5 border-t border-slate-800/60 truncate">
                   Standar: <strong className={current.psychotestScore !== undefined && current.psychotestScore !== null ? "text-slate-200" : "text-slate-500"}>
-                    {current.psychotestScore !== undefined && current.psychotestScore !== null ? 'SOP Industri' : 'Belum Diuji'}
+                    {current.psychotestScore !== undefined && current.psychotestScore !== null ? 'Sesuai Standar' : 'Belum Diuji'}
                   </strong>
                 </div>
               </div>
 
-              {/* 5. AI Interview (Spans 2 columns) */}
-              <div className={`border rounded-2xl p-2.5 space-y-1 col-span-2 ${
+              {/* 6. Mekanika Bennett */}
+              <div className={`border rounded-2xl p-2.5 space-y-0.5 ${
                 isDark ? 'bg-slate-900 border-slate-800' : 'bg-slate-50 border-slate-200'
               }`}>
                 <div className="text-[9px] text-slate-400 uppercase font-bold flex justify-between">
-                  <span>5. Wawancara AI Recruiter</span>
-                  <span className="text-emerald-400">Probabilitas Lolos</span>
+                  <span>6. Mekanika Bennett</span>
+                  <span className="text-cyan-400">Teknik & Fisika</span>
                 </div>
-                <div className="flex items-baseline justify-between">
-                  <div className="flex items-baseline gap-1.5">
-                    <span className="text-lg font-black text-emerald-400">
-                      {current.interviewScore !== undefined && current.interviewScore !== null ? (
-                        `${current.interviewScore}%`
-                      ) : (
-                        <span className="text-xs font-bold text-slate-400">Belum Tes</span>
-                      )}
-                    </span>
-                    <span className="text-[10px] text-slate-400">
-                      {current.interviewScore !== undefined && current.interviewScore !== null ? 'Keyakinan Asesor' : ''}
-                    </span>
-                  </div>
-                  {current.interviewScore !== undefined && current.interviewScore !== null && (
-                    <span className="text-[9px] text-emerald-500 font-bold">Teruji STAR</span>
+                <div className="text-lg font-black text-cyan-400">
+                  {current.mechanicalScore !== undefined && current.mechanicalScore !== null ? (
+                    <>
+                      {current.mechanicalScore} <span className="text-[9px] font-bold text-slate-400">/ 100</span>
+                    </>
+                  ) : (
+                    <span className="text-xs font-bold text-slate-400">Belum Tes</span>
                   )}
                 </div>
-                {current.interviewScore !== undefined && current.interviewScore !== null ? (
+                <div className="text-[10px] flex justify-between text-slate-300">
+                  <span>Fisika Praktis:</span>
+                  <strong className={current.mechanicalScore !== undefined && current.mechanicalScore !== null ? "text-cyan-400" : "text-slate-500"}>
+                    {current.mechanicalScore !== undefined && current.mechanicalScore !== null ? (current.mechanicalScore >= 70 ? 'Analisis Baik' : 'Standar') : '-'}
+                  </strong>
+                </div>
+                <div className="text-[9px] text-slate-400 pt-0.5 border-t border-slate-800/60 truncate">
+                  Kualifikasi: <strong className={current.mechanicalScore !== undefined && current.mechanicalScore !== null ? "text-slate-200" : "text-slate-500"}>
+                    {current.mechanicalScore !== undefined && current.mechanicalScore !== null ? 'Siap Operasi' : 'Belum Diuji'}
+                  </strong>
+                </div>
+              </div>
+
+              {/* Extra: AI Interview if present */}
+              {(current.interviewScore !== undefined && current.interviewScore !== null) && (
+                <div className={`border rounded-2xl p-2.5 space-y-1 col-span-2 ${
+                  isDark ? 'bg-slate-900 border-slate-800' : 'bg-slate-50 border-slate-200'
+                }`}>
+                  <div className="text-[9px] text-slate-400 uppercase font-bold flex justify-between">
+                    <span>Modul Tambahan: Wawancara AI Recruiter</span>
+                    <span className="text-emerald-400">Probabilitas Lolos</span>
+                  </div>
+                  <div className="flex items-baseline justify-between">
+                    <div className="flex items-baseline gap-1.5">
+                      <span className="text-lg font-black text-emerald-400">
+                        {current.interviewScore}%
+                      </span>
+                      <span className="text-[10px] text-slate-400">
+                        Keyakinan Asesor
+                      </span>
+                    </div>
+                    <span className="text-[9px] text-emerald-500 font-bold">Teruji STAR</span>
+                  </div>
                   <div className="grid grid-cols-4 gap-1 text-[9px] font-bold text-center">
                     <div className="py-1 px-0.5 rounded bg-slate-800/60 text-slate-300 truncate">STAR: {current.interviewRubric?.starScore || 85}%</div>
                     <div className="py-1 px-0.5 rounded bg-slate-800/60 text-slate-300 truncate">Vokal: {current.interviewRubric?.vocalScore || 88}%</div>
                     <div className="py-1 px-0.5 rounded bg-slate-800/60 text-slate-300 truncate">Etika: {current.interviewRubric?.ethicsScore || 95}%</div>
                     <div className="py-1 px-0.5 rounded bg-slate-800/60 text-slate-300 truncate">Fit: {current.interviewRubric?.jobFitScore || 85}%</div>
                   </div>
-                ) : (
-                  <div className="py-1.5 px-2 rounded bg-slate-800/40 text-slate-500 text-[10px] text-center">
-                    Simulasi wawancara AI belum dilaksanakan
-                  </div>
-                )}
-              </div>
+                </div>
+              )}
             </div>
           </div>
 
