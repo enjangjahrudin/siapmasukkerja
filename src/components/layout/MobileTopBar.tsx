@@ -37,44 +37,46 @@ export const MobileTopBar: React.FC<MobileTopBarProps> = ({
 
   if (showBack) {
     return (
-      <header className={`sticky top-0 z-30 backdrop-blur-md border-b px-4 py-3 flex items-center justify-between shadow-xs transition-colors ${
+      <header className={`sticky top-0 z-30 backdrop-blur-md border-b px-4 py-3 shadow-xs transition-colors ${
         isDark ? 'bg-slate-900/95 border-slate-800 text-white' : 'bg-white/95 border-slate-200/80 text-slate-900'
       }`}>
-        <button
-          onClick={onBack}
-          className={`p-1.5 -ml-1.5 rounded-xl transition-colors flex items-center gap-1 font-bold text-xs ${
-            isDark ? 'text-slate-200 hover:bg-slate-800' : 'text-slate-700 hover:bg-slate-100'
-          }`}
-        >
-          <ArrowLeft className="w-5 h-5" />
-          <span>Kembali</span>
-        </button>
-
-        <span className={`font-extrabold text-sm truncate max-w-[180px] ${isDark ? 'text-white' : 'text-slate-900'}`}>
-          {title || 'SMK — Siap Masuk Kerja'}
-        </span>
-
-        <div className="flex items-center gap-1.5">
-          {/* Dark / Light Toggle */}
+        <div className="flex items-center justify-between max-w-4xl mx-auto w-full">
           <button
-            onClick={toggleTheme}
-            className={`p-1.5 rounded-xl border transition-colors ${
-              isDark 
-                ? 'bg-slate-800 border-slate-700 text-amber-300 hover:bg-slate-750' 
-                : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100'
+            onClick={onBack}
+            className={`p-1.5 -ml-1.5 rounded-xl transition-colors flex items-center gap-1 font-bold text-xs ${
+              isDark ? 'text-slate-200 hover:bg-slate-800' : 'text-slate-700 hover:bg-slate-100'
             }`}
-            title={isDark ? 'Mode Terang' : 'Mode Gelap'}
           >
-            {isDark ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
+            <ArrowLeft className="w-5 h-5" />
+            <span>Kembali</span>
           </button>
 
-          <button
-            onClick={onOpenTryout}
-            className="p-1.5 bg-amber-50 text-amber-800 border border-amber-300 rounded-xl text-[10px] font-extrabold flex items-center gap-1"
-          >
-            <Award className="w-3.5 h-3.5" />
-            <span>Tryout</span>
-          </button>
+          <span className={`font-extrabold text-sm truncate max-w-[240px] sm:max-w-md ${isDark ? 'text-white' : 'text-slate-900'}`}>
+            {title || 'SMK — Siap Masuk Kerja'}
+          </span>
+
+          <div className="flex items-center gap-1.5">
+            {/* Dark / Light Toggle */}
+            <button
+              onClick={toggleTheme}
+              className={`p-1.5 rounded-xl border transition-colors ${
+                isDark 
+                  ? 'bg-slate-800 border-slate-700 text-amber-300 hover:bg-slate-750' 
+                  : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100'
+              }`}
+              title={isDark ? 'Mode Terang' : 'Mode Gelap'}
+            >
+              {isDark ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
+            </button>
+
+            <button
+              onClick={onOpenTryout}
+              className="p-1.5 bg-amber-50 text-amber-800 border border-amber-300 rounded-xl text-[10px] font-extrabold flex items-center gap-1"
+            >
+              <Award className="w-3.5 h-3.5" />
+              <span>Tryout</span>
+            </button>
+          </div>
         </div>
       </header>
     );
@@ -84,7 +86,7 @@ export const MobileTopBar: React.FC<MobileTopBarProps> = ({
     <header className={`sticky top-0 z-30 backdrop-blur-md border-b px-4 py-2.5 shadow-xs transition-colors ${
       isDark ? 'bg-slate-900/95 border-slate-800 text-white' : 'bg-white/95 border-slate-200/80 text-slate-900'
     }`}>
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between max-w-4xl mx-auto w-full">
         
         {/* User Info with AppLogo & Role Dropdown */}
         <div className="flex items-center gap-2.5">

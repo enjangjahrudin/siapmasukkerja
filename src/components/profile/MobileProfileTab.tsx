@@ -301,7 +301,7 @@ export const MobileProfileTab: React.FC<MobileProfileTabProps> = ({
   const displayAvatar = activeUser?.avatarUrl || editAvatarUrl;
 
   return (
-    <div className={`p-4 space-y-4 pb-24 select-none transition-colors ${
+    <div className={`p-4 sm:p-6 md:p-8 space-y-4 pb-24 select-none max-w-4xl mx-auto w-full transition-colors ${
       isDark ? 'text-white' : 'text-slate-900'
     }`}>
 

@@ -201,7 +201,7 @@ export const KraepelinSimulator: React.FC<KraepelinSimulatorProps> = ({ onFinish
       
       {/* 1. IDLE SCREEN (Pengaturan Tes) */}
       {gameState === 'idle' && (
-        <div className="p-4 space-y-4 pb-12 overflow-y-auto">
+        <div className="p-4 space-y-4 pb-12 overflow-y-auto max-w-xl mx-auto w-full">
           
           <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-xs">
             <div className="flex items-center justify-between gap-2 mb-2">
@@ -346,7 +346,7 @@ export const KraepelinSimulator: React.FC<KraepelinSimulatorProps> = ({ onFinish
 
       {/* 2. RUNNING TEST SCREEN (100% ZERO-SCROLL MOBILE ERGONOMIC VIEW) */}
       {gameState === 'running' && (
-        <div className="flex-1 flex flex-col justify-between p-3.5 max-h-[820px] overflow-hidden">
+        <div className="flex-1 flex flex-col justify-between p-3.5 max-h-[820px] overflow-hidden max-w-md mx-auto w-full">
           
           {/* Top Compact Status Bar */}
           <div className="bg-white border border-slate-200/90 rounded-2xl p-2.5 shadow-xs shrink-0">
@@ -464,7 +464,7 @@ export const KraepelinSimulator: React.FC<KraepelinSimulatorProps> = ({ onFinish
 
       {/* 3. COMPLETED REPORT SCREEN */}
       {gameState === 'completed' && analysis && (
-        <div className="p-4 space-y-4 pb-12 overflow-y-auto">
+        <div className="p-4 space-y-4 pb-12 overflow-y-auto max-w-xl mx-auto w-full">
           
           <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-xs text-center">
             <div className="w-12 h-12 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto mb-2">

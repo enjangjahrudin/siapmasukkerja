@@ -41,43 +41,44 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGoToRegister, onGoTo
     }`}>
       
       {/* Top App Header with Iconic Logo, Theme Toggle, and Login Button */}
-      <div className={`p-4 sm:p-5 flex items-center justify-between border-b sticky top-0 z-20 backdrop-blur-md transition-colors ${
+      <div className={`p-4 sm:p-5 border-b sticky top-0 z-20 backdrop-blur-md transition-colors ${
         isDark ? 'bg-slate-900/90 border-slate-800' : 'bg-white/90 border-slate-200 shadow-xs'
       }`}>
-        
-        {/* Iconic Logo */}
-        <AppLogo size="md" isDark={isDark} showText={true} />
+        <div className="flex items-center justify-between max-w-4xl mx-auto w-full">
+          {/* Iconic Logo */}
+          <AppLogo size="md" isDark={isDark} showText={true} />
 
-        <div className="flex items-center gap-2">
-          {/* Theme Toggle Sun / Moon Button */}
-          <button
-            onClick={toggleTheme}
-            className={`p-2 rounded-xl border transition-colors flex items-center justify-center ${
-              isDark 
-                ? 'bg-slate-800 border-slate-700 text-amber-300 hover:bg-slate-750' 
-                : 'bg-slate-100 border-slate-200 text-slate-700 hover:bg-slate-200'
-            }`}
-            title={isDark ? 'Beralih ke Mode Terang (Light Mode)' : 'Beralih ke Mode Gelap (Dark Mode)'}
-          >
-            {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-          </button>
+          <div className="flex items-center gap-2">
+            {/* Theme Toggle Sun / Moon Button */}
+            <button
+              onClick={toggleTheme}
+              className={`p-2 rounded-xl border transition-colors flex items-center justify-center ${
+                isDark 
+                  ? 'bg-slate-800 border-slate-700 text-amber-300 hover:bg-slate-750' 
+                  : 'bg-slate-100 border-slate-200 text-slate-700 hover:bg-slate-200'
+              }`}
+              title={isDark ? 'Beralih ke Mode Terang (Light Mode)' : 'Beralih ke Mode Gelap (Dark Mode)'}
+            >
+              {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            </button>
 
-          <button
-            onClick={onGoToLogin}
-            className={`text-xs font-bold px-3 py-2 rounded-xl border transition-colors flex items-center gap-1.5 ${
-              isDark 
-                ? 'bg-slate-800 hover:bg-slate-700 text-sky-300 border-slate-700' 
-                : 'bg-brand-50 hover:bg-brand-100 text-brand-800 border-brand-200'
-            }`}
-          >
-            <LogIn className="w-3.5 h-3.5" />
-            <span>Masuk</span>
-          </button>
+            <button
+              onClick={onGoToLogin}
+              className={`text-xs font-bold px-3 py-2 rounded-xl border transition-colors flex items-center gap-1.5 ${
+                isDark 
+                  ? 'bg-slate-800 hover:bg-slate-700 text-sky-300 border-slate-700' 
+                  : 'bg-brand-50 hover:bg-brand-100 text-brand-800 border-brand-200'
+              }`}
+            >
+              <LogIn className="w-3.5 h-3.5" />
+              <span>Masuk</span>
+            </button>
+          </div>
         </div>
       </div>
 
       {/* Main Hero & Content Showcase */}
-      <div className="p-4 sm:p-5 space-y-4 flex-1 overflow-y-auto pb-8">
+      <div className="p-4 sm:p-6 md:p-8 space-y-4 flex-1 overflow-y-auto pb-8 max-w-4xl mx-auto w-full">
         
         {/* Tagline & Main Headline */}
         <div>
@@ -269,28 +270,30 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGoToRegister, onGoTo
       </div>
 
       {/* Sticky Bottom Action Buttons */}
-      <div className={`p-4 border-t backdrop-blur-md sticky bottom-0 z-20 space-y-2 transition-colors ${
+      <div className={`p-4 border-t backdrop-blur-md sticky bottom-0 z-20 transition-colors ${
         isDark ? 'bg-slate-900/95 border-slate-800' : 'bg-white/95 border-slate-200'
       }`}>
-        <button
-          onClick={onGoToRegister}
-          className="w-full py-3.5 bg-gradient-to-r from-brand-600 via-sky-500 to-teal-400 hover:from-brand-500 hover:to-teal-300 text-slate-950 font-black text-sm rounded-2xl shadow-lg shadow-brand-500/25 flex items-center justify-center gap-2 transition-all transform active:scale-98"
-        >
-          <UserPlus className="w-4 h-4" />
-          <span>Daftar Akun Baru (Gratis)</span>
-        </button>
+        <div className="max-w-md mx-auto w-full space-y-2">
+          <button
+            onClick={onGoToRegister}
+            className="w-full py-3.5 bg-gradient-to-r from-brand-600 via-sky-500 to-teal-400 hover:from-brand-500 hover:to-teal-300 text-slate-950 font-black text-sm rounded-2xl shadow-lg shadow-brand-500/25 flex items-center justify-center gap-2 transition-all transform active:scale-98"
+          >
+            <UserPlus className="w-4 h-4" />
+            <span>Daftar Akun Baru (Gratis)</span>
+          </button>
 
-        <button
-          onClick={onGoToLogin}
-          className={`w-full py-2.5 font-bold text-xs rounded-xl border flex items-center justify-center gap-1.5 transition-colors ${
-            isDark 
-              ? 'bg-slate-800 hover:bg-slate-750 text-slate-200 border-slate-700' 
-              : 'bg-slate-100 hover:bg-slate-200 text-slate-800 border-slate-300'
-          }`}
-        >
-          <span>Sudah Punya Akun? Masuk di Sini</span>
-          <ArrowRight className="w-3.5 h-3.5" />
-        </button>
+          <button
+            onClick={onGoToLogin}
+            className={`w-full py-2.5 font-bold text-xs rounded-xl border flex items-center justify-center gap-1.5 transition-colors ${
+              isDark 
+                ? 'bg-slate-800 hover:bg-slate-750 text-slate-200 border-slate-700' 
+                : 'bg-slate-100 hover:bg-slate-200 text-slate-800 border-slate-300'
+            }`}
+          >
+            <span>Sudah Punya Akun? Masuk di Sini</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
       </div>
 
     </div>

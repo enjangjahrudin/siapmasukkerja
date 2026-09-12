@@ -63,7 +63,7 @@ export const MobileHomeDashboard: React.FC<MobileHomeDashboardProps> = ({
   const currentTarget = sectorTargets[targetRole] || sectorTargets.operator;
 
   return (
-    <div className="p-4 sm:p-5 md:p-6 space-y-4 pb-20 select-none">
+    <div className="p-4 sm:p-6 md:p-8 space-y-5 pb-24 select-none max-w-4xl mx-auto w-full">
       
       {/* Target Status Card */}
       <div className="bg-gradient-to-br from-slate-900 via-brand-950 to-slate-900 text-white rounded-3xl p-4 sm:p-5 shadow-md relative overflow-hidden">
@@ -166,7 +166,7 @@ export const MobileHomeDashboard: React.FC<MobileHomeDashboardProps> = ({
           <span className="text-[10px] text-brand-600 font-bold">Pilih Modul</span>
         </div>
 
-        <div className="grid grid-cols-2 gap-2.5">
+        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-3.5">
           
           {/* 1. Kraepelin */}
           <div

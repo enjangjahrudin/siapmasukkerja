@@ -126,7 +126,7 @@ export const MobileModulesTab: React.FC<MobileModulesTabProps> = ({ onSelectTest
   });
 
   return (
-    <div className="p-4 space-y-4 pb-20 select-none">
+    <div className="p-4 sm:p-6 md:p-8 space-y-4 pb-24 select-none max-w-4xl mx-auto w-full">
       
       {/* Title & Filter Tabs */}
       <div>
@@ -157,7 +157,7 @@ export const MobileModulesTab: React.FC<MobileModulesTabProps> = ({ onSelectTest
       </div>
 
       {/* Modules List */}
-      <div className="space-y-3">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         {filteredModules.map(mod => {
           const Icon = mod.icon;
           return (
