@@ -21,22 +21,27 @@ import {
   Brain,
   Zap,
   FileText,
-  Download
+  Download,
+  Smartphone
 } from 'lucide-react';
+import { isRunningStandalone } from '../../utils/pwa-manager';
 
 interface MobileHomeDashboardProps {
   onSelectTest: (test: TestCategory | 'tips' | 'tryout-full') => void;
   targetRole: TargetRole;
   userName: string;
   onOpenRapor?: () => void;
+  onOpenInstallPwa?: () => void;
 }
 
 export const MobileHomeDashboard: React.FC<MobileHomeDashboardProps> = ({
   onSelectTest,
   targetRole,
   userName,
-  onOpenRapor
+  onOpenRapor,
+  onOpenInstallPwa
 }) => {
+  const isStandalone = isRunningStandalone();
   const sectorTargets: Record<TargetRole, { sector: string; examples: string; roleLabel: string }> = {
     operator: {
       sector: 'Manufaktur Otomotif & Assembling',
@@ -156,6 +161,45 @@ export const MobileHomeDashboard: React.FC<MobileHomeDashboardProps> = ({
           <span>Unduh</span>
         </button>
       </div>
+
+      {/* Quick Action 2: Install Aplikasi PWA (Standalone App) */}
+      {!isStandalone && (
+        <div 
+          onClick={onOpenInstallPwa}
+          className="bg-gradient-to-r from-slate-900 via-brand-950 to-indigo-950 text-white border border-sky-500/30 rounded-2xl p-3.5 shadow-xs flex items-center justify-between gap-3 active:scale-98 transition-all cursor-pointer"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-sky-500/20 text-sky-400 border border-sky-400/30 flex items-center justify-center shrink-0 shadow-xs">
+              <Smartphone className="w-5 h-5 animate-pulse" />
+            </div>
+            <div>
+              <div className="flex items-center gap-1.5 mb-0.5">
+                <span className="text-[9px] font-black uppercase px-2 py-0.2 rounded-md bg-amber-400 text-slate-950">
+                  PWA Gratis
+                </span>
+                <span className="text-[10px] text-sky-300 font-semibold">Layar Utama HP / Tablet</span>
+              </div>
+              <strong className="text-xs font-extrabold text-white block leading-tight">
+                Pasang Aplikasi SiapKerja
+              </strong>
+              <p className="text-[10px] text-slate-300 mt-0.5 leading-snug">
+                Buka instan tanpa browser, layar penuh & hemat kuota
+              </p>
+            </div>
+          </div>
+
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              if (onOpenInstallPwa) onOpenInstallPwa();
+            }}
+            className="px-3 py-2 bg-gradient-to-r from-sky-500 to-teal-400 hover:from-sky-400 hover:to-teal-300 text-slate-950 font-black text-[11px] rounded-xl shadow-xs flex items-center gap-1.5 shrink-0 transition-all transform active:scale-95 cursor-pointer"
+          >
+            <Download className="w-3.5 h-3.5" />
+            <span>Install</span>
+          </button>
+        </div>
+      )}
 
       {/* Main Grid App Icons Menu (Android Style) */}
       <div>

@@ -1,0 +1,62 @@
+{
+  "name": "SMK — Siap Masuk Kerja",
+  "short_name": "SiapKerja",
+  "description": "Platform Persiapan Tes Masuk Kerja, Simulasi CAT Kraepelin, Pauli, Ketelitian QC, & AI Mock Interview.",
+  "start_url": "/?source=pwa",
+  "id": "/?source=pwa",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["standalone", "window-controls-overlay", "minimal-ui"],
+  "orientation": "portrait-primary",
+  "background_color": "#0f172a",
+  "theme_color": "#0284c7",
+  "categories": ["education", "productivity", "business"],
+  "icons": [
+    {
+      "src": "/pwa-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-maskable-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/pwa-maskable-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Simulasi Tryout CAT",
+      "short_name": "Tryout",
+      "description": "Buka simulasi 30 soal CAT rekrutmen pabrik",
+      "url": "/?action=tryout",
+      "icons": [{ "src": "/pwa-192x192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Tes Kraepelin & Pauli",
+      "short_name": "Kraepelin",
+      "description": "Latihan tes koran hitung cepat",
+      "url": "/?test=kraepelin",
+      "icons": [{ "src": "/pwa-192x192.png", "sizes": "192x192" }]
+    }
+  ]
+}

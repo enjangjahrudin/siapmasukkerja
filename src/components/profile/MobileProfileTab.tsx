@@ -31,11 +31,13 @@ import {
   Ruler,
   FileText,
   Download,
-  History
+  History,
+  Smartphone
 } from 'lucide-react';
 import { sounds } from '../../utils/sound-effects';
 import { SchoolPicker } from '../common/SchoolPicker';
 import { useTheme } from '../../utils/theme-context';
+import { isRunningStandalone } from '../../utils/pwa-manager';
 import { 
   RegisteredUser, 
   getActiveSession, 
@@ -53,6 +55,7 @@ interface MobileProfileTabProps {
   onLogout: () => void;
   onUpdateUser?: (user: RegisteredUser) => void;
   onOpenRapor?: () => void;
+  onOpenInstallPwa?: () => void;
 }
 
 export const MobileProfileTab: React.FC<MobileProfileTabProps> = ({
@@ -61,7 +64,8 @@ export const MobileProfileTab: React.FC<MobileProfileTabProps> = ({
   setTargetRole,
   onLogout,
   onUpdateUser,
-  onOpenRapor
+  onOpenRapor,
+  onOpenInstallPwa
 }) => {
   const { theme, toggleTheme, isDark } = useTheme();
   const [currentUserData, setCurrentUserData] = useState<RegisteredUser | null>(() => getActiveSession());
@@ -1111,6 +1115,44 @@ export const MobileProfileTab: React.FC<MobileProfileTabProps> = ({
           ))}
         </div>
       </div>
+
+      {/* PWA Install Action */}
+      {!isRunningStandalone() && (
+        <div className="pt-1">
+          <button
+            onClick={onOpenInstallPwa}
+            className={`w-full p-3.5 border rounded-2xl transition-all flex items-center justify-between gap-3 text-left shadow-xs ${
+              isDark 
+                ? 'bg-gradient-to-r from-sky-950/60 to-indigo-950/60 border-sky-800/40 text-white hover:border-sky-600/60' 
+                : 'bg-gradient-to-r from-sky-50 to-indigo-50 border-sky-200 text-slate-900 hover:border-sky-300'
+            }`}
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-sky-500/20 text-sky-500 border border-sky-400/30 flex items-center justify-center shrink-0">
+                <Smartphone className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="flex items-center gap-1.5 mb-0.5">
+                  <span className="text-[9px] font-black uppercase px-2 py-0.2 rounded-md bg-amber-400 text-slate-950">
+                    Aplikasi PWA
+                  </span>
+                  <span className={`text-[10px] font-semibold ${isDark ? 'text-sky-300' : 'text-sky-600'}`}>
+                    Layar Utama HP / Tablet
+                  </span>
+                </div>
+                <strong className="text-xs font-black block">Pasang Aplikasi SiapKerja</strong>
+                <span className="text-[10px] text-slate-400 block mt-0.5">
+                  Akses cepat instan tanpa browser & hemat kuota
+                </span>
+              </div>
+            </div>
+            <div className="px-3 py-1.5 bg-sky-500 hover:bg-sky-400 text-slate-950 font-black text-xs rounded-xl shadow-xs shrink-0 flex items-center gap-1">
+              <Download className="w-3.5 h-3.5" />
+              <span>Pasang</span>
+            </div>
+          </button>
+        </div>
+      )}
 
       {/* Logout Action */}
       <div className="space-y-2 pt-1">

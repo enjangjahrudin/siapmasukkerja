@@ -21,6 +21,7 @@ import { AiInterviewComingSoon } from './components/interview/AiInterviewComingS
 import { StudentRaporModal } from './components/rapor/StudentRaporModal';
 import { FullTryoutModal } from './components/tryout/FullTryoutModal';
 import { DailyStreakModal } from './components/streak/DailyStreakModal';
+import { PwaInstallModal } from './components/pwa/PwaInstallModal';
 import { AdminDashboard } from './components/admin/AdminDashboard';
 import { sounds } from './utils/sound-effects';
 import { 
@@ -58,6 +59,9 @@ export const App: React.FC = () => {
   // Daily streak modal state
   const [isStreakOpen, setIsStreakOpen] = useState<boolean>(false);
 
+  // PWA Install modal state
+  const [isInstallModalOpen, setIsInstallModalOpen] = useState<boolean>(false);
+
   // Main scroll viewport ref
   const mainScrollRef = React.useRef<HTMLElement | null>(null);
 
@@ -93,6 +97,9 @@ export const App: React.FC = () => {
   const isStreakOpenRef = React.useRef(isStreakOpen);
   isStreakOpenRef.current = isStreakOpen;
 
+  const isInstallModalOpenRef = React.useRef(isInstallModalOpen);
+  isInstallModalOpenRef.current = isInstallModalOpen;
+
   // Intercept Mobile Hardware / Browser Back Button
   useEffect(() => {
     // Push an initial history entry to establish the trap
@@ -111,6 +118,11 @@ export const App: React.FC = () => {
       }
 
       // 2. Check top-level modals in App.tsx
+      if (isInstallModalOpenRef.current) {
+        setIsInstallModalOpen(false);
+        return;
+      }
+
       if (isTryoutOpenRef.current) {
         setIsTryoutOpen(false);
         return;
@@ -381,6 +393,10 @@ export const App: React.FC = () => {
                       sounds.playClick();
                       setIsStudentRaporOpen(true);
                     }}
+                    onOpenInstallPwa={() => {
+                      sounds.playClick();
+                      setIsInstallModalOpen(true);
+                    }}
                   />
                 )}
 
@@ -443,6 +459,10 @@ export const App: React.FC = () => {
                       sounds.playClick();
                       setIsStudentRaporOpen(true);
                     }}
+                    onOpenInstallPwa={() => {
+                      sounds.playClick();
+                      setIsInstallModalOpen(true);
+                    }}
                   />
                 )}
               </>
@@ -485,6 +505,12 @@ export const App: React.FC = () => {
               setIsStreakOpen(false);
               handleSelectModule('tryout-full');
             }}
+          />
+
+          {/* Global PWA Install Modal */}
+          <PwaInstallModal
+            isOpen={isInstallModalOpen}
+            onClose={() => setIsInstallModalOpen(false)}
           />
 
         </div>
