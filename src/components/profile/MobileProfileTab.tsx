@@ -969,7 +969,32 @@ export const MobileProfileTab: React.FC<MobileProfileTabProps> = ({
                     <div className="space-y-1.5 max-h-48 overflow-y-auto pr-0.5">
                       {displayed.slice(0, 8).map((rec: UserTestRecord) => {
                         const isTryout = rec.testType === 'tryout' || rec.testName?.toLowerCase().includes('tryout');
-                        const isPassed = rec.score >= (isTryout ? 75 : 70);
+                        const isKraepelin = rec.testType === 'kraepelin' || rec.testName?.toLowerCase().includes('kraepelin') || rec.testName?.startsWith('Panker');
+
+                        let titleDisplay = rec.testName;
+                        let extraMeta = '';
+
+                        if (isKraepelin) {
+                          titleDisplay = 'Tes Kraepelin (Tes Koran)';
+                          const pMatch = rec.testName?.match(/Panker\s*([\d.]+)/i) || (rec.details?.panker ? [null, rec.details.panker] : null);
+                          if (pMatch) {
+                            extraMeta = ` • Kecepatan: ${pMatch[1]} a/m`;
+                          }
+                        }
+
+                        // Extract true score with fallback to details.janker, details.accuracy, or text regex
+                        let scoreDisplay = typeof rec.score === 'number' && rec.score > 0 ? rec.score : 0;
+                        if (!scoreDisplay) {
+                          if (rec.details?.janker) scoreDisplay = Math.round(rec.details.janker);
+                          else if (rec.details?.accuracy) scoreDisplay = Math.round(rec.details.accuracy);
+                          else if (rec.details?.score) scoreDisplay = Math.round(rec.details.score);
+                          else {
+                            const accMatch = rec.testName?.match(/Akurasi\s*([\d.]+)%/i);
+                            if (accMatch) scoreDisplay = Math.round(parseFloat(accMatch[1]));
+                          }
+                        }
+
+                        const isPassed = scoreDisplay >= (isTryout ? 75 : 70);
 
                         return (
                           <div key={rec.id} className="flex items-center justify-between text-xs p-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-700/50">
@@ -981,12 +1006,13 @@ export const MobileProfileTab: React.FC<MobileProfileTabProps> = ({
                                   </span>
                                 )}
                                 <span className="font-bold text-slate-800 dark:text-slate-200 block text-[11px]">
-                                  {rec.testName}
+                                  {titleDisplay}
                                 </span>
                               </div>
                               <span className="text-[9px] text-slate-400 font-medium">
                                 {new Date(rec.completedAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} • {new Date(rec.completedAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
                                 {rec.totalQuestions ? ` • ${rec.correctAnswers || 0}/${rec.totalQuestions} Benar` : ''}
+                                {extraMeta}
                               </span>
                             </div>
                             <span className={`font-black text-xs px-2.5 py-1 rounded-lg ${
@@ -994,7 +1020,7 @@ export const MobileProfileTab: React.FC<MobileProfileTabProps> = ({
                                 ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300' 
                                 : 'bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300'
                             }`}>
-                              {rec.score}%
+                              {scoreDisplay}%
                             </span>
                           </div>
                         );

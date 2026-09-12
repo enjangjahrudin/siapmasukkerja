@@ -411,11 +411,13 @@ try {
         } catch (_) {}
       }
       try {
-        await pool.query(`ALTER TABLE users ADD COLUMN completed_tests_count INT DEFAULT 0 AFTER overall_status`);
-      } catch (e) {
-        try {
-          await pool.query(`ALTER TABLE users ADD COLUMN completed_tests_count INT DEFAULT 0`);
-        } catch (_) {}
+        const [colRows] = await pool.query("SHOW COLUMNS FROM users LIKE 'completed_tests_count'");
+        if (colRows.length === 0) {
+          await pool.query("ALTER TABLE users ADD COLUMN completed_tests_count INT NOT NULL DEFAULT 0");
+          console.log("[MySQL Schema] Successfully added column completed_tests_count to users table");
+        }
+      } catch (colErr) {
+        console.warn("[MySQL Schema Check completed_tests_count]", colErr.message);
       }
 
       // Migrations for education_videos (upload & orientation support)
