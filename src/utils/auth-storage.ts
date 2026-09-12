@@ -552,14 +552,37 @@ export const updateActiveUserScore = (update: Partial<RegisteredUser>): void => 
 };
 
 /**
- * Synchronize all locally saved test history records to the server database
+ * Helper to deduplicate test history records
+ */
+export const deduplicateTestHistory = (records?: UserTestRecord[]): UserTestRecord[] => {
+  if (!Array.isArray(records) || records.length === 0) return [];
+  const seen = new Set<string>();
+  const clean: UserTestRecord[] = [];
+
+  for (const r of records) {
+    if (!r) continue;
+    // Normalized key based on testType, testName, score, and approximate time
+    const timeKey = r.completedAt ? r.completedAt.substring(0, 16) : ''; // Minute resolution
+    const key = `${r.testType}___${r.testName}___${r.score}___${timeKey}`;
+
+    if (!seen.has(key)) {
+      seen.add(key);
+      clean.push(r);
+    }
+  }
+  return clean;
+};
+
+/**
+ * Synchronize only un-synced local test history records to the server database
  */
 export const syncLocalTestScoresToServer = async (targetUser?: RegisteredUser): Promise<void> => {
   const user = targetUser || getActiveSession();
   if (!user || !user.id || user.isAdmin) return;
 
   if (Array.isArray(user.testHistory) && user.testHistory.length > 0) {
-    for (const record of user.testHistory) {
+    const localOnlyRecords = user.testHistory.filter(r => r && r.id && !r.id.startsWith('score-'));
+    for (const record of localOnlyRecords) {
       try {
         await fetch(`${API_BASE_URL}/user/record-test`, {
           method: 'POST',
@@ -570,37 +593,6 @@ export const syncLocalTestScoresToServer = async (targetUser?: RegisteredUser): 
             stats: {
               completedTestsCount: user.completedTestsCount,
               averageAccuracy: user.averageAccuracy,
-              overallStatus: user.overallStatus
-            }
-          })
-        });
-      } catch (_) {}
-    }
-  } else {
-    const testsToSync: { testType: string; score: number; details?: any }[] = [];
-    if (user.kraepelinScore) testsToSync.push({ testType: 'kraepelin', score: Math.round(user.kraepelinScore.janker), details: user.kraepelinScore });
-    if (user.qcAccuracy !== undefined && user.qcAccuracy !== null) testsToSync.push({ testType: 'qc', score: user.qcAccuracy, details: { accuracy: user.qcAccuracy } });
-    if (user.mathScore !== undefined && user.mathScore !== null) testsToSync.push({ testType: 'math', score: user.mathScore, details: { score: user.mathScore } });
-    if (user.multiplicationScore) testsToSync.push({ testType: 'multiplication', score: user.multiplicationScore.accuracy, details: user.multiplicationScore });
-    if (user.psychotestScore !== undefined && user.psychotestScore !== null) testsToSync.push({ testType: 'psychotest', score: user.psychotestScore, details: { score: user.psychotestScore } });
-    if (user.mechanicalScore !== undefined && user.mechanicalScore !== null) testsToSync.push({ testType: 'mechanical', score: user.mechanicalScore, details: { score: user.mechanicalScore } });
-    if (user.interviewScore !== undefined && user.interviewScore !== null) testsToSync.push({ testType: 'interview', score: user.interviewScore, details: { score: user.interviewScore } });
-
-    for (const t of testsToSync) {
-      try {
-        await fetch(`${API_BASE_URL}/user/record-test`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            userId: user.id,
-            record: {
-              testType: t.testType,
-              testName: `Tes ${t.testType}`,
-              score: t.score,
-              details: t.details
-            },
-            stats: {
-              completedTestsCount: testsToSync.length,
               overallStatus: user.overallStatus
             }
           })
@@ -620,12 +612,17 @@ export const fetchUserProfile = async (userId: string): Promise<RegisteredUser |
       const resData = await response.json();
       if (resData.user) {
         const current = getActiveSession();
+        const incomingHistory = (resData.user.testHistory && resData.user.testHistory.length > 0)
+          ? resData.user.testHistory
+          : (current?.testHistory || []);
+
+        const cleanHistory = deduplicateTestHistory(incomingHistory);
+
         // Merge server data with any existing local test history
         const merged: RegisteredUser = {
           ...resData.user,
-          testHistory: (resData.user.testHistory && resData.user.testHistory.length > 0)
-            ? resData.user.testHistory
-            : (current?.testHistory || []),
+          testHistory: cleanHistory,
+          completedTestsCount: cleanHistory.length > 0 ? cleanHistory.length : (resData.user.completedTestsCount || 0),
           // Preserve local scores if server doesn't have them yet
           kraepelinScore: resData.user.kraepelinScore || current?.kraepelinScore,
           qcAccuracy: resData.user.qcAccuracy !== null && resData.user.qcAccuracy !== undefined ? resData.user.qcAccuracy : current?.qcAccuracy,
@@ -641,8 +638,7 @@ export const fetchUserProfile = async (userId: string): Promise<RegisteredUser |
           setActiveSession(merged);
         }
 
-        // Sync local scores to server in background
-        syncLocalTestScoresToServer(merged).catch(() => {});
+        // NOTE: syncLocalTestScoresToServer is intentionally NOT called here to prevent duplicate runaway loops
 
         return merged;
       }
@@ -870,13 +866,14 @@ export const recordUserTestResult = async (
   };
 
   const existingHistory = Array.isArray(current.testHistory) ? current.testHistory : [];
-  const updatedHistory = [newRecord, ...existingHistory].slice(0, 50); // Keep last 50 records
+  const cleanExisting = deduplicateTestHistory(existingHistory);
+  const updatedHistory = [newRecord, ...cleanExisting].slice(0, 50); // Keep last 50 records
 
   // Update specific scores
   const updatedUser: RegisteredUser = {
     ...current,
     testHistory: updatedHistory,
-    completedTestsCount: (current.completedTestsCount || 0) + 1,
+    completedTestsCount: updatedHistory.length,
     lastActive: 'Baru saja'
   };
 

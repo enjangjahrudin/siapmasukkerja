@@ -479,6 +479,52 @@ try {
         console.warn('[Status Auto-Sync Warning]', syncErr.message);
       }
 
+      // Auto-deduplicate test_scores (clean up runaway duplicate sync rows)
+      try {
+        const [allScores] = await pool.query(
+          'SELECT id, user_id, test_type, score_summary, score_details, created_at FROM test_scores ORDER BY id ASC'
+        );
+
+        const seenScores = new Map();
+        const duplicateIds = [];
+
+        for (const s of allScores) {
+          let detStr = '';
+          try {
+            const d = typeof s.score_details === 'string' ? JSON.parse(s.score_details) : s.score_details;
+            detStr = JSON.stringify(d || {});
+          } catch (_) {
+            detStr = String(s.score_details || '');
+          }
+          const key = `${s.user_id}___${s.test_type}___${s.score_summary}___${detStr}`;
+          if (seenScores.has(key)) {
+            duplicateIds.push(s.id);
+          } else {
+            seenScores.set(key, s.id);
+          }
+        }
+
+        if (duplicateIds.length > 0) {
+          for (let i = 0; i < duplicateIds.length; i += 500) {
+            const batch = duplicateIds.slice(i, i + 500);
+            await pool.query('DELETE FROM test_scores WHERE id IN (?)', [batch]);
+          }
+          console.log(`[Auto-Deduplicate] Successfully removed ${duplicateIds.length} duplicate test_scores records.`);
+
+          // Recalculate completed_tests_count for all users
+          await pool.query(`
+            UPDATE users u
+            LEFT JOIN (
+              SELECT user_id, COUNT(*) as cnt FROM test_scores GROUP BY user_id
+            ) sc ON u.id = sc.user_id
+            SET u.completed_tests_count = COALESCE(sc.cnt, 0)
+          `);
+          console.log('[Auto-Deduplicate] Recalculated completed_tests_count for affected users.');
+        }
+      } catch (dedupErr) {
+        console.warn('[Auto-Deduplicate Warning]', dedupErr.message);
+      }
+
       console.log('[MySQL] Tables & Schemas verified successfully');
     } catch (e) {
       console.warn('[MySQL Schema Warning]:', e.message);
@@ -1531,11 +1577,29 @@ app.get('/api/user/profile/:userId', async (req, res) => {
       [u.id]
     );
 
-    const scores = extractUserScores(scoreRows);
+    // Deduplicate score rows on-the-fly for clean history presentation
+    const seenScores = new Set();
+    const uniqueScoreRows = [];
+    for (const sr of scoreRows) {
+      let detStr = '';
+      try {
+        const d = typeof sr.score_details === 'string' ? JSON.parse(sr.score_details) : sr.score_details;
+        detStr = JSON.stringify(d || {});
+      } catch (_) {
+        detStr = String(sr.score_details || '');
+      }
+      const scoreKey = `${sr.test_type}___${sr.score_summary}___${detStr}`;
+      if (!seenScores.has(scoreKey)) {
+        seenScores.add(scoreKey);
+        uniqueScoreRows.push(sr);
+      }
+    }
+
+    const scores = extractUserScores(uniqueScoreRows);
     const compStats = calculateCompositeScoreAndStatus(scores);
     const resolvedStatus = scores.completed6Count > 0 ? compStats.overallStatus : (u.overall_status === 'Lolos Unggul' && scores.completed6Count === 0 ? 'Perlu Latihan' : (u.overall_status || 'Perlu Latihan'));
 
-    const testHistory = scoreRows.map(sr => {
+    const testHistory = uniqueScoreRows.map(sr => {
       let details = sr.score_details;
       if (typeof details === 'string') {
         try { details = JSON.parse(details); } catch (e) { details = {}; }
@@ -1571,7 +1635,7 @@ app.get('/api/user/profile/:userId', async (req, res) => {
         targetCompany: u.target_company,
         overallStatus: resolvedStatus,
         compositeScore: compStats.compositeScore,
-        completedTestsCount: scores.completed6Count > 0 ? scores.completed6Count : scoreRows.length,
+        completedTestsCount: scores.completed6Count > 0 ? scores.completed6Count : uniqueScoreRows.length,
         kraepelinScore: scores.kraepelinScore,
         qcAccuracy: scores.qcAccuracy,
         mathScore: scores.mathScore,
@@ -1747,6 +1811,11 @@ app.post('/api/user/record-test', async (req, res) => {
       return res.status(400).json({ success: false, message: 'userId dan record.testType wajib disertakan.' });
     }
 
+    // 1. Guard against runaway sync loops: Ignore records that were already loaded from database (id starts with 'score-')
+    if (record.id && typeof record.id === 'string' && record.id.startsWith('score-')) {
+      return res.json({ success: true, message: 'Record already synced from database (skipped).' });
+    }
+
     const testType = record.testType;
     const scoreSummary = record.testName || `Tes ${testType}`;
     const scoreDetails = {
@@ -1755,6 +1824,19 @@ app.post('/api/user/record-test', async (req, res) => {
       correctAnswers: record.correctAnswers,
       ...(record.details || {})
     };
+
+    // 2. Prevent duplicate insertions if submitted within 15 seconds with identical type & summary
+    const [recent] = await pool.query(
+      `SELECT id FROM test_scores 
+       WHERE user_id = ? AND test_type = ? AND score_summary = ? 
+         AND created_at >= NOW() - INTERVAL 15 SECOND 
+       LIMIT 1`,
+      [userId, testType, scoreSummary]
+    );
+
+    if (recent.length > 0) {
+      return res.json({ success: true, message: 'Hasil tes sudah tersimpan (duplikat dicegah).' });
+    }
 
     // Insert to test_scores
     await pool.query(
