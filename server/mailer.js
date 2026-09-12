@@ -9,12 +9,13 @@ function createTransporter() {
   const pass = process.env.SMTP_PASS || '';
 
   if (user && pass) {
+    const rejectUnauthorized = process.env.SMTP_REJECT_UNAUTHORIZED !== 'false';
     return nodemailer.createTransport({
       host,
       port,
       secure: port === 465, // true for 465, false for other ports
       auth: { user, pass },
-      tls: { rejectUnauthorized: false }
+      tls: { rejectUnauthorized }
     });
   }
 

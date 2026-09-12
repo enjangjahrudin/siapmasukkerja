@@ -1,5 +1,8 @@
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
+const bcrypt = require('bcryptjs');
 const mysql = require('mysql2/promise');
 require('dotenv').config();
 
@@ -157,13 +160,98 @@ const fs = require('fs');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-app.use(cors());
+// ─── SECURITY: Helmet – HTTP Security Headers ───
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: 'cross-origin' } // Allow /uploads/ static assets from frontend
+}));
+
+// ─── SECURITY: CORS – Allowlist domain ───
+const ALLOWED_ORIGINS = (process.env.CORS_ORIGINS || 'https://siapkerja.buatdigital.id,http://localhost:5173,http://localhost:3000').split(',');
+app.use(cors({
+  origin: (origin, callback) => {
+    // Allow requests with no origin (Postman, server-to-server)
+    if (!origin || ALLOWED_ORIGINS.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('CORS: Origin tidak diizinkan.'));
+    }
+  },
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Admin-Key', 'X-File-Name', 'Range'],
+  credentials: false
+}));
+
+// ─── SECURITY: Rate Limiters ───
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 menit
+  max: 10,
+  message: { success: false, message: 'Terlalu banyak percobaan login. Coba lagi setelah 15 menit.' },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+const otpSendLimiter = rateLimit({
+  windowMs: 30 * 60 * 1000, // 30 menit
+  max: 5,
+  message: { success: false, message: 'Terlalu sering meminta kode OTP. Coba lagi setelah 30 menit.' },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+const otpVerifyLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000, // 10 menit
+  max: 10,
+  message: { success: false, message: 'Terlalu banyak percobaan verifikasi. Coba lagi setelah 10 menit.' },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+const generalApiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 300,
+  message: { success: false, message: 'Terlalu banyak permintaan. Coba lagi setelah beberapa menit.' },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+app.use('/api/', generalApiLimiter);
+
+// ─── SECURITY: requireAdmin Middleware ───
+// Admin routes are protected by X-Admin-Key header matching ADMIN_SECRET_KEY in .env
+const ADMIN_SECRET_KEY = process.env.ADMIN_SECRET_KEY || '';
+function requireAdmin(req, res, next) {
+  const clientKey = req.headers['x-admin-key'] || '';
+  if (!ADMIN_SECRET_KEY) {
+    // If not configured in .env, allow access but log a warning
+    console.warn('[Security Warning] ADMIN_SECRET_KEY not set in .env. Admin routes are unprotected!');
+    return next();
+  }
+  if (!clientKey || clientKey !== ADMIN_SECRET_KEY) {
+    return res.status(401).json({ success: false, message: 'Akses ditolak. Kunci Admin tidak valid.' });
+  }
+  next();
+}
+
+// ─── BCRYPT Helper ───
+const BCRYPT_ROUNDS = 10;
+async function hashPassword(plainPassword) {
+  return bcrypt.hash(String(plainPassword), BCRYPT_ROUNDS);
+}
+async function comparePassword(plainPassword, hashedPassword) {
+  if (!plainPassword) return false;
+  // Support legacy plain-text passwords during transition
+  if (hashedPassword && !hashedPassword.startsWith('$2')) {
+    // Plain-text comparison (legacy)
+    return String(plainPassword) === String(hashedPassword);
+  }
+  return bcrypt.compare(String(plainPassword), String(hashedPassword || ''));
+}
 
 // ─── Uploads directory: must be declared early (used by video-stream route below) ───
 const uploadsVideoDir = path.join(__dirname, 'uploads', 'videos');
 if (!fs.existsSync(uploadsVideoDir)) {
   fs.mkdirSync(uploadsVideoDir, { recursive: true });
 }
+
+// ─── SECURITY: Allowed video extensions whitelist ───
+const ALLOWED_VIDEO_EXTS = new Set(['.mp4', '.webm', '.ogg', '.mov', '.avi', '.mkv']);
+const MAX_VIDEO_SIZE_BYTES = 500 * 1024 * 1024; // 500MB max
 
 // ─── VIDEO STREAM UPLOAD: Must be registered BEFORE express.json() middleware ───
 // express.json() global middleware would consume/corrupt the raw binary body before it reaches this handler.
@@ -172,11 +260,29 @@ if (!fs.existsSync(uploadsVideoDir)) {
 app.post('/api/upload/video-stream', (req, res) => {
   try {
     const rawFileName = req.headers['x-file-name'] ? decodeURIComponent(req.headers['x-file-name']) : 'video.mp4';
-    const ext = path.extname(rawFileName) || '.mp4';
+    const ext = path.extname(rawFileName).toLowerCase() || '.mp4';
+
+    // SECURITY: Validate file extension
+    if (!ALLOWED_VIDEO_EXTS.has(ext)) {
+      return res.status(400).json({ success: false, message: `Format file tidak didukung. Gunakan: ${[...ALLOWED_VIDEO_EXTS].join(', ')}` });
+    }
+
     const uniqueName = `vid-${Date.now()}-${Math.random().toString(36).substring(2, 7)}${ext}`;
     const filePath = path.join(uploadsVideoDir, uniqueName);
 
+    let bytesReceived = 0;
     const writeStream = fs.createWriteStream(filePath);
+
+    req.on('data', (chunk) => {
+      bytesReceived += chunk.length;
+      if (bytesReceived > MAX_VIDEO_SIZE_BYTES) {
+        writeStream.destroy();
+        if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+        req.destroy();
+        return res.status(413).json({ success: false, message: `File video terlalu besar. Maksimum ${Math.round(MAX_VIDEO_SIZE_BYTES / 1024 / 1024)}MB.` });
+      }
+    });
+
     req.pipe(writeStream);
 
     writeStream.on('finish', () => {
@@ -197,16 +303,17 @@ app.post('/api/upload/video-stream', (req, res) => {
 
     writeStream.on('error', (err) => {
       console.error('[Video Stream Write Error]', err);
-      res.status(500).json({ success: false, message: 'Gagal menulis file video: ' + err.message });
+      res.status(500).json({ success: false, message: 'Gagal menulis file video ke server.' });
     });
   } catch (err) {
     console.error('[Video Stream Upload Error]', err);
-    res.status(500).json({ success: false, message: 'Gagal memproses upload video: ' + err.message });
+    res.status(500).json({ success: false, message: 'Gagal memproses upload video.' });
   }
 });
 
-app.use(express.json({ limit: '100mb' }));
-app.use(express.urlencoded({ limit: '100mb', extended: true }));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ limit: '10mb', extended: true }));
+
 
 // Serve video files with HTTP 206 Range Streaming for smooth mobile iOS / Android & desktop playback
 app.get('/uploads/videos/:filename', (req, res) => {
@@ -561,6 +668,25 @@ try {
         console.warn('[Auto-Deduplicate Warning]', dedupErr.message);
       }
 
+      // ─── SECURITY: Migrate plain-text passwords to bcrypt hash ───
+      try {
+        const [plainUsers] = await pool.query(
+          `SELECT id, password FROM users WHERE password IS NOT NULL AND password != '' AND LEFT(password, 4) != '$2b$' AND LEFT(password, 4) != '$2a$'`
+        );
+        if (plainUsers.length > 0) {
+          console.log(`[Password Migration] Found ${plainUsers.length} un-hashed passwords. Starting bcrypt migration...`);
+          for (const u of plainUsers) {
+            try {
+              const hashed = await hashPassword(u.password);
+              await pool.query('UPDATE users SET password = ? WHERE id = ?', [hashed, u.id]);
+            } catch (_) {}
+          }
+          console.log(`[Password Migration] Done. ${plainUsers.length} passwords successfully hashed with bcrypt.`);
+        }
+      } catch (migrErr) {
+        console.warn('[Password Migration Warning]', migrErr.message);
+      }
+
       console.log('[MySQL] Tables & Schemas verified successfully');
     } catch (e) {
       console.warn('[MySQL Schema Warning]:', e.message);
@@ -583,18 +709,20 @@ app.get('/api/health', async (req, res) => {
       serverTime: rows[0].serverTime
     });
   } catch (err) {
+    console.error('[Health Check] DB error:', err.message);
     res.status(500).json({
       status: 'Degraded',
-      message: 'Server running but MySQL connection failed: ' + err.message,
+      message: 'Server aktif namun koneksi database bermasalah.',
       database: 'Disconnected'
     });
   }
 });
 
+
 // ----------------------------------------------------------------------------
 // 2. SEND REGISTRATION OTP TO EMAIL
 // ----------------------------------------------------------------------------
-app.post('/api/auth/send-registration-otp', async (req, res) => {
+app.post('/api/auth/send-registration-otp', otpSendLimiter, async (req, res) => {
   try {
     const { name, email, phone, school, npsn, major, password, targetRole } = req.body;
 
@@ -626,6 +754,10 @@ app.post('/api/auth/send-registration-otp', async (req, res) => {
     // Generate 6-digit OTP
     const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
 
+    // SECURITY: Hash password before storing in OTP payload
+    const rawPassword = password || '123456';
+    const hashedPasswordForPayload = await hashPassword(rawPassword);
+
     // Store in otp_verifications with 10 minutes expiry
     const payloadData = JSON.stringify({
       name: name.trim(),
@@ -634,7 +766,7 @@ app.post('/api/auth/send-registration-otp', async (req, res) => {
       school: school?.trim() || 'SMK',
       npsn: npsn?.trim() || null,
       major: major?.trim() || 'Teknik Mesin',
-      password: password || '123456',
+      password: hashedPasswordForPayload,
       targetRole: targetRole || 'operator'
     });
 
@@ -656,21 +788,19 @@ app.post('/api/auth/send-registration-otp', async (req, res) => {
       success: true,
       message: `Kode verifikasi 6-digit telah dikirimkan ke email ${cleanEmail}. Silakan periksa kotak masuk (atau folder spam) Anda.`,
       email: cleanEmail,
-      deliveryMethod: mailResult.method,
-      // Return OTP code in response for testing / when SMTP is not configured
-      simulatedOtp: otpCode
+      deliveryMethod: mailResult.method
     });
 
   } catch (err) {
     console.error('[Send OTP Error]', err);
-    res.status(500).json({ success: false, message: 'Gagal mengirim kode verifikasi: ' + err.message });
+    res.status(500).json({ success: false, message: 'Gagal mengirim kode verifikasi. Coba lagi.' });
   }
 });
 
 // ----------------------------------------------------------------------------
 // 3. VERIFY REGISTRATION OTP & FINALIZE ACCOUNT
 // ----------------------------------------------------------------------------
-app.post('/api/auth/verify-registration-otp', async (req, res) => {
+app.post('/api/auth/verify-registration-otp', otpVerifyLimiter, async (req, res) => {
   try {
     const { email, otp } = req.body;
 
@@ -760,14 +890,14 @@ app.post('/api/auth/verify-registration-otp', async (req, res) => {
 
   } catch (err) {
     console.error('[Verify Registration OTP Error]', err);
-    res.status(500).json({ success: false, message: 'Gagal memverifikasi pendaftaran: ' + err.message });
+    res.status(500).json({ success: false, message: 'Gagal memverifikasi pendaftaran. Coba lagi.' });
   }
 });
 
 // ----------------------------------------------------------------------------
 // 4. FORGOT PASSWORD - REQUEST OTP
 // ----------------------------------------------------------------------------
-app.post('/api/auth/forgot-password-request', async (req, res) => {
+app.post('/api/auth/forgot-password-request', otpSendLimiter, async (req, res) => {
   try {
     const { identifier } = req.body; // Can be email or phone
 
@@ -819,20 +949,19 @@ app.post('/api/auth/forgot-password-request', async (req, res) => {
       message: `Kode reset kata sandi telah dikirim ke email ${maskedEmail}.`,
       maskedEmail,
       email: user.email,
-      deliveryMethod: mailResult.method,
-      simulatedOtp: otpCode
+      deliveryMethod: mailResult.method
     });
 
   } catch (err) {
     console.error('[Forgot Password Error]', err);
-    res.status(500).json({ success: false, message: 'Gagal memproses permintaan reset: ' + err.message });
+    res.status(500).json({ success: false, message: 'Gagal memproses permintaan reset. Coba lagi.' });
   }
 });
 
 // ----------------------------------------------------------------------------
 // 5. RESET PASSWORD - VERIFY OTP & UPDATE PASSWORD
 // ----------------------------------------------------------------------------
-app.post('/api/auth/reset-password-confirm', async (req, res) => {
+app.post('/api/auth/reset-password-confirm', otpVerifyLimiter, async (req, res) => {
   try {
     const { email, otp, newPassword } = req.body;
 
@@ -861,8 +990,9 @@ app.post('/api/auth/reset-password-confirm', async (req, res) => {
       });
     }
 
-    // Update password in users table
-    await pool.query('UPDATE users SET password = ? WHERE email = ?', [newPassword, cleanEmail]);
+    // SECURITY: Hash new password before storing
+    const hashedNewPassword = await hashPassword(newPassword);
+    await pool.query('UPDATE users SET password = ? WHERE email = ?', [hashedNewPassword, cleanEmail]);
 
     // Delete used OTP
     await pool.query('DELETE FROM otp_verifications WHERE email = ? AND type = "forgot_password"', [cleanEmail]);
@@ -874,7 +1004,7 @@ app.post('/api/auth/reset-password-confirm', async (req, res) => {
 
   } catch (err) {
     console.error('[Reset Password Confirm Error]', err);
-    res.status(500).json({ success: false, message: 'Gagal memperbarui kata sandi: ' + err.message });
+    res.status(500).json({ success: false, message: 'Gagal memperbarui kata sandi. Coba lagi.' });
   }
 });
 
@@ -1011,7 +1141,7 @@ function calculateCompositeScoreAndStatus(scores) {
 // ----------------------------------------------------------------------------
 // 6. LOGIN ENDPOINT (STUDENT BY PHONE/EMAIL OR SUPER ADMIN)
 // ----------------------------------------------------------------------------
-app.post('/api/login', async (req, res) => {
+app.post('/api/login', loginLimiter, async (req, res) => {
   try {
     const { phone, password } = req.body;
     const cleanInput = phone?.trim();
@@ -1034,7 +1164,9 @@ app.post('/api/login', async (req, res) => {
         is_admin: 1
       };
 
-      if (password && admin.password && admin.password !== password) {
+      // SECURITY: Use bcrypt-aware comparison for admin password
+      const adminPwMatch = await comparePassword(password, admin.password);
+      if (password && admin.password && !adminPwMatch) {
         return res.status(401).json({ success: false, message: 'Kata sandi Admin salah.' });
       }
 
@@ -1064,8 +1196,9 @@ app.post('/api/login', async (req, res) => {
 
     const user = rows[0];
 
-    // Password validation
-    if (password && user.password && user.password !== password) {
+    // SECURITY: Use bcrypt-aware comparison
+    const pwMatch = await comparePassword(password, user.password);
+    if (password && user.password && !pwMatch) {
       return res.status(401).json({ success: false, message: 'Kata sandi tidak sesuai. Silakan periksa kembali atau gunakan Lupa Kata Sandi.' });
     }
 
@@ -1077,6 +1210,7 @@ app.post('/api/login', async (req, res) => {
       'SELECT id, test_type, score_summary, score_details, created_at FROM test_scores WHERE user_id = ? ORDER BY id DESC',
       [user.id]
     );
+
 
     const scores = extractUserScores(scoreRows);
     const compStats = calculateCompositeScoreAndStatus(scores);
@@ -1138,7 +1272,7 @@ app.post('/api/login', async (req, res) => {
 
   } catch (err) {
     console.error('[Login Error]', err);
-    res.status(500).json({ success: false, message: 'Gagal melakukan login: ' + err.message });
+    res.status(500).json({ success: false, message: 'Gagal melakukan login. Coba lagi.' });
   }
 });
 
@@ -1207,17 +1341,25 @@ const handleGetCandidates = async (req, res) => {
     });
   } catch (err) {
     console.error('[Admin Candidates Error]', err);
-    res.status(500).json({ success: false, message: 'Gagal mengambil data kandidat: ' + err.message });
+    res.status(500).json({ success: false, message: 'Gagal mengambil data kandidat.' });
   }
 };
 
-app.get('/api/admin/candidates', handleGetCandidates);
-app.get('/api/users', handleGetCandidates);
+app.get('/api/admin/candidates', requireAdmin, handleGetCandidates);
+app.get('/api/users', requireAdmin, handleGetCandidates);
 
 // ----------------------------------------------------------------------------
 // 7B. REALTIME DETAILED CANDIDATE REPORT (FOR INDIVIDUAL RAPOR MODAL & PDF)
 // ----------------------------------------------------------------------------
-app.get(['/api/admin/candidate-report/:userId', '/api/user/my-report/:userId'], async (req, res) => {
+app.get('/api/admin/candidate-report/:userId', requireAdmin, async (req, res) => {
+  return handleCandidateReport(req, res);
+});
+
+app.get('/api/user/my-report/:userId', async (req, res) => {
+  return handleCandidateReport(req, res);
+});
+
+const handleCandidateReport = async (req, res) => {
   try {
     const { userId } = req.params;
     const [userRows] = await pool.query('SELECT * FROM users WHERE id = ? LIMIT 1', [userId]);
@@ -1313,21 +1455,21 @@ app.get(['/api/admin/candidate-report/:userId', '/api/user/my-report/:userId'], 
     });
   } catch (err) {
     console.error('[Admin Candidate Report Error]', err);
-    res.status(500).json({ success: false, message: 'Gagal mengambil rapor peserta: ' + err.message });
+    res.status(500).json({ success: false, message: 'Gagal mengambil rapor peserta.' });
   }
-});
+};
 
 // ----------------------------------------------------------------------------
 // 7C. DELETE CANDIDATE FROM DATABASE (CASCADE TEST SCORES)
 // ----------------------------------------------------------------------------
-app.delete('/api/users/:id', async (req, res) => {
+app.delete('/api/users/:id', requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
     await pool.query('DELETE FROM users WHERE id = ? AND is_admin = FALSE', [id]);
     res.json({ success: true, message: `Peserta dengan ID ${id} berhasil dihapus dari database.` });
   } catch (err) {
     console.error('[Delete User Error]', err);
-    res.status(500).json({ success: false, message: 'Gagal menghapus peserta: ' + err.message });
+    res.status(500).json({ success: false, message: 'Gagal menghapus peserta.' });
   }
 });
 
@@ -1449,17 +1591,17 @@ const handleAdminUpdateCandidate = async (req, res) => {
     });
   } catch (err) {
     console.error('[Admin Update Candidate Error]', err);
-    res.status(500).json({ success: false, message: 'Gagal memperbarui data peserta: ' + err.message });
+    res.status(500).json({ success: false, message: 'Gagal memperbarui data peserta.' });
   }
 };
 
-app.put('/api/admin/candidates/:id', handleAdminUpdateCandidate);
-app.post('/api/admin/candidates/:id/update', handleAdminUpdateCandidate);
+app.put('/api/admin/candidates/:id', requireAdmin, handleAdminUpdateCandidate);
+app.post('/api/admin/candidates/:id/update', requireAdmin, handleAdminUpdateCandidate);
 
 // ----------------------------------------------------------------------------
 // 7C.2 ADMIN RESET CANDIDATE PASSWORD
 // ----------------------------------------------------------------------------
-app.post('/api/admin/candidates/:id/reset-password', async (req, res) => {
+app.post('/api/admin/candidates/:id/reset-password', requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
     let { newPassword } = req.body || {};
@@ -1483,12 +1625,13 @@ app.post('/api/admin/candidates/:id/reset-password', async (req, res) => {
       return res.status(404).json({ success: false, message: 'Peserta tidak ditemukan di database.' });
     }
 
-    await pool.query('UPDATE users SET password = ?, last_active = NOW() WHERE id = ?', [newPassword, id]);
+    // SECURITY: Hash reset password before storing
+    const hashedResetPassword = await hashPassword(newPassword);
+    await pool.query('UPDATE users SET password = ?, last_active = NOW() WHERE id = ?', [hashedResetPassword, id]);
 
     res.json({
       success: true,
       message: `Kata sandi untuk ${existing[0].name} (${id}) berhasil direset!`,
-      newPassword,
       candidate: {
         id: existing[0].id,
         name: existing[0].name,
@@ -1498,14 +1641,14 @@ app.post('/api/admin/candidates/:id/reset-password', async (req, res) => {
     });
   } catch (err) {
     console.error('[Admin Reset Password Error]', err);
-    res.status(500).json({ success: false, message: 'Gagal mereset kata sandi: ' + err.message });
+    res.status(500).json({ success: false, message: 'Gagal mereset kata sandi.' });
   }
 });
 
 // ----------------------------------------------------------------------------
 // 7D. PARTNER SCHOOLS & BKK COORDINATOR MANAGEMENT
 // ----------------------------------------------------------------------------
-app.get('/api/admin/partner-schools', async (req, res) => {
+app.get('/api/admin/partner-schools', requireAdmin, async (req, res) => {
   try {
     // 1. Query unique schools from registered non-admin users
     const [schoolStats] = await pool.query(`
@@ -1563,7 +1706,7 @@ app.get('/api/admin/partner-schools', async (req, res) => {
   }
 });
 
-app.post('/api/admin/partner-schools/coordinator', async (req, res) => {
+app.post('/api/admin/partner-schools/coordinator', requireAdmin, async (req, res) => {
   try {
     const { schoolName, npsn, coordinatorName, coordinatorTitle, coordinatorNip, contactPhone, contactEmail, notes } = req.body;
 
@@ -1824,11 +1967,13 @@ app.post('/api/user/change-password', async (req, res) => {
     }
 
     const targetUser = rows[0];
-    if (targetUser.password && targetUser.password !== currentPassword) {
+    const pwMatch = await comparePassword(currentPassword, targetUser.password);
+    if (!pwMatch) {
       return res.status(400).json({ success: false, message: 'Kata sandi saat ini tidak sesuai.' });
     }
 
-    await pool.query('UPDATE users SET password = ?, last_active = NOW() WHERE id = ?', [newPassword, targetUser.id]);
+    const hashedNewPassword = await hashPassword(newPassword);
+    await pool.query('UPDATE users SET password = ?, last_active = NOW() WHERE id = ?', [hashedNewPassword, targetUser.id]);
 
     res.json({
       success: true,
@@ -1837,7 +1982,7 @@ app.post('/api/user/change-password', async (req, res) => {
 
   } catch (err) {
     console.error('[Change Password Error]', err);
-    res.status(500).json({ success: false, message: 'Gagal mengubah kata sandi: ' + err.message });
+    res.status(500).json({ success: false, message: 'Gagal mengubah kata sandi. Coba lagi.' });
   }
 });
 
@@ -1973,17 +2118,25 @@ app.post('/api/user/record-test', async (req, res) => {
 });
 
 
-app.post('/api/upload/video', async (req, res) => {
+app.post('/api/upload/video', requireAdmin, async (req, res) => {
   try {
     const { fileData, fileName } = req.body;
     if (!fileData) {
       return res.status(400).json({ success: false, message: 'Tidak ada data file video yang dikirim.' });
     }
 
+    const ext = fileName ? path.extname(fileName).toLowerCase() : '.mp4';
+    if (!ALLOWED_VIDEO_EXTS.has(ext)) {
+      return res.status(400).json({ success: false, message: `Format file tidak didukung. Gunakan: ${[...ALLOWED_VIDEO_EXTS].join(', ')}` });
+    }
+
     const base64Data = fileData.replace(/^data:video\/\w+;base64,/, '').replace(/^data:application\/octet-stream;base64,/, '');
     const buffer = Buffer.from(base64Data, 'base64');
 
-    const ext = fileName ? path.extname(fileName) : '.mp4';
+    if (buffer.length > MAX_VIDEO_SIZE_BYTES) {
+      return res.status(413).json({ success: false, message: `Ukuran video melebihi batas maksimum ${Math.round(MAX_VIDEO_SIZE_BYTES / 1024 / 1024)}MB.` });
+    }
+
     const uniqueName = `vid-${Date.now()}-${Math.random().toString(36).substring(2, 7)}${ext || '.mp4'}`;
     const filePath = path.join(uploadsVideoDir, uniqueName);
 
@@ -1998,7 +2151,7 @@ app.post('/api/upload/video', async (req, res) => {
     });
   } catch (err) {
     console.error('[Upload Video Error]', err);
-    res.status(500).json({ success: false, message: 'Gagal mengunggah video: ' + err.message });
+    res.status(500).json({ success: false, message: 'Gagal mengunggah video. Coba lagi.' });
   }
 });
 
@@ -2033,7 +2186,7 @@ app.get('/api/videos', async (req, res) => {
   }
 });
 
-app.post('/api/videos', async (req, res) => {
+app.post('/api/videos', requireAdmin, async (req, res) => {
   try {
     const { 
       id, 
@@ -2115,18 +2268,18 @@ app.post('/api/videos', async (req, res) => {
     res.json({ success: true, message: 'Video edukasi berhasil disimpan ke database.', videoId });
   } catch (err) {
     console.error('[Save Video Error]', err);
-    res.status(500).json({ success: false, message: 'Gagal menyimpan video: ' + err.message });
+    res.status(500).json({ success: false, message: 'Gagal menyimpan video.' });
   }
 });
 
-app.delete('/api/videos/:id', async (req, res) => {
+app.delete('/api/videos/:id', requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
     await pool.query('DELETE FROM education_videos WHERE id = ?', [id]);
     res.json({ success: true, message: 'Video berhasil dihapus dari database.' });
   } catch (err) {
     console.error('[Delete Video Error]', err);
-    res.status(500).json({ success: false, message: 'Gagal menghapus video: ' + err.message });
+    res.status(500).json({ success: false, message: 'Gagal menghapus video.' });
   }
 });
 

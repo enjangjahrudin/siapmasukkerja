@@ -75,7 +75,7 @@ export const StudentRaporModal: React.FC<StudentRaporModalProps> = ({
     }
 
     // Fetch fresh details from MySQL
-    fetch(`/api/admin/candidate-report/${student.id}`)
+    fetch(`/api/user/my-report/${student.id}`)
       .then(res => res.json())
       .then(json => {
         if (json.success && json.candidate) {
