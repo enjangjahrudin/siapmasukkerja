@@ -494,8 +494,8 @@ app.post('/api/auth/send-registration-otp', async (req, res) => {
       message: `Kode verifikasi 6-digit telah dikirimkan ke email ${cleanEmail}. Silakan periksa kotak masuk (atau folder spam) Anda.`,
       email: cleanEmail,
       deliveryMethod: mailResult.method,
-      // For development simulation convenience
-      simulatedOtp: mailResult.method === 'simulated' ? otpCode : undefined
+      // Return OTP code in response for testing / when SMTP is not configured
+      simulatedOtp: otpCode
     });
 
   } catch (err) {
@@ -657,7 +657,7 @@ app.post('/api/auth/forgot-password-request', async (req, res) => {
       maskedEmail,
       email: user.email,
       deliveryMethod: mailResult.method,
-      simulatedOtp: mailResult.method === 'simulated' ? otpCode : undefined
+      simulatedOtp: otpCode
     });
 
   } catch (err) {

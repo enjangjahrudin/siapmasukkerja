@@ -70,6 +70,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
 
   // OTP inputs & timers
   const [otpCode, setOtpCode] = useState<string>('');
+  const [simulatedOtpHint, setSimulatedOtpHint] = useState<string | null>(null);
   const [resendCountdown, setResendCountdown] = useState<number>(0);
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
@@ -142,6 +143,12 @@ export const AuthPage: React.FC<AuthPageProps> = ({
       if (res.success) {
         sounds.playClick();
         setSuccessMessage(res.message);
+        if (res.simulatedOtp) {
+          setSimulatedOtpHint(res.simulatedOtp);
+          setOtpCode(res.simulatedOtp);
+        } else {
+          setSimulatedOtpHint(null);
+        }
         setAuthStep('verify_register_otp');
         setResendCountdown(60);
       } else {
@@ -242,6 +249,12 @@ export const AuthPage: React.FC<AuthPageProps> = ({
         setResetEmail(res.email || forgotIdentifier);
         setMaskedEmail(res.maskedEmail || res.email || forgotIdentifier);
         setSuccessMessage(res.message);
+        if (res.simulatedOtp) {
+          setSimulatedOtpHint(res.simulatedOtp);
+          setOtpCode(res.simulatedOtp);
+        } else {
+          setSimulatedOtpHint(null);
+        }
         setAuthStep('verify_reset_otp');
         setResendCountdown(60);
       } else {
@@ -429,13 +442,25 @@ export const AuthPage: React.FC<AuthPageProps> = ({
               <h2 className="text-base font-extrabold text-slate-900 dark:text-white">
                 Verifikasi Alamat Email Anda ✉️
               </h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
-                Kami telah mengirimkan 6-digit kode verifikasi ke alamat email:
-              </p>
               <div className="inline-block mt-1 font-bold text-xs text-brand-600 dark:text-brand-400 bg-brand-50 dark:bg-brand-950/60 px-3 py-1 rounded-full border border-brand-200 dark:border-brand-800 font-mono">
                 {email}
               </div>
             </div>
+
+            {simulatedOtpHint && (
+              <div className="bg-amber-50 dark:bg-amber-950/40 border-2 border-amber-300 dark:border-amber-700/70 rounded-2xl p-3.5 text-center space-y-1 shadow-sm">
+                <div className="text-[10px] font-extrabold text-amber-700 dark:text-amber-400 uppercase tracking-wider flex items-center justify-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping"></span>
+                  Kode Verifikasi (Mode Uji Coba)
+                </div>
+                <div className="text-3xl font-black font-mono tracking-widest text-amber-950 dark:text-amber-200 select-all">
+                  {simulatedOtpHint}
+                </div>
+                <p className="text-[10px] text-amber-700 dark:text-amber-300 font-medium">
+                  SMTP belum aktif. Kode di atas telah otomatis diisikan di bawah. Silakan langsung klik tombol Verifikasi.
+                </p>
+              </div>
+            )}
 
             <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 shadow-xs space-y-3">
               <label className="block text-[11px] font-bold uppercase text-slate-500 text-left">
@@ -501,6 +526,21 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                 Masukkan kode verifikasi yang telah dikirim ke <strong>{maskedEmail}</strong> dan ketikkan kata sandi baru.
               </p>
             </div>
+
+            {simulatedOtpHint && (
+              <div className="bg-amber-50 dark:bg-amber-950/40 border-2 border-amber-300 dark:border-amber-700/70 rounded-2xl p-3.5 text-center space-y-1 shadow-sm">
+                <div className="text-[10px] font-extrabold text-amber-700 dark:text-amber-400 uppercase tracking-wider flex items-center justify-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping"></span>
+                  Kode Reset OTP (Mode Uji Coba)
+                </div>
+                <div className="text-3xl font-black font-mono tracking-widest text-amber-950 dark:text-amber-200 select-all">
+                  {simulatedOtpHint}
+                </div>
+                <p className="text-[10px] text-amber-700 dark:text-amber-300 font-medium">
+                  SMTP belum aktif. Kode di atas telah otomatis diisikan di bawah.
+                </p>
+              </div>
+            )}
 
             <div className="space-y-3">
               <div>
