@@ -777,15 +777,40 @@ export const calculateUserRealtimeStats = (user: RegisteredUser): {
     };
   }
 
-  // 1. Calculate weighted / arithmetic average accuracy from history or individual scores
-  let avgAccuracy = 0;
-  if (history.length > 0) {
+  // 1. Calculate weighted composite score across 6 industrial modules + interview
+  const parts: { score: number; weight: number }[] = [];
+  if (user.kraepelinScore?.janker !== undefined && user.kraepelinScore?.janker !== null) {
+    parts.push({ score: Number(user.kraepelinScore.janker), weight: 0.20 });
+  }
+  if (user.qcAccuracy !== undefined && user.qcAccuracy !== null) {
+    parts.push({ score: Number(user.qcAccuracy), weight: 0.20 });
+  }
+  if (user.mathScore !== undefined && user.mathScore !== null) {
+    parts.push({ score: Number(user.mathScore), weight: 0.15 });
+  }
+  if (user.multiplicationScore?.accuracy !== undefined && user.multiplicationScore?.accuracy !== null) {
+    parts.push({ score: Number(user.multiplicationScore.accuracy), weight: 0.15 });
+  }
+  if (user.psychotestScore !== undefined && user.psychotestScore !== null) {
+    parts.push({ score: Number(user.psychotestScore), weight: 0.15 });
+  }
+  if (user.mechanicalScore !== undefined && user.mechanicalScore !== null) {
+    parts.push({ score: Number(user.mechanicalScore), weight: 0.15 });
+  }
+  if (user.interviewScore !== undefined && user.interviewScore !== null) {
+    parts.push({ score: Number(user.interviewScore), weight: 0.15 });
+  }
+
+  let composite = 0;
+  if (parts.length > 0) {
+    const totalWeight = parts.reduce((acc, p) => acc + p.weight, 0);
+    const weightedSum = parts.reduce((acc, p) => acc + (p.score * p.weight), 0);
+    composite = Math.round((weightedSum / totalWeight) * 10) / 10;
+  } else if (history.length > 0) {
     const validScores = history.map(h => h.score).filter(s => typeof s === 'number' && !isNaN(s));
     if (validScores.length > 0) {
-      avgAccuracy = Math.round(validScores.reduce((a, b) => a + b, 0) / validScores.length);
+      composite = Math.round((validScores.reduce((a, b) => a + b, 0) / validScores.length) * 10) / 10;
     }
-  } else if (availableScores.length > 0) {
-    avgAccuracy = Math.round(availableScores.reduce((a, b) => a + b, 0) / availableScores.length);
   }
 
   // 2. Dynamic Industrial Recruitment Passing Prediction (%)
@@ -794,27 +819,34 @@ export const calculateUserRealtimeStats = (user: RegisteredUser): {
   // 65% - 79%: 70% - 87% prediction (Lolos Standar)
   // < 65%: < 65% prediction (Perlu Latihan)
   let passingPred = 0;
-  if (avgAccuracy > 0) {
-    if (avgAccuracy >= 80) {
-      passingPred = Math.min(99, Math.round(avgAccuracy * 1.05));
-    } else if (avgAccuracy >= 60) {
-      passingPred = Math.round(avgAccuracy * 0.95);
+  if (composite > 0) {
+    if (composite >= 80) {
+      passingPred = Math.min(99, Math.round(composite * 1.05));
+    } else if (composite >= 65) {
+      passingPred = Math.round(composite * 0.95);
     } else {
-      passingPred = Math.round(avgAccuracy * 0.85);
+      passingPred = Math.round(composite * 0.80);
     }
   }
 
-  // 3. Overall Status
+  // 3. Strict Industrial Benchmark Status
+  // >= 80: Lolos Unggul (Grade A)
+  // >= 65: Lolos Standar (Grade B)
+  // < 65: Perlu Latihan (Grade C)
   let status: 'Lolos Unggul' | 'Lolos Standar' | 'Perlu Latihan' = 'Perlu Latihan';
-  if (avgAccuracy >= 80) {
-    status = 'Lolos Unggul';
-  } else if (avgAccuracy >= 65) {
-    status = 'Lolos Standar';
+  if (parts.length > 0 || history.length > 0) {
+    if (composite >= 80) {
+      status = 'Lolos Unggul';
+    } else if (composite >= 65) {
+      status = 'Lolos Standar';
+    } else {
+      status = 'Perlu Latihan';
+    }
   }
 
   return {
     completedTestsCount: testCount,
-    averageAccuracy: avgAccuracy,
+    averageAccuracy: Math.round(composite),
     passingPrediction: passingPred,
     overallStatus: status
   };

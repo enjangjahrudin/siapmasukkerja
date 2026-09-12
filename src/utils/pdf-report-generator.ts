@@ -55,6 +55,40 @@ export function calculateCompositeScore(user: RegisteredUser): number {
   return Math.round(composite * 10) / 10;
 }
 
+/**
+ * Industrial benchmark qualification status derived strictly from candidate's composite score:
+ * - Skor >= 80.0 : 'Lolos Unggul' (Grade A - Sangat Siap Kerja Standar Industri Astra/Toyota/Epson)
+ * - Skor >= 65.0 : 'Lolos Standar' (Grade B - Memenuhi Kualifikasi Minimum)
+ * - Skor < 65.0  : 'Perlu Latihan' (Grade C - Perlu Peningkatan Kesiapan & Latihan Ulang)
+ */
+export function calculateOverallStatus(user: RegisteredUser): 'Lolos Unggul' | 'Lolos Standar' | 'Perlu Latihan' {
+  const hasAttempted = Boolean(
+    (user.completedTestsCount && user.completedTestsCount > 0) ||
+    (user.testHistory && user.testHistory.length > 0) ||
+    user.kraepelinScore ||
+    (user.qcAccuracy !== undefined && user.qcAccuracy !== null) ||
+    (user.mathScore !== undefined && user.mathScore !== null) ||
+    (user.multiplicationScore?.accuracy !== undefined && user.multiplicationScore?.accuracy !== null) ||
+    (user.psychotestScore !== undefined && user.psychotestScore !== null) ||
+    (user.mechanicalScore !== undefined && user.mechanicalScore !== null) ||
+    (user.interviewScore !== undefined && user.interviewScore !== null)
+  );
+
+  const score = calculateCompositeScore(user);
+
+  if (!hasAttempted || score <= 0) {
+    return 'Perlu Latihan';
+  }
+
+  if (score >= 80) {
+    return 'Lolos Unggul';
+  }
+  if (score >= 65) {
+    return 'Lolos Standar';
+  }
+  return 'Perlu Latihan';
+}
+
 export interface SchoolSignerInfo {
   name?: string;
   title?: string;
@@ -173,7 +207,8 @@ export function generateIndividualStudentReportHtml(student: RegisteredUser, sig
   const interviewScore = student.interviewScore !== undefined && student.interviewScore !== null ? `${student.interviewScore}%` : '-';
   const interviewStatus = student.interviewScore !== undefined && student.interviewScore !== null ? (student.interviewScore >= 70 ? 'Siap Interview HRD' : 'Perlu Latihan Wawancara') : (hasCompletedTests ? 'Belum Diuji' : 'Belum Mengikuti Tes');
 
-  const displayStatus = hasCompletedTests ? student.overallStatus : 'Belum Ada Data Tes';
+  const calculatedStatus = calculateOverallStatus(student);
+  const displayStatus = hasCompletedTests ? calculatedStatus : 'Belum Ada Data Tes';
   const isLolosUnggul = displayStatus === 'Lolos Unggul';
   const isLolosStandar = displayStatus === 'Lolos Standar';
   const statusColor = !hasCompletedTests ? '#64748b' : isLolosUnggul ? '#059669' : isLolosStandar ? '#0284c7' : '#d97706';
@@ -374,7 +409,13 @@ export function generateIndividualStudentReportHtml(student: RegisteredUser, sig
       </div>
       <div style="border: 1px solid #e2e8f0; background: #fafafa; padding: 5px 8px; border-radius: 4px; font-size: 7.2pt; color: #334155; margin-bottom: 7px; line-height: 1.3;">
         ${hasCompletedTests ? `
-          <strong>Analisis Kompetensi Siswa:</strong> Kandidat telah menyelesaikan serangkaian modul uji kesiapan kerja industri. Tingkat kestabilan kerja, kepatuhan SOP, dan daya tanggap instruksi telah terekam dalam asesmen sistem.<br/>
+          <strong>Analisis Kompetensi Siswa:</strong> ${
+            isLolosUnggul
+              ? `Kandidat mencapai kualifikasi <strong>Lolos Unggul (Grade A)</strong> dengan skor komposit prima (${compositeScore}/100). Memiliki ketahanan ritme kerja, kepatuhan SOP, dan daya tanggap instruksi yang sangat siap untuk lini produksi industri manufaktur modern.`
+              : isLolosStandar
+              ? `Kandidat mencapai kualifikasi <strong>Lolos Standar (Grade B)</strong> dengan skor komposit (${compositeScore}/100). Memenuhi ambang batas kelulusan standar industri minimum (≥ 65.0) dan siap mengikuti tahapan seleksi rekrutmen kerja.`
+              : `Kandidat saat ini berstatus <strong>Perlu Latihan (Grade C)</strong> dengan skor komposit (${compositeScore}/100). Masih di bawah ambang batas kelulusan standar industri (&lt; 65.0). Direkomendasikan mengikuti pembinaan terarah dan uji ulang sebelum seleksi rekrutmen resmi.`
+          }<br/>
           <strong>Rekomendasi Penempatan:</strong> Prioritas Penempatan pada Divisi <em>${student.targetRole === 'qc' ? 'Quality Control & Final Inspector' : student.targetRole === 'maintenance' ? 'Preventive Maintenance & Utility Line' : 'Operator Line Assembly & Stamping Presisi'}</em> (${student.targetCompany || 'Industri Otomotif / Elektronik'}).
         ` : `
           <strong>Analisis Kompetensi Siswa:</strong> Kandidat baru terdaftar di platform dan belum menyelesaikan modul tes seleksi psikometrik/kompetensi industri.<br/>
@@ -482,9 +523,9 @@ export function generateCollectiveSchoolReportHtml(schoolName: string, students:
   const documentId = `LAP-SELEKSI/${new Date().getFullYear()}/${Date.now().toString().slice(-6)}`;
 
   const total = students.length;
-  const lolosUnggul = students.filter(s => s.overallStatus === 'Lolos Unggul').length;
-  const lolosStandar = students.filter(s => s.overallStatus === 'Lolos Standar').length;
-  const perluLatihan = students.filter(s => s.overallStatus === 'Perlu Latihan').length;
+  const lolosUnggul = students.filter(s => calculateOverallStatus(s) === 'Lolos Unggul').length;
+  const lolosStandar = students.filter(s => calculateOverallStatus(s) === 'Lolos Standar').length;
+  const perluLatihan = students.filter(s => calculateOverallStatus(s) === 'Perlu Latihan').length;
 
   const pctUnggul = total > 0 ? Math.round((lolosUnggul / total) * 100) : 0;
   const pctStandar = total > 0 ? Math.round((lolosStandar / total) * 100) : 0;
@@ -599,8 +640,9 @@ export function generateCollectiveSchoolReportHtml(schoolName: string, students:
             </tr>
           ` : students.map((s, idx) => {
             const comp = calculateCompositeScore(s);
-            const isUnggul = s.overallStatus === 'Lolos Unggul';
-            const isStandar = s.overallStatus === 'Lolos Standar';
+            const status = calculateOverallStatus(s);
+            const isUnggul = status === 'Lolos Unggul';
+            const isStandar = status === 'Lolos Standar';
             const color = isUnggul ? '#059669' : isStandar ? '#0284c7' : '#d97706';
             const bg = isUnggul ? '#ecfdf5' : isStandar ? '#f0f9ff' : '#fffbeb';
 
@@ -633,7 +675,7 @@ export function generateCollectiveSchoolReportHtml(schoolName: string, students:
               </td>
               <td style="border: 1px solid #cbd5e1; padding: 2.5px 4px; font-size: 6.8pt; text-align: center;">
                 <span style="display: inline-block; padding: 1.5px 4px; border-radius: 3px; font-size: 6.5pt; font-weight: 800; background-color: ${bg}; color: ${color}; border: 1px solid ${color};">
-                  ${s.overallStatus} (${comp})
+                  ${status} (${comp})
                 </span>
               </td>
             </tr>`;

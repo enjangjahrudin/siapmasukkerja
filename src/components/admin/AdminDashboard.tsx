@@ -58,6 +58,7 @@ import {
   printIndividualStudentReport, 
   printCollectiveSchoolReport, 
   calculateCompositeScore,
+  calculateOverallStatus,
   SchoolSignerInfo
 } from '../../utils/pdf-report-generator';
 import { 
@@ -1513,15 +1514,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
                             <span className="text-purple-500 font-bold">{cand.interviewScore ? `${cand.interviewScore}%` : '-'}</span>
                           </td>
                           <td className="py-3.5">
-                            <span className={`text-[10px] font-black px-2 py-0.5 rounded-md ${
-                              cand.overallStatus === 'Lolos Unggul'
-                                ? 'bg-emerald-500/20 text-emerald-500 border border-emerald-500/30'
-                                : cand.overallStatus === 'Lolos Standar'
-                                ? 'bg-blue-500/20 text-sky-500 border border-blue-500/30'
-                                : 'bg-amber-500/20 text-amber-500 border border-amber-500/30'
-                            }`}>
-                              {cand.overallStatus}
-                            </span>
+                            {(() => {
+                              const candStatus = calculateOverallStatus(cand);
+                              return (
+                                <span className={`text-[10px] font-black px-2 py-0.5 rounded-md ${
+                                  candStatus === 'Lolos Unggul'
+                                    ? 'bg-emerald-500/20 text-emerald-500 border border-emerald-500/30'
+                                    : candStatus === 'Lolos Standar'
+                                    ? 'bg-blue-500/20 text-sky-500 border border-blue-500/30'
+                                    : 'bg-amber-500/20 text-amber-500 border border-amber-500/30'
+                                }`}>
+                                  {candStatus}
+                                </span>
+                              );
+                            })()}
                           </td>
                           <td className="py-3.5 pr-2 text-right">
                             <div className="flex items-center justify-end gap-1.5">
@@ -1730,15 +1736,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
                             <span className="block text-[10px] text-slate-400">{c.targetCompany}</span>
                           </td>
                           <td className="p-4">
-                            <span className={`text-[10px] font-black px-2 py-0.5 rounded-md ${
-                              c.overallStatus === 'Lolos Unggul' 
-                                ? 'bg-emerald-500/20 text-emerald-500' 
-                                : c.overallStatus === 'Lolos Standar'
-                                  ? 'bg-blue-500/20 text-sky-500'
-                                  : 'bg-amber-500/20 text-amber-500'
-                            }`}>
-                              {c.overallStatus}
-                            </span>
+                            {(() => {
+                              const candStatus = calculateOverallStatus(c);
+                              return (
+                                <span className={`text-[10px] font-black px-2 py-0.5 rounded-md ${
+                                  candStatus === 'Lolos Unggul' 
+                                    ? 'bg-emerald-500/20 text-emerald-500' 
+                                    : candStatus === 'Lolos Standar'
+                                      ? 'bg-blue-500/20 text-sky-500'
+                                      : 'bg-amber-500/20 text-amber-500'
+                                }`}>
+                                  {candStatus}
+                                </span>
+                              );
+                            })()}
                           </td>
                           <td className="p-4 text-right">
                             <div className="flex items-center justify-end gap-1.5">
@@ -2589,8 +2600,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
       {selectedCandidateModal && (() => {
         const cand = realtimeCandidateData || selectedCandidateModal;
         const compScore = calculateCompositeScore(cand);
-        const isLolosUnggul = cand.overallStatus === 'Lolos Unggul';
-        const isLolosStandar = cand.overallStatus === 'Lolos Standar';
+        const candStatus = calculateOverallStatus(cand);
+        const isLolosUnggul = candStatus === 'Lolos Unggul';
+        const isLolosStandar = candStatus === 'Lolos Standar';
 
         return (
           <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 animate-in fade-in overflow-y-auto">
@@ -2697,7 +2709,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
                           ? 'bg-sky-500/20 text-sky-400 border border-sky-500/30'
                           : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
                     }`}>
-                      {cand.overallStatus}
+                      {candStatus}
                     </span>
                   </div>
                   <div className="text-right mt-1 sm:mt-2">
@@ -4268,8 +4280,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
                     <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-medium">
                       {filteredSchoolStudents.map((cand) => {
                         const compScore = calculateCompositeScore(cand);
-                        const isLolosUnggul = cand.overallStatus === 'Lolos Unggul';
-                        const isLolosStandar = cand.overallStatus === 'Lolos Standar';
+                        const candStatus = calculateOverallStatus(cand);
+                        const isLolosUnggul = candStatus === 'Lolos Unggul';
+                        const isLolosStandar = candStatus === 'Lolos Standar';
 
                         return (
                           <tr 
@@ -4309,7 +4322,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
                                 <span className={`text-xs font-black px-2 py-0.5 rounded-md ${
                                   compScore >= 80 
                                     ? 'bg-emerald-500/15 text-emerald-500 font-black' 
-                                    : compScore >= 70 
+                                    : compScore >= 65 
                                     ? 'bg-sky-500/15 text-sky-500' 
                                     : 'bg-amber-500/15 text-amber-500'
                                 }`}>
@@ -4322,7 +4335,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
                                     ? 'bg-sky-500/20 text-sky-400 border border-sky-500/30'
                                     : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
                                 }`}>
-                                  {cand.overallStatus}
+                                  {candStatus}
                                 </span>
                               </div>
                             </td>

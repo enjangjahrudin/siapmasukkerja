@@ -21,7 +21,8 @@ import { useTheme } from '../../utils/theme-context';
 import { RegisteredUser } from '../../utils/auth-storage';
 import { 
   downloadIndividualStudentReportPdf,
-  calculateCompositeScore, 
+  calculateCompositeScore,
+  calculateOverallStatus,
   SchoolSignerInfo 
 } from '../../utils/pdf-report-generator';
 
@@ -103,8 +104,9 @@ export const StudentRaporModal: React.FC<StudentRaporModalProps> = ({
   );
   const completedCount = current.completedTestsCount || current.testHistory?.length || 0;
   const compositeScore = calculateCompositeScore(current);
-  const isLolosUnggul = current.overallStatus === 'Lolos Unggul';
-  const isLolosStandar = current.overallStatus === 'Lolos Standar';
+  const calculatedStatus = calculateOverallStatus(current);
+  const isLolosUnggul = calculatedStatus === 'Lolos Unggul';
+  const isLolosStandar = calculatedStatus === 'Lolos Standar';
 
   // Handle PDF Download
   const handleDownloadPdf = async () => {
@@ -224,7 +226,7 @@ export const StudentRaporModal: React.FC<StudentRaporModalProps> = ({
                       ? 'bg-sky-500/20 text-sky-400 border border-sky-500/30'
                       : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
               }`}>
-                {hasCompletedTests ? (current.overallStatus || 'Lolos Standar') : 'Belum Ada Tes'}
+                {hasCompletedTests ? calculatedStatus : 'Belum Ada Tes'}
               </span>
               <div className="text-lg font-black text-sky-400 mt-0.5">
                 {hasCompletedTests ? compositeScore : '-'}{' '}
@@ -461,7 +463,13 @@ export const StudentRaporModal: React.FC<StudentRaporModalProps> = ({
             </div>
             {hasCompletedTests ? (
               <p className={`text-[11px] leading-relaxed ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
-                Kandidat telah menyelesaikan modul asesmen. Direkomendasikan untuk posisi <strong>{current.targetRole === 'qc' ? 'Quality Control (QC Inspector)' : current.targetRole === 'maintenance' ? 'Maintenance Operator & Teknisi Mesin' : 'Operator Line Perakitan / Assembly'}</strong> di {current.targetCompany || 'perusahaan mitra BKK'}.
+                {isLolosUnggul ? (
+                  <>Kandidat mencapai kualifikasi <strong>Lolos Unggul (Grade A)</strong> dengan skor komposit prima ({compositeScore}/100). Sangat direkomendasikan untuk posisi <strong>{current.targetRole === 'qc' ? 'Quality Control (QC Inspector)' : current.targetRole === 'maintenance' ? 'Maintenance Operator & Teknisi Mesin' : 'Operator Line Perakitan / Assembly'}</strong> di {current.targetCompany || 'perusahaan mitra BKK'}.</>
+                ) : isLolosStandar ? (
+                  <>Kandidat memenuhi kualifikasi standar industri <strong>Lolos Standar (Grade B)</strong> dengan skor komposit {compositeScore}/100. Memenuhi kriteria seleksi posisi <strong>{current.targetRole === 'qc' ? 'Quality Control (QC Inspector)' : current.targetRole === 'maintenance' ? 'Maintenance Operator & Teknisi Mesin' : 'Operator Line Perakitan / Assembly'}</strong> di {current.targetCompany || 'perusahaan mitra BKK'}.</>
+                ) : (
+                  <>Kandidat saat ini berstatus <strong>Perlu Latihan (Grade C)</strong> dengan skor komposit {compositeScore}/100 (di bawah ambang batas minimum industri 65.0). Disarankan memperbanyak latihan modul tes psikometrik/ketelitian sebelum diajukan ke rekrutmen perusahaan.</>
+                )}
               </p>
             ) : (
               <p className={`text-[11px] leading-relaxed text-slate-400 italic`}>

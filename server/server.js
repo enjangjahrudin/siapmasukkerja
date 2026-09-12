@@ -454,6 +454,31 @@ try {
         `);
       } catch (e) {}
 
+      // Auto-recalculate & harmonize candidate overall_status with actual composite test scores
+      try {
+        const [allCandidates] = await pool.query(`SELECT id, overall_status FROM users WHERE is_admin = FALSE OR is_admin IS NULL`);
+        const [allUserScores] = await pool.query(`SELECT user_id, test_type, score_details FROM test_scores ORDER BY id DESC`);
+
+        let updatedCount = 0;
+        for (const cand of allCandidates) {
+          const userScores = allUserScores.filter(s => s.user_id === cand.id);
+          const scores = extractUserScores(userScores);
+          const compStats = calculateCompositeScoreAndStatus(scores);
+          const correctStatus = scores.completed6Count > 0 ? compStats.overallStatus : (cand.overall_status === 'Lolos Unggul' ? 'Perlu Latihan' : (cand.overall_status || 'Perlu Latihan'));
+
+          if (cand.overall_status !== correctStatus) {
+            await pool.query('UPDATE users SET overall_status = ? WHERE id = ?', [correctStatus, cand.id]);
+            updatedCount++;
+            console.log(`[Status Auto-Sync] User ${cand.id} status corrected: "${cand.overall_status}" -> "${correctStatus}" (Skor Komposit: ${compStats.compositeScore})`);
+          }
+        }
+        if (updatedCount > 0) {
+          console.log(`[Status Auto-Sync] Harmonized ${updatedCount} candidates to strict industrial status criteria.`);
+        }
+      } catch (syncErr) {
+        console.warn('[Status Auto-Sync Warning]', syncErr.message);
+      }
+
       console.log('[MySQL] Tables & Schemas verified successfully');
     } catch (e) {
       console.warn('[MySQL Schema Warning]:', e.message);
@@ -850,6 +875,58 @@ function extractUserScores(scoreRows) {
 }
 
 // ----------------------------------------------------------------------------
+// Helper: Calculate composite weighted score & industrial qualification status
+// Industrial benchmark thresholds:
+// - Score >= 80.0 : 'Lolos Unggul' (Grade A - Sangat Siap Kerja)
+// - Score >= 65.0 : 'Lolos Standar' (Grade B - Memenuhi Kualifikasi Minimum)
+// - Score < 65.0  : 'Perlu Latihan' (Grade C - Perlu Latihan Ulang)
+// ----------------------------------------------------------------------------
+function calculateCompositeScoreAndStatus(scores) {
+  const parts = [];
+
+  if (scores.kraepelinScore?.janker !== undefined && scores.kraepelinScore?.janker !== null) {
+    parts.push({ score: Number(scores.kraepelinScore.janker), weight: 0.20 });
+  }
+  if (scores.qcAccuracy !== undefined && scores.qcAccuracy !== null) {
+    parts.push({ score: Number(scores.qcAccuracy), weight: 0.20 });
+  }
+  if (scores.mathScore !== undefined && scores.mathScore !== null) {
+    parts.push({ score: Number(scores.mathScore), weight: 0.15 });
+  }
+  if (scores.multiplicationScore?.accuracy !== undefined && scores.multiplicationScore?.accuracy !== null) {
+    parts.push({ score: Number(scores.multiplicationScore.accuracy), weight: 0.15 });
+  }
+  if (scores.psychotestScore !== undefined && scores.psychotestScore !== null) {
+    parts.push({ score: Number(scores.psychotestScore), weight: 0.15 });
+  }
+  if (scores.mechanicalScore !== undefined && scores.mechanicalScore !== null) {
+    parts.push({ score: Number(scores.mechanicalScore), weight: 0.15 });
+  }
+  if (scores.interviewScore !== undefined && scores.interviewScore !== null) {
+    parts.push({ score: Number(scores.interviewScore), weight: 0.15 });
+  }
+
+  if (parts.length === 0) {
+    return { compositeScore: 0, overallStatus: 'Perlu Latihan' };
+  }
+
+  const totalWeight = parts.reduce((acc, p) => acc + p.weight, 0);
+  const weightedSum = parts.reduce((acc, p) => acc + (p.score * p.weight), 0);
+  const composite = Math.round((weightedSum / totalWeight) * 10) / 10;
+
+  let overallStatus = 'Perlu Latihan';
+  if (composite >= 80) {
+    overallStatus = 'Lolos Unggul';
+  } else if (composite >= 65) {
+    overallStatus = 'Lolos Standar';
+  } else {
+    overallStatus = 'Perlu Latihan';
+  }
+
+  return { compositeScore: composite, overallStatus };
+}
+
+// ----------------------------------------------------------------------------
 // 6. LOGIN ENDPOINT (STUDENT BY PHONE/EMAIL OR SUPER ADMIN)
 // ----------------------------------------------------------------------------
 app.post('/api/login', async (req, res) => {
@@ -982,6 +1059,8 @@ const handleGetCandidates = async (req, res) => {
     const formattedUsers = users.map(u => {
       const userScores = allScores.filter(s => s.user_id === u.id);
       const scores = extractUserScores(userScores);
+      const compStats = calculateCompositeScoreAndStatus(scores);
+      const resolvedStatus = scores.completed6Count > 0 ? compStats.overallStatus : (u.overall_status === 'Lolos Unggul' && scores.completed6Count === 0 ? 'Perlu Latihan' : (u.overall_status || 'Perlu Latihan'));
 
       return {
         id: u.id,
@@ -998,7 +1077,8 @@ const handleGetCandidates = async (req, res) => {
         address: u.address,
         targetRole: u.target_role,
         targetCompany: u.target_company,
-        overallStatus: u.overall_status,
+        overallStatus: resolvedStatus,
+        compositeScore: compStats.compositeScore,
         completedTestsCount: scores.completed6Count > 0 ? scores.completed6Count : parseInt(u.completed_tests_count || 0, 10),
         kraepelinScore: scores.kraepelinScore,
         qcAccuracy: scores.qcAccuracy,
@@ -1049,6 +1129,8 @@ app.get(['/api/admin/candidate-report/:userId', '/api/user/my-report/:userId'], 
     );
 
     const scores = extractUserScores(scoreRows);
+    const compStats = calculateCompositeScoreAndStatus(scores);
+    const resolvedStatus = scores.completed6Count > 0 ? compStats.overallStatus : (u.overall_status === 'Lolos Unggul' && scores.completed6Count === 0 ? 'Perlu Latihan' : (u.overall_status || 'Perlu Latihan'));
 
     const formattedHistory = scoreRows.map(sr => {
       let details = sr.score_details;
@@ -1081,7 +1163,8 @@ app.get(['/api/admin/candidate-report/:userId', '/api/user/my-report/:userId'], 
       address: u.address,
       targetRole: u.target_role,
       targetCompany: u.target_company,
-      overallStatus: u.overall_status,
+      overallStatus: resolvedStatus,
+      compositeScore: compStats.compositeScore,
       completedTestsCount: scores.completed6Count > 0 ? scores.completed6Count : scoreRows.length,
       kraepelinScore: scores.kraepelinScore,
       qcAccuracy: scores.qcAccuracy,
@@ -1428,6 +1511,8 @@ app.get('/api/user/profile/:userId', async (req, res) => {
     );
 
     const scores = extractUserScores(scoreRows);
+    const compStats = calculateCompositeScoreAndStatus(scores);
+    const resolvedStatus = scores.completed6Count > 0 ? compStats.overallStatus : (u.overall_status === 'Lolos Unggul' && scores.completed6Count === 0 ? 'Perlu Latihan' : (u.overall_status || 'Perlu Latihan'));
 
     res.json({
       success: true,
@@ -1446,7 +1531,8 @@ app.get('/api/user/profile/:userId', async (req, res) => {
         address: u.address,
         targetRole: u.target_role,
         targetCompany: u.target_company,
-        overallStatus: u.overall_status,
+        overallStatus: resolvedStatus,
+        compositeScore: compStats.compositeScore,
         completedTestsCount: scores.completed6Count > 0 ? scores.completed6Count : scoreRows.length,
         kraepelinScore: scores.kraepelinScore,
         qcAccuracy: scores.qcAccuracy,
@@ -1638,15 +1724,24 @@ app.post('/api/user/record-test', async (req, res) => {
       [userId, testType, scoreSummary, JSON.stringify(scoreDetails)]
     );
 
-    // Update user status and last active
-    if (stats?.overallStatus) {
-      await pool.query(
-        'UPDATE users SET overall_status = ?, last_active = NOW() WHERE id = ?',
-        [stats.overallStatus, userId]
+    // Calculate accurate dynamic status from actual test scores
+    let updatedStatus = 'Perlu Latihan';
+    try {
+      const [userScoreRows] = await pool.query(
+        'SELECT test_type, score_details FROM test_scores WHERE user_id = ? ORDER BY id DESC',
+        [userId]
       );
-    } else {
-      await pool.query('UPDATE users SET last_active = NOW() WHERE id = ?', [userId]);
+      const userScores = extractUserScores(userScoreRows);
+      const compStats = calculateCompositeScoreAndStatus(userScores);
+      updatedStatus = compStats.overallStatus;
+    } catch (calcErr) {
+      if (stats?.overallStatus) updatedStatus = stats.overallStatus;
     }
+
+    await pool.query(
+      'UPDATE users SET overall_status = ?, last_active = NOW() WHERE id = ?',
+      [updatedStatus, userId]
+    );
 
     // Refresh completed test count on user (safe optional update)
     try {
