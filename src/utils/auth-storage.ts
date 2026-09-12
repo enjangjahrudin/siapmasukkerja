@@ -623,7 +623,9 @@ export const fetchUserProfile = async (userId: string): Promise<RegisteredUser |
         // Merge server data with any existing local test history
         const merged: RegisteredUser = {
           ...resData.user,
-          testHistory: (current?.testHistory && current.testHistory.length > 0) ? current.testHistory : (resData.user.testHistory || []),
+          testHistory: (resData.user.testHistory && resData.user.testHistory.length > 0)
+            ? resData.user.testHistory
+            : (current?.testHistory || []),
           // Preserve local scores if server doesn't have them yet
           kraepelinScore: resData.user.kraepelinScore || current?.kraepelinScore,
           qcAccuracy: resData.user.qcAccuracy !== null && resData.user.qcAccuracy !== undefined ? resData.user.qcAccuracy : current?.qcAccuracy,

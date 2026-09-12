@@ -1,5 +1,6 @@
 import React from 'react';
 import { TargetRole, TestCategory } from '../../types';
+import { getActiveSession } from '../../utils/auth-storage';
 import { 
   Layers, 
   CheckCircle2, 
@@ -85,16 +86,37 @@ export const MobileHomeDashboard: React.FC<MobileHomeDashboardProps> = ({
 
           <button
             onClick={() => onSelectTest('tryout-full')}
-            className="shrink-0 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-slate-950 font-black text-[11px] px-3 py-2 rounded-xl shadow-md flex items-center gap-1"
+            className="shrink-0 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-slate-950 font-black text-[11px] px-3 py-2 rounded-xl shadow-md flex items-center gap-1 cursor-pointer"
           >
             <Award className="w-3.5 h-3.5" />
-            <span>Tryout</span>
+            <span>Tryout 30 Soal</span>
           </button>
         </div>
 
         <div className="mt-3 pt-3 border-t border-white/10 flex items-center justify-between text-[11px] text-slate-300">
-          <span>Passing Grade Rata-rata: <strong className="text-emerald-400 font-bold">75%</strong></span>
-          <span className="text-sky-300 font-semibold">Simulasikan Seleksi</span>
+          {(() => {
+            const user = getActiveSession();
+            const latestTryout = user?.testHistory?.find(
+              h => h.testType === 'tryout' || h.testName?.toLowerCase().includes('tryout')
+            );
+            if (latestTryout) {
+              const isPassed = latestTryout.score >= 75;
+              return (
+                <div className="flex items-center gap-1.5">
+                  <span>Skor Terakhir:</span>
+                  <strong className={isPassed ? 'text-emerald-400 font-bold' : 'text-amber-400 font-bold'}>
+                    {latestTryout.score}% ({isPassed ? 'Lolos' : 'Latihan'})
+                  </strong>
+                </div>
+              );
+            }
+            return (
+              <span>Passing Grade: <strong className="text-emerald-400 font-bold">75%</strong></span>
+            );
+          })()}
+          <span className="text-amber-300 font-bold text-[10px] bg-white/10 px-2 py-0.5 rounded-full">
+            Bank +1.000 Soal
+          </span>
         </div>
       </div>
 

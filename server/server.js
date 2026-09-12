@@ -990,13 +990,32 @@ app.post('/api/login', async (req, res) => {
     // Update last_active
     await pool.query('UPDATE users SET last_active = NOW() WHERE id = ?', [user.id]);
 
-    // Fetch latest scores
+    // Fetch test counts and latest scores + complete test history
     const [scoreRows] = await pool.query(
-      'SELECT test_type, score_details FROM test_scores WHERE user_id = ? ORDER BY id DESC',
+      'SELECT id, test_type, score_summary, score_details, created_at FROM test_scores WHERE user_id = ? ORDER BY id DESC',
       [user.id]
     );
 
     const scores = extractUserScores(scoreRows);
+    const compStats = calculateCompositeScoreAndStatus(scores);
+    const resolvedStatus = scores.completed6Count > 0 ? compStats.overallStatus : (user.overall_status === 'Lolos Unggul' && scores.completed6Count === 0 ? 'Perlu Latihan' : (user.overall_status || 'Perlu Latihan'));
+
+    const testHistory = scoreRows.map(sr => {
+      let details = sr.score_details;
+      if (typeof details === 'string') {
+        try { details = JSON.parse(details); } catch (e) { details = {}; }
+      }
+      return {
+        id: `score-${sr.id}`,
+        testType: sr.test_type,
+        testName: sr.score_summary || sr.test_type,
+        score: details?.score ?? details?.accuracy ?? details?.probability ?? 0,
+        totalQuestions: details?.totalQuestions,
+        correctAnswers: details?.correctAnswers,
+        completedAt: sr.created_at,
+        details
+      };
+    });
 
     res.json({
       success: true,
@@ -1016,7 +1035,8 @@ app.post('/api/login', async (req, res) => {
         address: user.address,
         targetRole: user.target_role,
         targetCompany: user.target_company,
-        overallStatus: user.overall_status,
+        overallStatus: resolvedStatus,
+        compositeScore: compStats.compositeScore,
         completedTestsCount: scores.completed6Count > 0 ? scores.completed6Count : scoreRows.length,
         kraepelinScore: scores.kraepelinScore,
         qcAccuracy: scores.qcAccuracy,
@@ -1026,7 +1046,8 @@ app.post('/api/login', async (req, res) => {
         mechanicalScore: scores.mechanicalScore,
         interviewScore: scores.interviewScore,
         createdAt: user.created_at,
-        isAdmin: Boolean(user.is_admin)
+        isAdmin: Boolean(user.is_admin),
+        testHistory
       }
     });
 
@@ -1504,15 +1525,32 @@ app.get('/api/user/profile/:userId', async (req, res) => {
 
     const u = rows[0];
 
-    // Fetch test counts and latest scores
+    // Fetch test counts and latest scores + complete test history
     const [scoreRows] = await pool.query(
-      'SELECT test_type, score_details FROM test_scores WHERE user_id = ? ORDER BY id DESC',
+      'SELECT id, test_type, score_summary, score_details, created_at FROM test_scores WHERE user_id = ? ORDER BY id DESC',
       [u.id]
     );
 
     const scores = extractUserScores(scoreRows);
     const compStats = calculateCompositeScoreAndStatus(scores);
     const resolvedStatus = scores.completed6Count > 0 ? compStats.overallStatus : (u.overall_status === 'Lolos Unggul' && scores.completed6Count === 0 ? 'Perlu Latihan' : (u.overall_status || 'Perlu Latihan'));
+
+    const testHistory = scoreRows.map(sr => {
+      let details = sr.score_details;
+      if (typeof details === 'string') {
+        try { details = JSON.parse(details); } catch (e) { details = {}; }
+      }
+      return {
+        id: `score-${sr.id}`,
+        testType: sr.test_type,
+        testName: sr.score_summary || sr.test_type,
+        score: details?.score ?? details?.accuracy ?? details?.probability ?? 0,
+        totalQuestions: details?.totalQuestions,
+        correctAnswers: details?.correctAnswers,
+        completedAt: sr.created_at,
+        details
+      };
+    });
 
     res.json({
       success: true,
@@ -1542,7 +1580,8 @@ app.get('/api/user/profile/:userId', async (req, res) => {
         mechanicalScore: scores.mechanicalScore,
         interviewScore: scores.interviewScore,
         createdAt: u.created_at,
-        isAdmin: Boolean(u.is_admin)
+        isAdmin: Boolean(u.is_admin),
+        testHistory
       }
     });
   } catch (err) {

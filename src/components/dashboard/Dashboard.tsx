@@ -1,5 +1,6 @@
 import React from 'react';
 import { TargetRole, TestCategory } from '../../types';
+import { getActiveSession } from '../../utils/auth-storage';
 import { 
   Layers, 
   CheckCircle2, 
@@ -94,15 +95,43 @@ export const Dashboard: React.FC<DashboardProps> = ({
               <Award className="w-6 h-6" />
             </div>
             <div>
+              <div className="flex items-center justify-center gap-1.5 mb-1">
+                <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-amber-500/30 text-amber-300 border border-amber-500/40">
+                  CAT Akbar • 30 Soal
+                </span>
+                <span className="text-[9px] text-slate-300 font-bold">
+                  Bank +1.000
+                </span>
+              </div>
               <h3 className="text-base font-extrabold text-white">Simulasi Tryout CAT Real</h3>
-              <p className="text-xs text-slate-300 mt-1">Gabungan seluruh modul tes dengan timer otomatis mirip tes seleksi asli.</p>
+              <p className="text-xs text-slate-300 mt-1">
+                30 soal acak dari 6 dimensi seleksi industri (Mekanika, Deret, Math, Psikotes, QC &amp; Spasial) dengan timer 25 menit.
+              </p>
+              {(() => {
+                const user = getActiveSession();
+                const latestTryout = user?.testHistory?.find(
+                  h => h.testType === 'tryout' || h.testName?.toLowerCase().includes('tryout')
+                );
+                if (latestTryout) {
+                  const isPassed = latestTryout.score >= 75;
+                  return (
+                    <div className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-white/10 border border-white/15 text-slate-200">
+                      <span>Skor Terakhir: <strong className={isPassed ? 'text-emerald-400 font-black' : 'text-amber-400 font-black'}>{latestTryout.score}%</strong></span>
+                      <span className={`text-[9px] px-1.5 py-0.2 rounded font-black ${isPassed ? 'bg-emerald-500/30 text-emerald-300' : 'bg-amber-500/30 text-amber-300'}`}>
+                        {isPassed ? 'Lolos' : 'Latihan'}
+                      </span>
+                    </div>
+                  );
+                }
+                return null;
+              })()}
             </div>
             <button
               onClick={() => setActiveTab('tryout-full')}
-              className="w-full py-3 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-slate-950 font-black text-xs rounded-xl shadow-lg transition-all transform active:scale-95 flex items-center justify-center gap-1.5"
+              className="w-full py-3 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-slate-950 font-black text-xs rounded-xl shadow-lg transition-all transform active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer"
             >
               <Award className="w-4 h-4" />
-              Mulai Simulasi Tryout Penuh
+              Mulai Simulasi Tryout (30 Soal)
             </button>
           </div>
 

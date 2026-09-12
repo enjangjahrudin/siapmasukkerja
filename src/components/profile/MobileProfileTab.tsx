@@ -30,7 +30,8 @@ import {
   Activity,
   Ruler,
   FileText,
-  Download
+  Download,
+  History
 } from 'lucide-react';
 import { sounds } from '../../utils/sound-effects';
 import { SchoolPicker } from '../common/SchoolPicker';
@@ -64,6 +65,7 @@ export const MobileProfileTab: React.FC<MobileProfileTabProps> = ({
 }) => {
   const { theme, toggleTheme, isDark } = useTheme();
   const [currentUserData, setCurrentUserData] = useState<RegisteredUser | null>(() => getActiveSession());
+  const [historyFilter, setHistoryFilter] = useState<'all' | 'tryout'>('all');
   const activeUser = currentUserData || getActiveSession();
 
   // Listen to live test completion events
@@ -917,38 +919,91 @@ export const MobileProfileTab: React.FC<MobileProfileTabProps> = ({
               </div>
             </div>
 
-            {/* Riwayat Tes Terakhir Jika Ada */}
-            {activeUser?.testHistory && activeUser.testHistory.length > 0 && (
-              <div className={`border rounded-2xl p-3 shadow-xs transition-colors ${
-                isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
-              }`}>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Riwayat Tes Terakhir</span>
-                  <span className="text-[10px] text-brand-500 font-bold">{activeUser.testHistory.length} Selesai</span>
-                </div>
-                <div className="space-y-1.5 max-h-36 overflow-y-auto">
-                  {activeUser.testHistory.slice(0, 4).map((rec: UserTestRecord) => (
-                    <div key={rec.id} className="flex items-center justify-between text-xs p-1.5 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-700/50">
-                      <div>
-                        <span className="font-bold text-slate-800 dark:text-slate-200 block text-[11px]">{rec.testName}</span>
-                        <span className="text-[9px] text-slate-400 font-medium">
-                          {new Date(rec.completedAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} • {new Date(rec.completedAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
-                        </span>
-                      </div>
-                      <span className={`font-black text-xs px-2 py-0.5 rounded-md ${
-                        rec.score >= 80 
-                          ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300' 
-                          : rec.score >= 60 
-                            ? 'bg-sky-100 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300' 
-                            : 'bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300'
-                      }`}>
-                        {rec.score}%
+            {/* Riwayat Tes & Tryout Terakhir */}
+            {activeUser?.testHistory && activeUser.testHistory.length > 0 && (() => {
+              const tryouts = activeUser.testHistory.filter(
+                h => h.testType === 'tryout' || h.testName?.toLowerCase().includes('tryout')
+              );
+              const displayed = historyFilter === 'tryout' ? tryouts : activeUser.testHistory;
+
+              return (
+                <div className={`border rounded-2xl p-3.5 shadow-xs transition-colors space-y-2.5 ${
+                  isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
+                }`}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <History className="w-3.5 h-3.5 text-sky-500" />
+                      <span className="text-[11px] font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">
+                        Riwayat Tes &amp; Tryout
                       </span>
                     </div>
-                  ))}
+                    <div className="flex items-center gap-1 p-0.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-[10px] font-bold">
+                      <button
+                        onClick={() => setHistoryFilter('all')}
+                        className={`px-2 py-0.5 rounded-md transition-colors cursor-pointer ${
+                          historyFilter === 'all'
+                            ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-xs'
+                            : 'text-slate-400 hover:text-slate-200'
+                        }`}
+                      >
+                        Semua ({activeUser.testHistory.length})
+                      </button>
+                      <button
+                        onClick={() => setHistoryFilter('tryout')}
+                        className={`px-2 py-0.5 rounded-md transition-colors cursor-pointer ${
+                          historyFilter === 'tryout'
+                            ? 'bg-amber-500 text-slate-950 font-black shadow-xs'
+                            : 'text-amber-500/80 hover:text-amber-400'
+                        }`}
+                      >
+                        Tryout CAT ({tryouts.length})
+                      </button>
+                    </div>
+                  </div>
+
+                  {displayed.length === 0 ? (
+                    <p className="text-center py-4 text-xs text-slate-400">
+                      Belum ada riwayat simulasi Tryout CAT. Selesaikan sesi Tryout 30 Soal untuk mencatat riwayat capaian di sini.
+                    </p>
+                  ) : (
+                    <div className="space-y-1.5 max-h-48 overflow-y-auto pr-0.5">
+                      {displayed.slice(0, 8).map((rec: UserTestRecord) => {
+                        const isTryout = rec.testType === 'tryout' || rec.testName?.toLowerCase().includes('tryout');
+                        const isPassed = rec.score >= (isTryout ? 75 : 70);
+
+                        return (
+                          <div key={rec.id} className="flex items-center justify-between text-xs p-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-700/50">
+                            <div>
+                              <div className="flex items-center gap-1.5">
+                                {isTryout && (
+                                  <span className="text-[8px] font-black uppercase px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-500">
+                                    CAT 30
+                                  </span>
+                                )}
+                                <span className="font-bold text-slate-800 dark:text-slate-200 block text-[11px]">
+                                  {rec.testName}
+                                </span>
+                              </div>
+                              <span className="text-[9px] text-slate-400 font-medium">
+                                {new Date(rec.completedAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} • {new Date(rec.completedAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                {rec.totalQuestions ? ` • ${rec.correctAnswers || 0}/${rec.totalQuestions} Benar` : ''}
+                              </span>
+                            </div>
+                            <span className={`font-black text-xs px-2.5 py-1 rounded-lg ${
+                              isPassed 
+                                ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300' 
+                                : 'bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300'
+                            }`}>
+                              {rec.score}%
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
-              </div>
-            )}
+              );
+            })()}
           </div>
         );
       })()}
