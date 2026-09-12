@@ -270,6 +270,26 @@ const dbConfig = {
   queueLimit: 0
 };
 
+const extractYoutubeId = (urlOrId) => {
+  if (!urlOrId) return '';
+  let str = String(urlOrId).trim();
+  if (/^[a-zA-Z0-9_-]{11}$/.test(str)) return str;
+  const match = str.match(/(?:youtu\.be\/|youtube(?:-nocookie)?\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=|shorts\/|live\/))([\w-]{11})/);
+  if (match && match[1]) return match[1];
+  try {
+    if (str.includes('http')) {
+      const url = new URL(str);
+      const v = url.searchParams.get('v');
+      if (v && /^[a-zA-Z0-9_-]{11}$/.test(v)) return v;
+      const parts = url.pathname.split('/').filter(Boolean);
+      for (const p of parts) {
+        if (/^[a-zA-Z0-9_-]{11}$/.test(p)) return p;
+      }
+    }
+  } catch (_) {}
+  return str.length === 11 ? str : '';
+};
+
 let pool;
 try {
   pool = mysql.createPool(dbConfig);
@@ -410,6 +430,18 @@ try {
       } catch (e) {}
       try {
         await pool.query(`ALTER TABLE education_videos MODIFY COLUMN youtube_id VARCHAR(100) NULL`);
+      } catch (e) {}
+
+      // Auto-sanitize existing education_videos youtube_id in MySQL
+      try {
+        const [vidRows] = await pool.query(`SELECT id, youtube_id FROM education_videos WHERE youtube_id IS NOT NULL AND youtube_id != ''`);
+        for (const vr of vidRows) {
+          const cleanId = extractYoutubeId(vr.youtube_id);
+          if (cleanId && cleanId !== vr.youtube_id) {
+            await pool.query('UPDATE education_videos SET youtube_id = ? WHERE id = ?', [cleanId, vr.id]);
+            console.log(`[Video Auto-fix] Cleaned video ${vr.id} youtube_id from "${vr.youtube_id}" to "${cleanId}"`);
+          }
+        }
       } catch (e) {}
 
       // Auto-seed default Super Admin if not present
@@ -1665,24 +1697,27 @@ app.post('/api/upload/video', async (req, res) => {
 app.get('/api/videos', async (req, res) => {
   try {
     const [rows] = await pool.query('SELECT * FROM education_videos ORDER BY is_featured DESC, created_at DESC');
-    const formatted = rows.map(r => ({
-      id: r.id,
-      title: r.title,
-      description: r.description || '',
-      category: r.category,
-      duration: r.duration,
-      sourceType: r.video_source || (r.youtube_id ? 'youtube' : 'upload'),
-      youtubeId: r.youtube_id || '',
-      videoUrl: r.video_url || '',
-      orientation: r.orientation || 'landscape',
-      thumbnailUrl: r.thumbnail_url || (r.youtube_id ? `https://img.youtube.com/vi/${r.youtube_id}/hqdefault.jpg` : 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=600&auto=format&fit=crop&q=80'),
-      speaker: r.speaker,
-      speakerRole: r.speaker_role || '',
-      viewsCount: r.views_count || '1.2 rb',
-      badge: r.badge || '',
-      isFeatured: Boolean(r.is_featured),
-      keyTakeaways: typeof r.key_takeaways === 'string' ? JSON.parse(r.key_takeaways || '[]') : (r.key_takeaways || [])
-    }));
+    const formatted = rows.map(r => {
+      const cleanYt = extractYoutubeId(r.youtube_id || '');
+      return {
+        id: r.id,
+        title: r.title,
+        description: r.description || '',
+        category: r.category,
+        duration: r.duration,
+        sourceType: r.video_source || (cleanYt ? 'youtube' : 'upload'),
+        youtubeId: cleanYt,
+        videoUrl: r.video_url || '',
+        orientation: r.orientation || 'landscape',
+        thumbnailUrl: r.thumbnail_url || (cleanYt ? `https://img.youtube.com/vi/${cleanYt}/hqdefault.jpg` : 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=600&auto=format&fit=crop&q=80'),
+        speaker: r.speaker,
+        speakerRole: r.speaker_role || '',
+        viewsCount: r.views_count || '1.2 rb',
+        badge: r.badge || '',
+        isFeatured: Boolean(r.is_featured),
+        keyTakeaways: typeof r.key_takeaways === 'string' ? JSON.parse(r.key_takeaways || '[]') : (r.key_takeaways || [])
+      };
+    });
     res.json({ success: true, data: formatted });
   } catch (err) {
     console.error('[Get Videos Error]', err);
@@ -1715,9 +1750,10 @@ app.post('/api/videos', async (req, res) => {
       return res.status(400).json({ success: false, message: 'Judul dan Pemateri wajib diisi.' });
     }
 
+    const cleanYt = extractYoutubeId(youtubeId || '');
     const src = sourceType || (videoUrl ? 'upload' : 'youtube');
-    if (src === 'youtube' && !youtubeId) {
-      return res.status(400).json({ success: false, message: 'Link YouTube atau Video ID wajib diisi.' });
+    if (src === 'youtube' && !cleanYt) {
+      return res.status(400).json({ success: false, message: 'Link YouTube atau Video ID wajib diisi dan harus valid.' });
     }
     if (src === 'upload' && !videoUrl) {
       return res.status(400).json({ success: false, message: 'File video belum dipilih atau diunggah.' });
@@ -1725,7 +1761,7 @@ app.post('/api/videos', async (req, res) => {
 
     const videoId = id || `vid-${Date.now()}`;
     const orient = orientation === 'portrait' ? 'portrait' : 'landscape';
-    const thumb = thumbnailUrl || (youtubeId ? `https://img.youtube.com/vi/${youtubeId}/hqdefault.jpg` : 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=600&auto=format&fit=crop&q=80');
+    const thumb = thumbnailUrl || (cleanYt ? `https://img.youtube.com/vi/${cleanYt}/hqdefault.jpg` : 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=600&auto=format&fit=crop&q=80');
 
     await pool.query(
       `INSERT INTO education_videos 
@@ -1757,7 +1793,7 @@ app.post('/api/videos', async (req, res) => {
         src,
         videoUrl || null,
         orient,
-        youtubeId || null,
+        cleanYt || null,
         thumb,
         speaker,
         speakerRole || '',

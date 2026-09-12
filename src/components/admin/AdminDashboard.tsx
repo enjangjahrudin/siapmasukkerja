@@ -3399,11 +3399,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
                 />
               ) : (
                 <iframe
-                  src={`https://www.youtube-nocookie.com/embed/${previewPlayingVideo.youtubeId}?autoplay=1&playsinline=1&rel=0&modestbranding=1`}
+                  src={`https://www.youtube.com/embed/${extractYoutubeId(previewPlayingVideo.youtubeId)}?autoplay=1&playsinline=1&rel=0&modestbranding=1`}
                   title={previewPlayingVideo.title}
                   className="w-full h-full border-0"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                   allowFullScreen
+                  referrerPolicy="strict-origin-when-cross-origin"
                 />
               )}
             </div>
@@ -3414,8 +3415,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
                 <span className="text-amber-500 font-bold">{previewPlayingVideo.duration}</span>
               </div>
               <p className="text-slate-400 leading-relaxed line-clamp-2">{previewPlayingVideo.description}</p>
-              <div className="text-[11px] text-slate-400 pt-1">
-                Narasumber: <strong className="text-slate-200">{previewPlayingVideo.speaker}</strong> ({previewPlayingVideo.speakerRole})
+              <div className="text-[11px] text-slate-400 pt-1 flex flex-wrap items-center justify-between gap-2">
+                <span>
+                  Narasumber: <strong className="text-slate-200">{previewPlayingVideo.speaker}</strong> ({previewPlayingVideo.speakerRole})
+                </span>
+                {extractYoutubeId(previewPlayingVideo.youtubeId) && (
+                  <a
+                    href={previewPlayingVideo.orientation === 'portrait' ? `https://www.youtube.com/shorts/${extractYoutubeId(previewPlayingVideo.youtubeId)}` : `https://www.youtube.com/watch?v=${extractYoutubeId(previewPlayingVideo.youtubeId)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 transition-colors"
+                  >
+                    <ExternalLink className="w-3 h-3 text-red-500" />
+                    <span>Buka di YouTube</span>
+                  </a>
+                )}
               </div>
             </div>
 

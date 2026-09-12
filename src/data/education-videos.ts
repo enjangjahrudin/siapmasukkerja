@@ -255,16 +255,53 @@ export const addStoredCategory = (category: VideoCategory): VideoCategory[] => {
   return updated;
 };
 
-export const extractYoutubeId = (urlOrId: string): string => {
+export const extractYoutubeId = (urlOrId?: string | null): string => {
   if (!urlOrId) return '';
-  const trimmed = urlOrId.trim();
-  // If it's already an 11-char ID
-  if (/^[a-zA-Z0-9_-]{11}$/.test(trimmed)) {
-    return trimmed;
+  let str = urlOrId.trim();
+
+  // 1. If it's already an 11-char ID
+  if (/^[a-zA-Z0-9_-]{11}$/.test(str)) {
+    return str;
   }
-  // If full youtube URL or youtu.be
-  const match = trimmed.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
-  return match ? match[1] : trimmed;
+
+  // 2. Remove iframe tag if pasted as embed code
+  const iframeSrcMatch = str.match(/src=["']([^"']+)["']/i);
+  if (iframeSrcMatch) {
+    str = iframeSrcMatch[1];
+  }
+
+  // 3. Match any standard or modern YouTube URL patterns:
+  // - youtube.com/watch?v=ID
+  // - youtu.be/ID
+  // - youtube.com/shorts/ID
+  // - youtube.com/live/ID
+  // - youtube.com/embed/ID
+  // - youtube-nocookie.com/embed/ID
+  // - youtube.com/v/ID
+  const regExp = /(?:youtu\.be\/|youtube(?:-nocookie)?\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=|shorts\/|live\/))([\w-]{11})/;
+  const match = str.match(regExp);
+  if (match && match[1]) {
+    return match[1];
+  }
+
+  // 4. Fallback URL object search
+  try {
+    if (str.includes('http://') || str.includes('https://')) {
+      const parsedUrl = new URL(str);
+      const v = parsedUrl.searchParams.get('v');
+      if (v && /^[a-zA-Z0-9_-]{11}$/.test(v)) {
+        return v;
+      }
+      const parts = parsedUrl.pathname.split('/').filter(Boolean);
+      for (const p of parts) {
+        if (/^[a-zA-Z0-9_-]{11}$/.test(p)) {
+          return p;
+        }
+      }
+    }
+  } catch (_) {}
+
+  return '';
 };
 
 export const getStoredVideos = (): EducationVideo[] => {

@@ -6,7 +6,8 @@ import {
   VideoCategory,
   getStoredCategories,
   getStoredVideos, 
-  fetchLiveVideos 
+  fetchLiveVideos,
+  extractYoutubeId
 } from '../../data/education-videos';
 import { 
   BookOpen, 
@@ -30,7 +31,8 @@ import {
   RefreshCw,
   Smartphone,
   Upload,
-  AlertCircle
+  AlertCircle,
+  ExternalLink
 } from 'lucide-react';
 import { useTheme } from '../../utils/theme-context';
 import { sounds } from '../../utils/sound-effects';
@@ -612,27 +614,42 @@ export const TipsHub: React.FC = () => {
                 )
               ) : (
                 <iframe
-                  src={`https://www.youtube-nocookie.com/embed/${activePlayingVideo.youtubeId}?autoplay=1&playsinline=1&rel=0&modestbranding=1`}
+                  src={`https://www.youtube.com/embed/${extractYoutubeId(activePlayingVideo.youtubeId)}?autoplay=1&playsinline=1&rel=0&modestbranding=1`}
                   title={activePlayingVideo.title}
                   className="w-full h-full border-0"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                   allowFullScreen
+                  referrerPolicy="strict-origin-when-cross-origin"
                 />
               )}
             </div>
 
             {/* Video Details & Action Buttons */}
             <div className="p-5 space-y-4 overflow-y-auto">
-              <div className="space-y-1.5">
-                <div className="flex flex-wrap items-center gap-2">
-                  {activePlayingVideo.badge && (
-                    <span className="bg-amber-500 text-white font-bold text-[10px] px-2 py-0.5 rounded-full">
-                      {activePlayingVideo.badge}
+              <div className="space-y-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    {activePlayingVideo.badge && (
+                      <span className="bg-amber-500 text-white font-bold text-[10px] px-2 py-0.5 rounded-full">
+                        {activePlayingVideo.badge}
+                      </span>
+                    )}
+                    <span className="text-xs text-slate-400">
+                      Durasi: {activePlayingVideo.duration} • {activePlayingVideo.viewsCount} penonton
                     </span>
+                  </div>
+
+                  {extractYoutubeId(activePlayingVideo.youtubeId) && (
+                    <a
+                      href={activePlayingVideo.orientation === 'portrait' ? `https://www.youtube.com/shorts/${extractYoutubeId(activePlayingVideo.youtubeId)}` : `https://www.youtube.com/watch?v=${extractYoutubeId(activePlayingVideo.youtubeId)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/30 transition-colors"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      <span>Tonton di YouTube</span>
+                    </a>
                   )}
-                  <span className="text-xs text-slate-400">
-                    Durasi: {activePlayingVideo.duration} • {activePlayingVideo.viewsCount} penonton
-                  </span>
                 </div>
 
                 <h2 className="text-base sm:text-lg font-extrabold leading-snug">
