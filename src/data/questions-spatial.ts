@@ -8,6 +8,54 @@ import { BaseQuestion } from '../types';
 const CUBE_SYMBOLS = ['★ (Bintang)', '● (Lingkaran)', '■ (Kotak)', '▲ (Segitiga)', '✖ (Silang)', '◆ (Belah Ketupat)'];
 
 // ----------------------------------------------------------------------------
+// Helper: Acak Opsi Jawaban Dinamis (Fisher-Yates) Agar Kunci Jawaban Merata A, B, C, D
+// ----------------------------------------------------------------------------
+function shuffleOptions(
+  correctAnswerText: string,
+  distractorTexts: string[],
+  seed?: number
+): { options: string[]; correctAnswer: number } {
+  const cleanCorrect = correctAnswerText.replace(/^[A-E]\.\s*/, '').trim();
+  const cleanDistractors = Array.from(
+    new Set(
+      distractorTexts
+        .map(d => d.replace(/^[A-E]\.\s*/, '').trim())
+        .filter(d => d !== cleanCorrect && d.length > 0)
+    )
+  ).slice(0, 3);
+
+  while (cleanDistractors.length < 3) {
+    cleanDistractors.push(`Pilihan Alternatif ${cleanDistractors.length + 1}`);
+  }
+
+  const items = [cleanCorrect, ...cleanDistractors.slice(0, 3)];
+
+  const rng = seed !== undefined
+    ? (() => {
+        let s = Math.abs(seed * 9301 + 49297) || 1234567;
+        return () => {
+          s = (s * 1664525 + 1013904223) % 4294967296;
+          return s / 4294967296;
+        };
+      })()
+    : Math.random;
+
+  for (let i = items.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [items[i], items[j]] = [items[j], items[i]];
+  }
+
+  const correctIndex = items.indexOf(cleanCorrect);
+  const prefixes = ['A', 'B', 'C', 'D'];
+  const options = items.map((item, idx) => `${prefixes[idx]}. ${item}`);
+
+  return {
+    options,
+    correctAnswer: correctIndex >= 0 ? correctIndex : 0
+  };
+}
+
+// ----------------------------------------------------------------------------
 // Generator 1: Jaring-jaring Kubus 3D (Opposite Face Prediction)
 // ----------------------------------------------------------------------------
 function generateCubeNetQuestion(seed: number): BaseQuestion {
@@ -26,13 +74,11 @@ function generateCubeNetQuestion(seed: number): BaseQuestion {
   const chosenPair = oppositePairs[seed % oppositePairs.length];
   const distractors = symbols.filter(s => s !== chosenPair.opposite && s !== chosenPair.target);
 
-  const options = [
-    `A. Sisi ${chosenPair.opposite}`,
-    `B. Sisi ${distractors[0]}`,
-    `C. Sisi ${distractors[1]}`,
-    `D. Sisi ${distractors[2]}`
-  ].sort(() => ((seed * 11) % 4) - 1.5);
-  const correctIndex = options.findIndex(opt => opt.includes(chosenPair.opposite));
+  const { options, correctAnswer } = shuffleOptions(
+    `Sisi ${chosenPair.opposite}`,
+    distractors.map(d => `Sisi ${d}`),
+    seed * 11 + 13
+  );
 
   return {
     id: `spa-cube-${seed}`,
@@ -40,7 +86,7 @@ function generateCubeNetQuestion(seed: number): BaseQuestion {
     subCategory: 'Jaring-jaring Kubus 3D',
     question: `Jika pola jaring-jaring kertas di bawah dilipat menjadi bangun kubus 3D tertutup sempurna, sisi manakah yang akan BERHADAPAN LANGSUNG (saling berseberangan) dengan sisi berlogo "${chosenPair.target}"?`,
     options,
-    correctAnswer: correctIndex >= 0 ? correctIndex : 0,
+    correctAnswer,
     explanation: `Pada pola jaring-jaring kubus bentuk salib standar, dua bidang yang berada pada satu garis lurus dan berselang SATU kotak (melompati 1 bidang) pasti akan menjadi pasangan sisi yang saling berhadapan saat dirakit menjadi kubus 3 dimensi. Maka sisi "${chosenPair.target}" berhadapan dengan "${chosenPair.opposite}".`,
     quickTrick: `💡 Trik Selang 1 Kotak: Pada satu deret lurus, lewati tepat 1 kotak untuk menemukan sisi pasangannya yang saling berhadapan.`,
     diagramType: 'cube-net',
@@ -60,13 +106,15 @@ function generateBlockCountQuestion(seed: number): BaseQuestion {
   const totalCubes = layer1 + layer2 + layer3 + layer4;
 
   const distractors = [totalCubes - 2, totalCubes + 3, totalCubes - 4].filter(v => v !== totalCubes);
-  const options = [
-    `A. ${totalCubes} kubus satuan`,
-    `B. ${distractors[0] || totalCubes + 2} kubus satuan`,
-    `C. ${distractors[1] || totalCubes - 3} kubus satuan`,
-    `D. ${distractors[2] || totalCubes + 5} kubus satuan`
-  ].sort(() => ((seed * 13) % 4) - 1.5);
-  const correctIndex = options.findIndex(opt => opt.includes(`${totalCubes} kubus`));
+  const { options, correctAnswer } = shuffleOptions(
+    `${totalCubes} kubus satuan`,
+    [
+      `${distractors[0] || totalCubes + 2} kubus satuan`,
+      `${distractors[1] || totalCubes - 3} kubus satuan`,
+      `${distractors[2] || totalCubes + 5} kubus satuan`
+    ],
+    seed * 13 + 17
+  );
 
   return {
     id: `spa-count-${seed}`,
@@ -74,7 +122,7 @@ function generateBlockCountQuestion(seed: number): BaseQuestion {
     subCategory: 'Hitung Balok Tumpuk 3D',
     question: `Berapakah jumlah total kubus satuan penyusun bangun ruang 3D bertingkat di bawah (termasuk kubus pondasi tersembunyi yang menopang lantai di atasnya)?`,
     options,
-    correctAnswer: correctIndex >= 0 ? correctIndex : 0,
+    correctAnswer,
     explanation: `Hitung secara bertingkat dari lantai dasar ke atas: Lantai 1 = ${layer1} kubus, Lantai 2 = ${layer2} kubus, Lantai 3 = ${layer3} kubus${layer4 > 0 ? `, Lantai 4 = ${layer4} kubus` : ''}. Total kubus = ${totalCubes} kubus.`,
     quickTrick: `💡 Trik Hitung Balok: Hitung per-lantai dari bawah ke atas. Jangan lupa bahwa kubus di lantai atas selalu ditopang oleh kubus di bawahnya walau tidak terlihat dari depan.`,
     diagramType: 'stacked-cubes',
@@ -89,13 +137,15 @@ function generateRotationQuestion(seed: number): BaseQuestion {
   const degrees = [90, 180, 270][seed % 3];
   const dir = seed % 2 === 0 ? 'searah jarum jam (Clockwise / CW)' : 'berlawanan arah jarum jam (Counter-Clockwise / CCW)';
   
-  const options = [
-    'A. Gambar Opsi A (Posisi fitur utama berputar tepat sesuai sudut rotasi)',
-    'B. Gambar Opsi B (Hasil pencerminan / mirror terbalik)',
-    'C. Gambar Opsi C (Posisi rotasi 90 derajat lebih awal)',
-    'D. Gambar Opsi D (Posisi tidak berubah)'
-  ].sort(() => ((seed * 17) % 4) - 1.5);
-  const correctIndex = options.findIndex(opt => opt.includes('Gambar Opsi A'));
+  const { options, correctAnswer } = shuffleOptions(
+    'Gambar Rotasi Benar (Posisi fitur berputar tepat sesuai sudut rotasi)',
+    [
+      'Gambar Hasil Pencerminan (Mirror terbalik)',
+      'Gambar Rotasi 90 Derajat Lebih Awal',
+      'Gambar Tanpa Perubahan Posisi'
+    ],
+    seed * 17 + 19
+  );
 
   return {
     id: `spa-rot-${seed}`,
@@ -103,8 +153,8 @@ function generateRotationQuestion(seed: number): BaseQuestion {
     subCategory: 'Rotasi Objek 2D & 3D',
     question: `Jika bangun 2 dimensi berikut diputar sebesar ${degrees} derajat ${dir}, manakah bentuk hasil rotasi yang PALING TEPAT?`,
     options,
-    correctAnswer: correctIndex >= 0 ? correctIndex : 0,
-    explanation: `Pilih satu titik penanda khusus (misal: panah atau titik hitam di sudut). Putar titik tersebut sebesar ${degrees}° ${dir}. Opsi A adalah satu-satunya gambar yang mempertahankan orientasi geometris yang benar tanpa terjadi pencerminan terbalik.`,
+    correctAnswer,
+    explanation: `Pilih satu titik penanda khusus (misal: panah atau titik hitam di sudut). Putar titik tersebut sebesar ${degrees}° ${dir}. Opsi yang tepat adalah yang mempertahankan orientasi geometris yang benar tanpa terjadi pencerminan terbalik.`,
     quickTrick: `💡 Trik Rotasi: Kunci pandangan pada SATU elemen unik (misal: lekukan atau titik hitam) dan bayangkan ke mana titik tersebut berpindah setelah diputar.`
   };
 }
@@ -117,13 +167,15 @@ function generatePaperFoldQuestion(seed: number): BaseQuestion {
   const holesPunched = [1, 2][(seed + 1) % 2];
   const totalHoles = holesPunched * Math.pow(2, folds);
 
-  const options = [
-    `A. ${totalHoles} lubang simetris`,
-    `B. ${totalHoles / 2} lubang`,
-    `C. ${totalHoles + 2} lubang`,
-    `D. ${holesPunched} lubang saja`
-  ].sort(() => ((seed * 19) % 4) - 1.5);
-  const correctIndex = options.findIndex(opt => opt.includes(`${totalHoles} lubang`));
+  const { options, correctAnswer } = shuffleOptions(
+    `${totalHoles} lubang simetris`,
+    [
+      `${totalHoles / 2} lubang`,
+      `${totalHoles + 2} lubang`,
+      `${holesPunched} lubang saja`
+    ],
+    seed * 19 + 23
+  );
 
   return {
     id: `spa-fold-${seed}`,
@@ -131,7 +183,7 @@ function generatePaperFoldQuestion(seed: number): BaseQuestion {
     subCategory: 'Lipatan & Lubang Kertas',
     question: `Sebuah kertas persegi dilipat sebanyak ${folds} kali lipatan simetris, kemudian dilubangi dengan ${holesPunched} lubang tembus. Saat kertas dibuka kembali secara utuh, berapakah jumlah total lubang yang terbentuk?`,
     options,
-    correctAnswer: correctIndex >= 0 ? correctIndex : 0,
+    correctAnswer,
     explanation: `Setiap lipatan melipatgandakan jumlah lapisan kertas sebanyak 2 kali (2^${folds} = ${Math.pow(2, folds)} lapisan). Dengan ${holesPunched} lubang tembus, jumlah lubang saat dibuka adalah ${holesPunched} × ${Math.pow(2, folds)} = ${totalHoles} lubang simetris.`,
     quickTrick: `💡 Trik Lipatan: Rumus Total Lubang = Jumlah Lubang Tembus × 2^(Jumlah Lipatan).`
   };

@@ -550,6 +550,54 @@ export const SYLLOGISM_TEMPLATES = [
 ];
 
 // ----------------------------------------------------------------------------
+// Helper: Acak Opsi Jawaban Dinamis (Fisher-Yates) Agar Kunci Jawaban Merata A, B, C, D
+// ----------------------------------------------------------------------------
+function shuffleOptions(
+  correctAnswerText: string,
+  distractorTexts: string[],
+  seed?: number
+): { options: string[]; correctAnswer: number } {
+  const cleanCorrect = correctAnswerText.replace(/^[A-E]\.\s*/, '').trim();
+  const cleanDistractors = Array.from(
+    new Set(
+      distractorTexts
+        .map(d => d.replace(/^[A-E]\.\s*/, '').trim())
+        .filter(d => d !== cleanCorrect && d.length > 0)
+    )
+  ).slice(0, 3);
+
+  while (cleanDistractors.length < 3) {
+    cleanDistractors.push(`Opsi Pilihan ${cleanDistractors.length + 1}`);
+  }
+
+  const items = [cleanCorrect, ...cleanDistractors.slice(0, 3)];
+
+  const rng = seed !== undefined
+    ? (() => {
+        let s = Math.abs(seed * 9301 + 49297) || 1234567;
+        return () => {
+          s = (s * 1664525 + 1013904223) % 4294967296;
+          return s / 4294967296;
+        };
+      })()
+    : Math.random;
+
+  for (let i = items.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [items[i], items[j]] = [items[j], items[i]];
+  }
+
+  const correctIndex = items.indexOf(cleanCorrect);
+  const prefixes = ['A', 'B', 'C', 'D'];
+  const options = items.map((item, idx) => `${prefixes[idx]}. ${item}`);
+
+  return {
+    options,
+    correctAnswer: correctIndex >= 0 ? correctIndex : 0
+  };
+}
+
+// ----------------------------------------------------------------------------
 // Generator 1: Sinonim Kata Industri
 // ----------------------------------------------------------------------------
 function generateSynonymQuestion(seed: number, usedWords?: Set<string>): BaseQuestion {
@@ -558,13 +606,11 @@ function generateSynonymQuestion(seed: number, usedWords?: Set<string>): BaseQue
   const vocab = list[seed % list.length];
   if (usedWords) usedWords.add(vocab.word);
 
-  const options = [
-    `A. ${vocab.synonym}`,
-    `B. ${vocab.synonymDistractors[0]}`,
-    `C. ${vocab.synonymDistractors[1]}`,
-    `D. ${vocab.synonymDistractors[2]}`
-  ].sort(() => ((seed * 7) % 4) - 1.5);
-  const correctIndex = options.findIndex(opt => opt.includes(vocab.synonym));
+  const { options, correctAnswer } = shuffleOptions(
+    vocab.synonym,
+    vocab.synonymDistractors,
+    seed * 7 + 13
+  );
 
   return {
     id: `psy-syn-${vocab.word}-${seed}`,
@@ -572,7 +618,7 @@ function generateSynonymQuestion(seed: number, usedWords?: Set<string>): BaseQue
     subCategory: 'Sinonim Kata Industri',
     question: `Pilihlah kata atau padanan makna yang PALING TEPAT (SINONIM) dengan istilah: "${vocab.word}"`,
     options,
-    correctAnswer: correctIndex >= 0 ? correctIndex : 0,
+    correctAnswer,
     explanation: `${vocab.explanation} Jadi, sinonim yang paling tepat adalah: ${vocab.synonym}.`,
     quickTrick: `💡 Trik Kosakata: Hubungkan kata dengan konteks industri kerja nyata (misal: perawatan preventif = pencegahan dini).`
   };
@@ -587,13 +633,11 @@ function generateAntonymQuestion(seed: number, usedWords?: Set<string>): BaseQue
   const vocab = list[seed % list.length];
   if (usedWords) usedWords.add(vocab.word);
 
-  const options = [
-    `A. ${vocab.antonym}`,
-    `B. ${vocab.antonymDistractors[0]}`,
-    `C. ${vocab.antonymDistractors[1]}`,
-    `D. ${vocab.antonymDistractors[2]}`
-  ].sort(() => ((seed * 11) % 4) - 1.5);
-  const correctIndex = options.findIndex(opt => opt.includes(vocab.antonym));
+  const { options, correctAnswer } = shuffleOptions(
+    vocab.antonym,
+    vocab.antonymDistractors,
+    seed * 11 + 17
+  );
 
   return {
     id: `psy-ant-${vocab.word}-${seed}`,
@@ -601,7 +645,7 @@ function generateAntonymQuestion(seed: number, usedWords?: Set<string>): BaseQue
     subCategory: 'Antonim / Lawan Kata',
     question: `Pilihlah lawan kata yang PALING SESUAI (ANTONIM) untuk istilah: "${vocab.word}"`,
     options,
-    correctAnswer: correctIndex >= 0 ? correctIndex : 0,
+    correctAnswer,
     explanation: `Istilah "${vocab.word}" bermakna ${vocab.synonym.toLowerCase()}. Lawan katanya (kebalikannya) adalah: ${vocab.antonym}.`,
     quickTrick: `💡 Trik Lawan Kata: Jangan terkecoh memilih sinonim! Cari kata yang maknanya 180 derajat bertolak belakang.`
   };
@@ -612,19 +656,14 @@ function generateAntonymQuestion(seed: number, usedWords?: Set<string>): BaseQue
 // ----------------------------------------------------------------------------
 function generateAnalogyQuestion(seed: number): BaseQuestion {
   const analogy = ANALOGY_BANK[seed % ANALOGY_BANK.length];
+  const correctPair = `${analogy.b1} : ${analogy.b2}`;
   const distractors = [
     `${analogy.b2} : ${analogy.b1}`, // Terbalik
     `OBENG : KAYU BALOK`,
     `LAMPU : SUHU PANAS`
   ];
 
-  const options = [
-    `A. ${analogy.b1} : ${analogy.b2}`,
-    `B. ${distractors[0]}`,
-    `C. ${distractors[1]}`,
-    `D. ${distractors[2]}`
-  ].sort(() => ((seed * 13) % 4) - 1.5);
-  const correctIndex = options.findIndex(opt => opt.includes(`${analogy.b1} : ${analogy.b2}`));
+  const { options, correctAnswer } = shuffleOptions(correctPair, distractors, seed * 13 + 19);
 
   return {
     id: `psy-ana-${seed % ANALOGY_BANK.length}`,
@@ -632,7 +671,7 @@ function generateAnalogyQuestion(seed: number): BaseQuestion {
     subCategory: 'Analogi & Hubungan Kata',
     question: `Tentukan pasangan kata yang memiliki hubungan analogi paling setara: "${analogy.a1} : ${analogy.a2} = ... : ..."`,
     options,
-    correctAnswer: correctIndex >= 0 ? correctIndex : 0,
+    correctAnswer,
     explanation: `Hubungan analogi: ${analogy.exp}. Pasangan yang polanya identik adalah ${analogy.b1} : ${analogy.b2}.`,
     quickTrick: `💡 Trik Analogi: Buat kalimat penghubung singkat antara kata A dan B, lalu terapkan pola kalimat yang sama persis pada pilihan jawaban.`
   };
@@ -643,13 +682,7 @@ function generateAnalogyQuestion(seed: number): BaseQuestion {
 // ----------------------------------------------------------------------------
 function generateSyllogismQuestion(seed: number): BaseQuestion {
   const template = SYLLOGISM_TEMPLATES[seed % SYLLOGISM_TEMPLATES.length];
-  const options = [
-    `A. ${template.ans}`,
-    `B. ${template.distractors[0]}`,
-    `C. ${template.distractors[1]}`,
-    `D. ${template.distractors[2]}`
-  ].sort(() => ((seed * 17) % 4) - 1.5);
-  const correctIndex = options.findIndex(opt => opt.includes(template.ans));
+  const { options, correctAnswer } = shuffleOptions(template.ans, template.distractors, seed * 17 + 23);
 
   return {
     id: `psy-syl-${seed % SYLLOGISM_TEMPLATES.length}`,
@@ -657,7 +690,7 @@ function generateSyllogismQuestion(seed: number): BaseQuestion {
     subCategory: 'Silogisme & Logika Deduksi',
     question: `Premis 1: ${template.p1}\nPremis 2: ${template.p2}\n\nKesimpulan yang paling tepat dan sahih adalah:`,
     options,
-    correctAnswer: correctIndex >= 0 ? correctIndex : 0,
+    correctAnswer,
     explanation: template.exp,
     quickTrick: `💡 Trik Silogisme: Jangan masukkan opini pribadi atau asumsi luar. Cukup ikuti fakta murni yang tertulis pada kedua premis.`
   };
@@ -707,13 +740,13 @@ function generateAnalyticalPositionQuestion(seed: number): BaseQuestion {
 
   const questionText = `Lima operator (${names.join(', ')}) diatur posisinya pada jalur perakitan:\n${clues.join('\n')}\n\n${targetQuestion}`;
 
-  const options = [
-    `A. ${ans}`,
-    `B. ${names[(names.indexOf(ans) + 1) % 5]}`,
-    `C. ${names[(names.indexOf(ans) + 2) % 5]}`,
-    `D. ${names[(names.indexOf(ans) + 3) % 5]}`
-  ].sort(() => ((seed * 23) % 4) - 1.5);
-  const correctIndex = options.findIndex(opt => opt.includes(ans));
+  const distractors = [
+    names[(names.indexOf(ans) + 1) % 5],
+    names[(names.indexOf(ans) + 2) % 5],
+    names[(names.indexOf(ans) + 3) % 5]
+  ];
+
+  const { options, correctAnswer } = shuffleOptions(ans, distractors, seed * 23 + 29);
 
   return {
     id: `psy-pos-${seed}`,
@@ -721,7 +754,7 @@ function generateAnalyticalPositionQuestion(seed: number): BaseQuestion {
     subCategory: 'Logika Analitis & Urutan Posisi',
     question: questionText,
     options,
-    correctAnswer: correctIndex >= 0 ? correctIndex : 0,
+    correctAnswer,
     explanation: `Urutan posisi dari depan ke belakang adalah: 1. ${p1} -> 2. ${p2} -> 3. ${p3} -> 4. ${p4} -> 5. ${p5}. Maka jawaban yang tepat adalah ${ans}.`,
     quickTrick: `💡 Trik Posisi: Gambar slot 1 s/d 5 di kertas coretan, lalu kunci nama yang posisinya mutlak (paling depan & belakang) terlebih dahulu.`
   };
@@ -747,13 +780,7 @@ function generateAnalyticalComparisonQuestion(seed: number): BaseQuestion {
   const ans = askFastest ? machines[0] : machines[4];
   const distractors = machines.filter(m => m !== ans);
 
-  const options = [
-    `A. ${ans}`,
-    `B. ${distractors[0]}`,
-    `C. ${distractors[1]}`,
-    `D. ${distractors[2]}`
-  ].sort(() => ((seed * 31) % 4) - 1.5);
-  const correctIndex = options.findIndex(opt => opt.includes(ans));
+  const { options, correctAnswer } = shuffleOptions(ans, distractors, seed * 31 + 37);
 
   return {
     id: `psy-comp-${seed}`,
@@ -761,7 +788,7 @@ function generateAnalyticalComparisonQuestion(seed: number): BaseQuestion {
     subCategory: 'Logika Komparasi & Pemeringkatan',
     question: questionText,
     options,
-    correctAnswer: correctIndex >= 0 ? correctIndex : 0,
+    correctAnswer,
     explanation: `Rantai urutan output dari tertinggi ke terendah: 1. ${machines[0]} > 2. ${machines[1]} > 3. ${machines[2]} > 4. ${machines[3]} > 5. ${machines[4]}. Maka unit yang ${askFastest ? 'paling tinggi outputnya adalah ' + machines[0] : 'paling rendah outputnya adalah ' + machines[4]}.`,
     quickTrick: `💡 Trik Rantai Komparasi: Tulis simbol '>' secara langsung di kertas coretan untuk menyusun hierarki data dari kiri ke kanan.`
   };
@@ -782,13 +809,7 @@ function generateShiftSchedulingQuestion(seed: number): BaseQuestion {
   const questionText = `Lima teknisi maintenance (${workers.join(', ')}) dijadwalkan piket harian dari Senin hingga Jumat dengan aturan:\n• ${workers[0]} bertugas di hari pertama (Senin).\n• ${workers[1]} bertugas tepat setelah ${workers[0]}.\n• ${workers[2]} bertugas tepat di hari ${days[2]}.\n• ${workers[4]} bertugas di hari terakhir (Jumat).\n• ${workers[3]} bertugas tepat sebelum ${workers[4]}.\n\nSiapakah teknisi yang bertugas pada hari ${targetDay}?`;
 
   const distractors = workers.filter(w => w !== ansWorker);
-  const options = [
-    `A. ${ansWorker}`,
-    `B. ${distractors[0]}`,
-    `C. ${distractors[1]}`,
-    `D. ${distractors[2]}`
-  ].sort(() => ((seed * 37) % 4) - 1.5);
-  const correctIndex = options.findIndex(opt => opt.includes(ansWorker));
+  const { options, correctAnswer } = shuffleOptions(ansWorker, distractors, seed * 37 + 41);
 
   return {
     id: `psy-shift-${seed}`,
@@ -796,7 +817,7 @@ function generateShiftSchedulingQuestion(seed: number): BaseQuestion {
     subCategory: 'Logika Analitis Penjadwalan Shift',
     question: questionText,
     options,
-    correctAnswer: correctIndex >= 0 ? correctIndex : 0,
+    correctAnswer,
     explanation: `Jadwal piket: Senin (${workers[0]}), Selasa (${workers[1]}), Rabu (${workers[2]}), Kamis (${workers[3]}), Jumat (${workers[4]}). Maka teknisi pada hari ${targetDay} adalah ${ansWorker}.`,
     quickTrick: `💡 Trik Jadwal: Buat tabel 5 kolom hari kerja (Sen-Jum) dan isi nama teknisi sesuai petunjuk yang diberikan.`
   };
@@ -844,13 +865,7 @@ function generateLetterPatternQuestion(seed: number): BaseQuestion {
   const dist2 = alphabet[(ansIdx + 25) % 26] + (ans.length > 1 ? alphabet[(ansIdx + 26) % 26] : '');
   const dist3 = alphabet[(ansIdx + 3) % 26] + (ans.length > 1 ? alphabet[(ansIdx + 4) % 26] : '');
 
-  const options = [
-    `A. ${ans}`,
-    `B. ${dist1}`,
-    `C. ${dist2}`,
-    `D. ${dist3}`
-  ].sort(() => ((seed * 41) % 4) - 1.5);
-  const correctIndex = options.findIndex(opt => opt.includes(ans));
+  const { options, correctAnswer } = shuffleOptions(ans, [dist1, dist2, dist3], seed * 41 + 43);
 
   return {
     id: `psy-letter-${seed}`,
@@ -858,7 +873,7 @@ function generateLetterPatternQuestion(seed: number): BaseQuestion {
     subCategory: 'Deret Huruf & Sandi Logika',
     question: `Tentukan huruf / pasangan huruf berikutnya pada deret logika berikut: ${seq.join(', ')}, ... ?`,
     options,
-    correctAnswer: correctIndex >= 0 ? correctIndex : 0,
+    correctAnswer,
     explanation: `${ruleExp} Maka kelanjutan deret berikutnya adalah ${ans}.`,
     quickTrick: `💡 Trik Deret Huruf: Ubah huruf menjadi angka urutan abjad (A=1, B=2, C=3...) untuk menemukan selisih polanya lebih mudah.`
   };
@@ -927,16 +942,15 @@ const CATEGORY_GROUPS: CategoryGroup[] = [
 
 function generateCategoryOddOneOutQuestion(seed: number): BaseQuestion {
   const group = CATEGORY_GROUPS[seed % CATEGORY_GROUPS.length];
-  const items = [...group.items.slice(0, 3), group.oddItem].sort(() => ((seed * 43) % 4) - 1.5);
-  const correctIndex = items.indexOf(group.oddItem);
+  const { options, correctAnswer } = shuffleOptions(group.oddItem, group.items.slice(0, 3), seed * 43 + 47);
 
   return {
     id: `psy-odd-${seed % CATEGORY_GROUPS.length}`,
     category: 'psychotest',
     subCategory: 'Pengelompokan Kata & Kategori Logis',
     question: `Manakah di antara pilihan berikut yang TIDAK TERMASUK dalam kelompok yang sama (Pilihlah kata yang ganjil / menyimpang dari kategori)?`,
-    options: items.map((it, idx) => `${['A', 'B', 'C', 'D'][idx]}. ${it}`),
-    correctAnswer: correctIndex >= 0 ? correctIndex : 0,
+    options,
+    correctAnswer,
     explanation: `${group.oddReason}`,
     quickTrick: `💡 Trik Pengelompokan: Cari kesamaan fungsi utama dari 3 pilihan yang ada, lalu pilih satu opsi yang menyimpang dari tema tersebut.`
   };
