@@ -160,6 +160,11 @@ const fs = require('fs');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// ─── REVERSE PROXY / NGINX SUPPORT: Trust Proxy ───
+// VPS aaPanel menggunakan Nginx sebagai reverse proxy di depan Express.
+// 'trust proxy': 1 memastikan IP klien didapatkan dari reverse proxy pertama (Nginx).
+app.set('trust proxy', 1);
+
 // ─── SECURITY: Helmet – HTTP Security Headers ───
 app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' } // Allow /uploads/ static assets from frontend
@@ -187,28 +192,32 @@ const loginLimiter = rateLimit({
   max: 10,
   message: { success: false, message: 'Terlalu banyak percobaan login. Coba lagi setelah 15 menit.' },
   standardHeaders: true,
-  legacyHeaders: false
+  legacyHeaders: false,
+  validate: { xForwardedForHeader: false }
 });
 const otpSendLimiter = rateLimit({
   windowMs: 30 * 60 * 1000, // 30 menit
   max: 5,
   message: { success: false, message: 'Terlalu sering meminta kode OTP. Coba lagi setelah 30 menit.' },
   standardHeaders: true,
-  legacyHeaders: false
+  legacyHeaders: false,
+  validate: { xForwardedForHeader: false }
 });
 const otpVerifyLimiter = rateLimit({
   windowMs: 10 * 60 * 1000, // 10 menit
   max: 10,
   message: { success: false, message: 'Terlalu banyak percobaan verifikasi. Coba lagi setelah 10 menit.' },
   standardHeaders: true,
-  legacyHeaders: false
+  legacyHeaders: false,
+  validate: { xForwardedForHeader: false }
 });
 const generalApiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 300,
   message: { success: false, message: 'Terlalu banyak permintaan. Coba lagi setelah beberapa menit.' },
   standardHeaders: true,
-  legacyHeaders: false
+  legacyHeaders: false,
+  validate: { xForwardedForHeader: false }
 });
 app.use('/api/', generalApiLimiter);
 
