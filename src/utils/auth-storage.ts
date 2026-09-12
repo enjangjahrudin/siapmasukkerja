@@ -946,3 +946,83 @@ export const topUpUserInterviewTokens = (amount: number, userId?: string): numbe
   return newTokens;
 };
 
+/**
+ * Admin Update Candidate Information (School, NPSN, Major, Contacts, Target Role, etc.)
+ */
+export const adminUpdateCandidate = async (
+  candidateId: string,
+  data: Partial<RegisteredUser>
+): Promise<{ success: boolean; user?: RegisteredUser; message: string }> => {
+  try {
+    // 1. Optimistically update local storage
+    const users = getStoredUsers();
+    const idx = users.findIndex(u => u.id === candidateId);
+    let optimisticUser: RegisteredUser | undefined;
+    if (idx >= 0) {
+      users[idx] = { ...users[idx], ...data, id: candidateId };
+      optimisticUser = users[idx];
+      localStorage.setItem(STORAGE_USERS_KEY, JSON.stringify(users));
+    }
+
+    // 2. Call backend MySQL API
+    const response = await fetch(`${API_BASE_URL}/admin/candidates/${candidateId}/update`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+
+    const resJson = await response.json();
+    if (!response.ok) {
+      throw new Error(resJson.message || `Gagal memperbarui data peserta (HTTP ${response.status}).`);
+    }
+
+    if (resJson.user) {
+      saveUser(resJson.user);
+      return { success: true, user: resJson.user, message: resJson.message || 'Data peserta berhasil diperbarui!' };
+    }
+
+    return { success: true, user: optimisticUser, message: resJson.message || 'Data peserta berhasil diperbarui!' };
+  } catch (err: any) {
+    console.error('[adminUpdateCandidate error]', err);
+    return { success: false, message: err.message || 'Gagal memperbarui data peserta.' };
+  }
+};
+
+/**
+ * Admin Reset Candidate Password
+ */
+export const adminResetCandidatePassword = async (
+  candidateId: string,
+  newPassword?: string
+): Promise<{ success: boolean; newPassword?: string; message: string }> => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/admin/candidates/${candidateId}/reset-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ newPassword })
+    });
+
+    const resJson = await response.json();
+    if (!response.ok) {
+      throw new Error(resJson.message || `Gagal mereset kata sandi (HTTP ${response.status}).`);
+    }
+
+    // Also update locally if exists
+    const users = getStoredUsers();
+    const idx = users.findIndex(u => u.id === candidateId);
+    if (idx >= 0) {
+      users[idx].password = resJson.newPassword || newPassword || 'password123';
+      localStorage.setItem(STORAGE_USERS_KEY, JSON.stringify(users));
+    }
+
+    return {
+      success: true,
+      newPassword: resJson.newPassword || newPassword || 'password123',
+      message: resJson.message || 'Kata sandi berhasil direset!'
+    };
+  } catch (err: any) {
+    console.error('[adminResetCandidatePassword error]', err);
+    return { success: false, message: err.message || 'Gagal mereset kata sandi peserta.' };
+  }
+};
+

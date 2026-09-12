@@ -47,10 +47,13 @@ import {
   GraduationCap,
   Printer,
   FileText,
-  Award
+  Award,
+  Pencil
 } from 'lucide-react';
 import { TargetRole } from '../../types';
 import { getStoredUsers, RegisteredUser, saveUser, changeUserPassword } from '../../utils/auth-storage';
+import { EditCandidateModal } from './EditCandidateModal';
+import { ResetPasswordModal } from './ResetPasswordModal';
 import { 
   printIndividualStudentReport, 
   printCollectiveSchoolReport, 
@@ -144,6 +147,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
   const [signerNip, setSignerNip] = useState<string>('');
   const [saveSignerPreference, setSaveSignerPreference] = useState<boolean>(true);
   const [isDownloadingPdf, setIsDownloadingPdf] = useState<boolean>(false);
+
+  // Candidate Edit & Password Reset Modal States
+  const [candidateToEdit, setCandidateToEdit] = useState<RegisteredUser | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState<boolean>(false);
+  const [candidateToResetPassword, setCandidateToResetPassword] = useState<RegisteredUser | null>(null);
+  const [isResetPasswordModalOpen, setIsResetPasswordModalOpen] = useState<boolean>(false);
 
   // Video CMS State
   const [videoList, setVideoList] = useState<EducationVideo[]>(() => getStoredVideos());
@@ -545,6 +554,28 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
         setSelectedCandidateModal(null);
       }
     }
+  };
+
+  const handleOpenEditCandidate = (candidate: RegisteredUser) => {
+    setCandidateToEdit(candidate);
+    setIsEditModalOpen(true);
+  };
+
+  const handleOpenResetPassword = (candidate: RegisteredUser) => {
+    setCandidateToResetPassword(candidate);
+    setIsResetPasswordModalOpen(true);
+  };
+
+  const handleCandidateUpdated = (updated: RegisteredUser) => {
+    setCandidates(prev => prev.map(c => c.id === updated.id ? { ...c, ...updated } : c));
+    if (selectedCandidateModal?.id === updated.id) {
+      setSelectedCandidateModal(prev => prev ? { ...prev, ...updated } : prev);
+    }
+    if (realtimeCandidateData?.id === updated.id) {
+      setRealtimeCandidateData(prev => prev ? { ...prev, ...updated } : prev);
+    }
+    fetchLiveCandidates();
+    fetchPartnerSchools();
   };
 
   // ─── Partner Schools & BKK Coordinator Helpers ───
@@ -1636,6 +1667,34 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
                           </td>
                           <td className="p-4 text-right">
                             <div className="flex items-center justify-end gap-1.5">
+                              {/* Tombol Edit Data Siswa */}
+                              <button
+                                onClick={() => handleOpenEditCandidate(c)}
+                                className={`px-2.5 py-1.5 text-xs font-bold rounded-lg border transition-colors flex items-center gap-1 cursor-pointer ${
+                                  isDark 
+                                    ? 'bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border-amber-500/30' 
+                                    : 'bg-amber-50 hover:bg-amber-100 text-amber-700 border-amber-300'
+                                }`}
+                                title="Edit Data & Asal Sekolah Siswa"
+                              >
+                                <Pencil className="w-3.5 h-3.5 text-amber-500" />
+                                <span>Edit</span>
+                              </button>
+
+                              {/* Tombol Reset Sandi Siswa */}
+                              <button
+                                onClick={() => handleOpenResetPassword(c)}
+                                className={`px-2 py-1.5 text-xs font-bold rounded-lg border transition-colors flex items-center gap-1 cursor-pointer ${
+                                  isDark 
+                                    ? 'bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border-indigo-500/30' 
+                                    : 'bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border-indigo-200'
+                                }`}
+                                title="Reset Kata Sandi Akun Siswa"
+                              >
+                                <KeyRound className="w-3.5 h-3.5 text-indigo-500" />
+                                <span className="hidden xl:inline">Reset Sandi</span>
+                              </button>
+
                               {/* Tombol Lihat Rapor Realtime */}
                               <button
                                 onClick={() => handleOpenRaporModal(c)}
@@ -4198,6 +4257,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
                             <td className="py-3 px-3.5 text-right">
                               <div className="flex items-center justify-end gap-1.5">
                                 <button
+                                  onClick={() => handleOpenEditCandidate(cand)}
+                                  className="px-2 py-1 rounded-lg text-[11px] font-bold bg-amber-50 hover:bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:hover:bg-amber-900/80 dark:text-amber-300 border border-amber-200 dark:border-amber-800 transition-all cursor-pointer flex items-center gap-1"
+                                  title="Edit Data Siswa"
+                                >
+                                  <Pencil className="w-3 h-3 text-amber-500" />
+                                  <span>Edit</span>
+                                </button>
+
+                                <button
                                   onClick={() => handleOpenRaporModal(cand)}
                                   className="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-sky-50 hover:bg-sky-100 text-sky-700 dark:bg-sky-950 dark:hover:bg-sky-900 dark:text-sky-300 border border-sky-200 dark:border-sky-800 transition-all cursor-pointer flex items-center gap-1"
                                   title="Buka Rapor Realtime Siswa"
@@ -4249,6 +4317,25 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
           </div>
         </div>
       )}
+
+      {/* Edit Candidate Modal */}
+      <EditCandidateModal
+        isOpen={isEditModalOpen}
+        candidate={candidateToEdit}
+        onClose={() => setIsEditModalOpen(false)}
+        onSuccess={handleCandidateUpdated}
+        onOpenResetPassword={(candidate) => handleOpenResetPassword(candidate)}
+      />
+
+      {/* Reset Candidate Password Modal */}
+      <ResetPasswordModal
+        isOpen={isResetPasswordModalOpen}
+        candidate={candidateToResetPassword}
+        onClose={() => setIsResetPasswordModalOpen(false)}
+        onSuccess={(candidateId, newPass) => {
+          setCandidates(prev => prev.map(c => c.id === candidateId ? { ...c, password: newPass } : c));
+        }}
+      />
 
     </div>
   );

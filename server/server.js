@@ -1091,6 +1091,177 @@ app.delete('/api/users/:id', async (req, res) => {
 });
 
 // ----------------------------------------------------------------------------
+// 7C.1 ADMIN UPDATE CANDIDATE DETAILS (SCHOOL, NPSN, MAJOR, BIO, ETC)
+// ----------------------------------------------------------------------------
+const handleAdminUpdateCandidate = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const {
+      name,
+      phone,
+      email,
+      school,
+      npsn,
+      major,
+      gender,
+      height,
+      weight,
+      avatarUrl,
+      address,
+      targetRole,
+      targetCompany,
+      overallStatus
+    } = req.body;
+
+    if (!id) {
+      return res.status(400).json({ success: false, message: 'ID peserta diperlukan.' });
+    }
+
+    const [existing] = await pool.query('SELECT * FROM users WHERE id = ? LIMIT 1', [id]);
+    if (existing.length === 0) {
+      return res.status(404).json({ success: false, message: 'Peserta tidak ditemukan di database.' });
+    }
+    const current = existing[0];
+
+    // Check duplicate phone if changed
+    if (phone && phone.trim() !== current.phone) {
+      const [dupPhone] = await pool.query('SELECT id FROM users WHERE phone = ? AND id != ? LIMIT 1', [phone.trim(), id]);
+      if (dupPhone.length > 0) {
+        return res.status(400).json({ success: false, message: `Nomor WhatsApp ${phone} sudah digunakan oleh peserta lain (${dupPhone[0].id}).` });
+      }
+    }
+
+    // Check duplicate email if changed
+    if (email && email.trim() !== (current.email || '')) {
+      const [dupEmail] = await pool.query('SELECT id FROM users WHERE email = ? AND id != ? LIMIT 1', [email.trim(), id]);
+      if (dupEmail.length > 0) {
+        return res.status(400).json({ success: false, message: `Email ${email} sudah terdaftar pada peserta lain (${dupEmail[0].id}).` });
+      }
+    }
+
+    const hVal = height !== undefined && height !== null && height !== '' ? parseFloat(height) : current.height;
+    const wVal = weight !== undefined && weight !== null && weight !== '' ? parseFloat(weight) : current.weight;
+
+    await pool.query(
+      `UPDATE users SET 
+        name = COALESCE(?, name),
+        phone = COALESCE(?, phone),
+        email = ?,
+        school = COALESCE(?, school),
+        npsn = ?,
+        major = COALESCE(?, major),
+        gender = COALESCE(?, gender),
+        height = ?,
+        weight = ?,
+        avatar_url = COALESCE(?, avatar_url),
+        address = COALESCE(?, address),
+        target_role = COALESCE(?, target_role),
+        target_company = COALESCE(?, target_company),
+        overall_status = COALESCE(?, overall_status),
+        last_active = NOW()
+       WHERE id = ?`,
+      [
+        name ? name.trim() : null,
+        phone ? phone.trim() : null,
+        email !== undefined ? (email ? email.trim() : null) : current.email,
+        school ? school.trim() : null,
+        npsn !== undefined ? (npsn ? npsn.trim() : null) : current.npsn,
+        major ? major.trim() : null,
+        gender || null,
+        hVal !== undefined ? hVal : null,
+        wVal !== undefined ? wVal : null,
+        avatarUrl !== undefined ? avatarUrl : null,
+        address !== undefined ? address : null,
+        targetRole || null,
+        targetCompany || null,
+        overallStatus || null,
+        id
+      ]
+    );
+
+    const [rows] = await pool.query('SELECT * FROM users WHERE id = ? LIMIT 1', [id]);
+    const u = rows[0];
+
+    res.json({
+      success: true,
+      message: 'Data peserta berhasil diperbarui!',
+      user: {
+        id: u.id,
+        name: u.name,
+        phone: u.phone,
+        email: u.email,
+        school: u.school,
+        npsn: u.npsn || undefined,
+        major: u.major,
+        gender: u.gender || 'Laki-laki',
+        height: u.height !== null && u.height !== undefined ? parseFloat(u.height) : undefined,
+        weight: u.weight !== null && u.weight !== undefined ? parseFloat(u.weight) : undefined,
+        avatarUrl: u.avatar_url,
+        address: u.address,
+        targetRole: u.target_role,
+        targetCompany: u.target_company,
+        overallStatus: u.overall_status,
+        createdAt: u.created_at,
+        lastActive: u.last_active,
+        isAdmin: Boolean(u.is_admin)
+      }
+    });
+  } catch (err) {
+    console.error('[Admin Update Candidate Error]', err);
+    res.status(500).json({ success: false, message: 'Gagal memperbarui data peserta: ' + err.message });
+  }
+};
+
+app.put('/api/admin/candidates/:id', handleAdminUpdateCandidate);
+app.post('/api/admin/candidates/:id/update', handleAdminUpdateCandidate);
+
+// ----------------------------------------------------------------------------
+// 7C.2 ADMIN RESET CANDIDATE PASSWORD
+// ----------------------------------------------------------------------------
+app.post('/api/admin/candidates/:id/reset-password', async (req, res) => {
+  try {
+    const { id } = req.params;
+    let { newPassword } = req.body || {};
+
+    if (!id) {
+      return res.status(400).json({ success: false, message: 'ID peserta diperlukan.' });
+    }
+
+    if (!newPassword || !String(newPassword).trim()) {
+      newPassword = 'password123';
+    } else {
+      newPassword = String(newPassword).trim();
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ success: false, message: 'Kata sandi baru minimal 6 karakter.' });
+    }
+
+    const [existing] = await pool.query('SELECT id, name, phone, email FROM users WHERE id = ? LIMIT 1', [id]);
+    if (existing.length === 0) {
+      return res.status(404).json({ success: false, message: 'Peserta tidak ditemukan di database.' });
+    }
+
+    await pool.query('UPDATE users SET password = ?, last_active = NOW() WHERE id = ?', [newPassword, id]);
+
+    res.json({
+      success: true,
+      message: `Kata sandi untuk ${existing[0].name} (${id}) berhasil direset!`,
+      newPassword,
+      candidate: {
+        id: existing[0].id,
+        name: existing[0].name,
+        phone: existing[0].phone,
+        email: existing[0].email
+      }
+    });
+  } catch (err) {
+    console.error('[Admin Reset Password Error]', err);
+    res.status(500).json({ success: false, message: 'Gagal mereset kata sandi: ' + err.message });
+  }
+});
+
+// ----------------------------------------------------------------------------
 // 7D. PARTNER SCHOOLS & BKK COORDINATOR MANAGEMENT
 // ----------------------------------------------------------------------------
 app.get('/api/admin/partner-schools', async (req, res) => {
