@@ -578,6 +578,81 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
     fetchPartnerSchools();
   };
 
+  // Listen to hardware back button in Admin Dashboard
+  useEffect(() => {
+    const handleHardwareBack = (e: Event) => {
+      // 1. Close modals if any open
+      if (previewPlayingVideo) {
+        e.preventDefault();
+        setPreviewPlayingVideo(null);
+        return;
+      }
+      if (isEditModalOpen) {
+        e.preventDefault();
+        setIsEditModalOpen(false);
+        return;
+      }
+      if (isResetPasswordModalOpen) {
+        e.preventDefault();
+        setIsResetPasswordModalOpen(false);
+        return;
+      }
+      if (selectedCandidateModal) {
+        e.preventDefault();
+        setSelectedCandidateModal(null);
+        return;
+      }
+      if (coordinatorModalOpen) {
+        e.preventDefault();
+        setCoordinatorModalOpen(false);
+        return;
+      }
+      if (schoolStudentsModalOpen) {
+        e.preventDefault();
+        setSchoolStudentsModalOpen(false);
+        return;
+      }
+      if (signerModalOpen) {
+        e.preventDefault();
+        setSignerModalOpen(false);
+        return;
+      }
+      if (isAddEditModalOpen) {
+        e.preventDefault();
+        setIsAddEditModalOpen(false);
+        return;
+      }
+      if (isAdminPasswordModalOpen) {
+        e.preventDefault();
+        setIsAdminPasswordModalOpen(false);
+        return;
+      }
+
+      // 2. If inside a subtab, return to overview
+      if (adminTab !== 'overview') {
+        e.preventDefault();
+        setAdminTab('overview');
+        return;
+      }
+    };
+
+    window.addEventListener('app_hardware_back', handleHardwareBack);
+    return () => {
+      window.removeEventListener('app_hardware_back', handleHardwareBack);
+    };
+  }, [
+    previewPlayingVideo,
+    isEditModalOpen,
+    isResetPasswordModalOpen,
+    selectedCandidateModal,
+    coordinatorModalOpen,
+    schoolStudentsModalOpen,
+    signerModalOpen,
+    isAddEditModalOpen,
+    isAdminPasswordModalOpen,
+    adminTab
+  ]);
+
   // ─── Partner Schools & BKK Coordinator Helpers ───
   const computeSchoolsFromCandidates = (): PartnerSchoolInfo[] => {
     const list = candidates.filter(c => !c.isAdmin && c.school && c.school.trim() !== '');

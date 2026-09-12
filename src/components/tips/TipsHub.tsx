@@ -91,6 +91,20 @@ export const TipsHub: React.FC = () => {
 
   // Active Video Player Modal / Inline State
   const [activePlayingVideo, setActivePlayingVideo] = useState<EducationVideo | null>(null);
+
+  // Close video modal on hardware back button
+  useEffect(() => {
+    if (!activePlayingVideo) return;
+    const handleHardwareBack = (e: Event) => {
+      e.preventDefault();
+      setActivePlayingVideo(null);
+    };
+    window.addEventListener('app_hardware_back', handleHardwareBack);
+    return () => {
+      window.removeEventListener('app_hardware_back', handleHardwareBack);
+    };
+  }, [activePlayingVideo]);
+
   const [watchedVideoIds, setWatchedVideoIds] = useState<string[]>(() => {
     try {
       const saved = localStorage.getItem('siapkerja_watched_videos');
