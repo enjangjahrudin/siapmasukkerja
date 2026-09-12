@@ -63,7 +63,7 @@ export const MobileHomeDashboard: React.FC<MobileHomeDashboardProps> = ({
   const currentTarget = sectorTargets[targetRole] || sectorTargets.operator;
 
   return (
-    <div className="p-4 space-y-4 pb-20 select-none">
+    <div className="p-4 sm:p-5 md:p-6 space-y-4 pb-20 select-none">
       
       {/* Target Status Card */}
       <div className="bg-gradient-to-br from-slate-900 via-brand-950 to-slate-900 text-white rounded-3xl p-4 sm:p-5 shadow-md relative overflow-hidden">

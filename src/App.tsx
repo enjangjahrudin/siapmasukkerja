@@ -239,11 +239,11 @@ export const App: React.FC = () => {
     // 2. LANDING / SALES PAGE (Strict Entry Point)
     if (appScreen === 'landing') {
       return (
-        <div className={`min-h-screen flex justify-center transition-colors duration-200 ${
-          isDark ? 'bg-slate-950' : 'bg-slate-200'
+        <div className={`min-h-[100dvh] flex justify-center transition-colors duration-200 ${
+          isDark ? 'bg-slate-950' : 'bg-slate-100'
         }`}>
-          <div className={`w-full max-w-md min-h-screen shadow-2xl flex flex-col justify-between transition-colors duration-200 ${
-            isDark ? 'bg-slate-900' : 'bg-slate-50'
+          <div className={`w-full max-w-md md:max-w-2xl lg:max-w-3xl min-h-[100dvh] shadow-xl border-x flex flex-col justify-between transition-colors duration-200 ${
+            isDark ? 'bg-slate-900 border-slate-800' : 'bg-slate-50 border-slate-200'
           }`}>
             <LandingPage
               onGoToRegister={() => {
@@ -263,11 +263,11 @@ export const App: React.FC = () => {
     // 3. REGISTRATION & LOGIN SCREENS
     if (appScreen === 'login' || appScreen === 'register') {
       return (
-        <div className={`min-h-screen flex justify-center transition-colors duration-200 ${
-          isDark ? 'bg-slate-950' : 'bg-slate-200'
+        <div className={`min-h-[100dvh] flex justify-center transition-colors duration-200 ${
+          isDark ? 'bg-slate-950' : 'bg-slate-100'
         }`}>
-          <div className={`w-full max-w-md min-h-screen shadow-2xl flex flex-col justify-between transition-colors duration-200 ${
-            isDark ? 'bg-slate-900' : 'bg-slate-50'
+          <div className={`w-full max-w-md md:max-w-xl min-h-[100dvh] shadow-xl border-x flex flex-col justify-between transition-colors duration-200 ${
+            isDark ? 'bg-slate-900 border-slate-800' : 'bg-slate-50 border-slate-200'
           }`}>
             <AuthPage
               initialMode={appScreen}
@@ -282,15 +282,15 @@ export const App: React.FC = () => {
       );
     }
 
-    // 4. MAIN SMARTPHONE APP SHELL (Requires Valid User Session)
+    // 4. MAIN SMARTPHONE & TABLET APP SHELL (Requires Valid User Session)
     return (
-      <div className={`min-h-screen flex justify-center items-center sm:py-4 transition-colors duration-200 ${
-        isDark ? 'bg-slate-950' : 'bg-slate-200'
+      <div className={`min-h-[100dvh] h-[100dvh] flex justify-center transition-colors duration-200 overflow-hidden ${
+        isDark ? 'bg-slate-950' : 'bg-slate-100'
       }`}>
         
-        {/* Smartphone Frame Container */}
-        <div className={`w-full max-w-md h-screen sm:h-[90vh] sm:max-h-[860px] sm:rounded-[36px] shadow-2xl overflow-hidden flex flex-col justify-between relative border transition-colors duration-200 ${
-          isDark ? 'bg-slate-900 border-slate-800' : 'bg-slate-50 border-slate-300'
+        {/* Responsive App Shell (Full height on mobile & tablet, comfortable max-w-2xl on tablet/desktop) */}
+        <div className={`w-full max-w-md md:max-w-2xl lg:max-w-3xl h-[100dvh] shadow-xl border-x overflow-hidden flex flex-col justify-between relative transition-colors duration-200 ${
+          isDark ? 'bg-slate-900 border-slate-800' : 'bg-slate-50 border-slate-200'
         }`}>
           
           {/* Mobile Top Header Bar */}
