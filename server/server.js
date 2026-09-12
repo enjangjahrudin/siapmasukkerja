@@ -284,7 +284,8 @@ try {
           name VARCHAR(255) NOT NULL,
           phone VARCHAR(50) NOT NULL UNIQUE,
           email VARCHAR(191) NULL UNIQUE,
-          school VARCHAR(255) DEFAULT 'SMK Buat Digital',
+          school VARCHAR(255) DEFAULT 'SMK',
+          npsn VARCHAR(20) DEFAULT NULL,
           major VARCHAR(255) DEFAULT 'Teknik Mesin',
           password VARCHAR(255) NOT NULL DEFAULT '123456',
           target_role ENUM('operator', 'qc', 'maintenance', 'logistics') NOT NULL DEFAULT 'operator',
@@ -365,6 +366,9 @@ try {
       try {
         await pool.query(`ALTER TABLE users ADD COLUMN address TEXT NULL AFTER avatar_url`);
       } catch (e) {}
+      try {
+        await pool.query(`ALTER TABLE users ADD COLUMN npsn VARCHAR(20) NULL AFTER school`);
+      } catch (e) {}
 
       // Migrations for education_videos (upload & orientation support)
       try {
@@ -425,7 +429,7 @@ app.get('/api/health', async (req, res) => {
 // ----------------------------------------------------------------------------
 app.post('/api/auth/send-registration-otp', async (req, res) => {
   try {
-    const { name, email, phone, school, major, password, targetRole } = req.body;
+    const { name, email, phone, school, npsn, major, password, targetRole } = req.body;
 
     if (!email || !email.includes('@')) {
       return res.status(400).json({ success: false, message: 'Alamat email tidak valid.' });
@@ -460,7 +464,8 @@ app.post('/api/auth/send-registration-otp', async (req, res) => {
       name: name.trim(),
       email: cleanEmail,
       phone: cleanPhone,
-      school: school?.trim() || 'SMK Buat Digital',
+      school: school?.trim() || 'SMK',
+      npsn: npsn?.trim() || null,
       major: major?.trim() || 'Teknik Mesin',
       password: password || '123456',
       targetRole: targetRole || 'operator'
@@ -542,9 +547,9 @@ app.post('/api/auth/verify-registration-otp', async (req, res) => {
     const company = targetCompanies[role] || 'PT Astra Daihatsu Motor';
 
     await pool.query(
-      `INSERT INTO users (id, name, phone, email, school, major, password, target_role, target_company, overall_status, is_admin, is_verified, created_at, last_active)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Perlu Latihan', FALSE, TRUE, NOW(), NOW())`,
-      [userId, data.name, data.phone, cleanEmail, data.school, data.major, data.password, role, company]
+      `INSERT INTO users (id, name, phone, email, school, npsn, major, password, target_role, target_company, overall_status, is_admin, is_verified, created_at, last_active)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Perlu Latihan', FALSE, TRUE, NOW(), NOW())`,
+      [userId, data.name, data.phone, cleanEmail, data.school, data.npsn || null, data.major, data.password, role, company]
     );
 
     // Delete verified OTP record
@@ -556,6 +561,7 @@ app.post('/api/auth/verify-registration-otp', async (req, res) => {
       phone: data.phone,
       email: cleanEmail,
       school: data.school,
+      npsn: data.npsn || undefined,
       major: data.major,
       targetRole: role,
       targetCompany: company,
@@ -784,6 +790,7 @@ app.post('/api/login', async (req, res) => {
         phone: user.phone,
         email: user.email,
         school: user.school,
+        npsn: user.npsn || undefined,
         major: user.major,
         gender: user.gender || 'Laki-laki',
         height: user.height ? parseFloat(user.height) : undefined,
@@ -1048,7 +1055,7 @@ app.get('/api/user/profile/:userId', async (req, res) => {
 
 const handleUpdateProfile = async (req, res) => {
   try {
-    const { userId, name, school, major, gender, height, weight, avatarUrl, address, targetRole } = req.body;
+    const { userId, name, school, npsn, major, gender, height, weight, avatarUrl, address, targetRole } = req.body;
 
     if (!userId) {
       return res.status(400).json({ success: false, message: 'userId wajib disertakan.' });
@@ -1061,6 +1068,7 @@ const handleUpdateProfile = async (req, res) => {
       `UPDATE users SET 
         name = COALESCE(?, name),
         school = COALESCE(?, school),
+        npsn = ?,
         major = COALESCE(?, major),
         gender = COALESCE(?, gender),
         height = ?,
@@ -1072,7 +1080,8 @@ const handleUpdateProfile = async (req, res) => {
        WHERE id = ?`,
       [
         name || null, 
-        school || null, 
+        school || null,
+        npsn !== undefined ? (npsn || null) : undefined,
         major || null, 
         gender || null, 
         hVal, 
@@ -1099,6 +1108,7 @@ const handleUpdateProfile = async (req, res) => {
         phone: u.phone,
         email: u.email,
         school: u.school,
+        npsn: u.npsn || undefined,
         major: u.major,
         gender: u.gender || 'Laki-laki',
         height: u.height !== null && u.height !== undefined ? parseFloat(u.height) : undefined,

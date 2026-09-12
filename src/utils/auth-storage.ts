@@ -17,6 +17,7 @@ export interface RegisteredUser {
   phone: string;
   email?: string;
   school: string;
+  npsn?: string; // Nomor Pokok Sekolah Nasional (dari Dapodik)
   major: string;
   height?: number; // Tinggi Badan (cm)
   weight?: number; // Berat Badan (kg)
@@ -200,6 +201,7 @@ export interface RegistrationData {
   email: string;
   phone: string;
   school: string;
+  npsn?: string; // Nomor Pokok Sekolah Nasional (Dapodik)
   major: string;
   password?: string;
   targetRole: TargetRole;

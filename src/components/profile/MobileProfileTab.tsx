@@ -33,6 +33,7 @@ import {
   Download
 } from 'lucide-react';
 import { sounds } from '../../utils/sound-effects';
+import { SchoolPicker } from '../common/SchoolPicker';
 import { useTheme } from '../../utils/theme-context';
 import { 
   RegisteredUser, 
@@ -98,6 +99,7 @@ export const MobileProfileTab: React.FC<MobileProfileTabProps> = ({
   // Edit Profile Form State
   const [editName, setEditName] = useState<string>(activeUser?.name || userName);
   const [editSchool, setEditSchool] = useState<string>(activeUser?.school || '');
+  const [editNpsn, setEditNpsn] = useState<string>(activeUser?.npsn || '');
   const [editMajor, setEditMajor] = useState<string>(activeUser?.major || '');
   const [editGender, setEditGender] = useState<'Laki-laki' | 'Perempuan'>(activeUser?.gender || 'Laki-laki');
   const [editHeight, setEditHeight] = useState<string>(activeUser?.height !== undefined ? String(activeUser.height) : '');
@@ -110,6 +112,7 @@ export const MobileProfileTab: React.FC<MobileProfileTabProps> = ({
     const latest = getActiveSession() || activeUser;
     setEditName(latest?.name || userName);
     setEditSchool(latest?.school || '');
+    setEditNpsn(latest?.npsn || '');
     setEditMajor(latest?.major || '');
     setEditGender(latest?.gender || 'Laki-laki');
     setEditHeight(latest?.height !== undefined && latest?.height !== null ? String(latest.height) : '');
@@ -228,6 +231,7 @@ export const MobileProfileTab: React.FC<MobileProfileTabProps> = ({
         height: editHeight ? parseFloat(editHeight) : undefined,
         weight: editWeight ? parseFloat(editWeight) : undefined,
         address: editAddress.trim(),
+        npsn: editNpsn || undefined,
         avatarUrl: editAvatarUrl || activeUser.avatarUrl
       };
 
@@ -514,33 +518,33 @@ export const MobileProfileTab: React.FC<MobileProfileTabProps> = ({
               </div>
             </div>
 
-            {/* Sekolah & Jurusan */}
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="block text-[11px] font-bold uppercase text-slate-600 dark:text-slate-400 mb-1">
-                  Asal Sekolah
-                </label>
-                <input
-                  type="text"
-                  value={editSchool}
-                  onChange={(e) => setEditSchool(e.target.value)}
-                  placeholder="SMKN 1 Karawang"
-                  className="w-full px-3 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white outline-none focus:border-brand-500"
-                />
-              </div>
+            {/* Asal Sekolah — Dapodik Picker */}
+            <div>
+              <label className="block text-[11px] font-bold uppercase text-slate-600 dark:text-slate-400 mb-1.5">
+                Asal Sekolah <span className="text-slate-400 font-normal normal-case">(SMK Resmi Dapodik)</span>
+              </label>
+              <SchoolPicker
+                value={editSchool}
+                npsn={editNpsn}
+                onChange={(schoolName, schoolNpsn) => {
+                  setEditSchool(schoolName);
+                  setEditNpsn(schoolNpsn || '');
+                }}
+              />
+            </div>
 
-              <div>
-                <label className="block text-[11px] font-bold uppercase text-slate-600 dark:text-slate-400 mb-1">
-                  Jurusan
-                </label>
-                <input
-                  type="text"
-                  value={editMajor}
-                  onChange={(e) => setEditMajor(e.target.value)}
-                  placeholder="Teknik Mesin"
-                  className="w-full px-3 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white outline-none focus:border-brand-500"
-                />
-              </div>
+            {/* Jurusan */}
+            <div>
+              <label className="block text-[11px] font-bold uppercase text-slate-600 dark:text-slate-400 mb-1">
+                Jurusan / Kompetensi Keahlian
+              </label>
+              <input
+                type="text"
+                value={editMajor}
+                onChange={(e) => setEditMajor(e.target.value)}
+                placeholder="Teknik Mesin / RPL / TKJ"
+                className="w-full px-3 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white outline-none focus:border-brand-500"
+              />
             </div>
 
             {/* Tinggi Badan & Berat Badan (Penting untuk Seleksi Fisik Pabrik) */}

@@ -24,6 +24,7 @@ import {
   Loader2
 } from 'lucide-react';
 import { sounds } from '../../utils/sound-effects';
+import { SchoolPicker } from '../common/SchoolPicker';
 import { 
   loginUser, 
   requestRegistrationOtp, 
@@ -53,6 +54,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
   const [name, setName] = useState<string>('');
   const [email, setEmail] = useState<string>('');
   const [school, setSchool] = useState<string>('');
+  const [npsn, setNpsn] = useState<string>('');
   const [major, setMajor] = useState<string>('');
   const [phone, setPhone] = useState<string>('');
   const [password, setPassword] = useState<string>('');
@@ -130,7 +132,8 @@ export const AuthPage: React.FC<AuthPageProps> = ({
         name: name.trim(),
         email: email.trim().toLowerCase(),
         phone: phone.trim(),
-        school: school.trim() || 'SMK Buat Digital',
+        school: school.trim() || 'SMK',
+        npsn: npsn || undefined,
         major: major.trim() || 'Teknik Mesin',
         password,
         targetRole
@@ -667,33 +670,33 @@ export const AuthPage: React.FC<AuthPageProps> = ({
               </div>
             </div>
 
-            {/* Sekolah & Jurusan */}
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="block text-[11px] font-bold mb-1 uppercase text-slate-700 dark:text-slate-300">
-                  Asal Sekolah
-                </label>
-                <input
-                  type="text"
-                  value={school}
-                  onChange={(e) => setSchool(e.target.value)}
-                  placeholder="SMK Buat Digital"
-                  className="w-full px-3 py-2.5 rounded-xl text-xs border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white outline-none focus:border-brand-500 shadow-xs"
-                />
-              </div>
+            {/* Asal Sekolah — Dapodik Picker */}
+            <div>
+              <label className="block text-[11px] font-bold mb-1.5 uppercase text-slate-700 dark:text-slate-300">
+                Asal Sekolah <span className="text-slate-400 font-normal normal-case">(SMK Resmi Dapodik)</span>
+              </label>
+              <SchoolPicker
+                value={school}
+                npsn={npsn}
+                onChange={(schoolName, schoolNpsn) => {
+                  setSchool(schoolName);
+                  setNpsn(schoolNpsn || '');
+                }}
+              />
+            </div>
 
-              <div>
-                <label className="block text-[11px] font-bold mb-1 uppercase text-slate-700 dark:text-slate-300">
-                  Jurusan
-                </label>
-                <input
-                  type="text"
-                  value={major}
-                  onChange={(e) => setMajor(e.target.value)}
-                  placeholder="Teknik Mesin / RPL"
-                  className="w-full px-3 py-2.5 rounded-xl text-xs border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white outline-none focus:border-brand-500 shadow-xs"
-                />
-              </div>
+            {/* Jurusan */}
+            <div>
+              <label className="block text-[11px] font-bold mb-1 uppercase text-slate-700 dark:text-slate-300">
+                Jurusan / Kompetensi Keahlian
+              </label>
+              <input
+                type="text"
+                value={major}
+                onChange={(e) => setMajor(e.target.value)}
+                placeholder="Teknik Mesin / RPL / TKJ / dll"
+                className="w-full px-3 py-2.5 rounded-xl text-xs border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white outline-none focus:border-brand-500 shadow-xs"
+              />
             </div>
 
             {/* No WhatsApp */}
