@@ -484,8 +484,14 @@ export const updateActiveUserScore = (update: Partial<RegisteredUser>): void => 
       body: JSON.stringify({
         userId: current.id,
         testType: 'kraepelin',
-        scoreSummary: `Panker ${update.kraepelinScore.panker} | Akurasi ${update.kraepelinScore.janker}%`,
-        scoreDetails: update.kraepelinScore
+        scoreSummary: `Tes Kraepelin (Panker ${update.kraepelinScore.panker} • Akurasi ${update.kraepelinScore.janker}%)`,
+        scoreDetails: {
+          score: Math.round(update.kraepelinScore.janker),
+          accuracy: update.kraepelinScore.janker,
+          panker: update.kraepelinScore.panker,
+          janker: update.kraepelinScore.janker,
+          grade: update.kraepelinScore.grade
+        }
       })
     }).catch(() => {});
   }

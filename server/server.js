@@ -1205,11 +1205,17 @@ app.get(['/api/admin/candidate-report/:userId', '/api/user/my-report/:userId'], 
         try { details = JSON.parse(details); } catch (e) { details = {}; }
       }
 
+      let testName = sr.score_summary || sr.test_type;
+      if (sr.test_type === 'kraepelin' && !testName.toLowerCase().includes('kraepelin')) {
+        testName = `Tes Kraepelin (${testName})`;
+      }
+      const scoreVal = details?.score ?? details?.accuracy ?? (details?.janker ? Math.round(details.janker) : undefined) ?? details?.probability ?? 0;
+
       return {
         id: `score-${sr.id}`,
         testType: sr.test_type,
-        testName: sr.score_summary || sr.test_type,
-        score: details?.score ?? details?.accuracy ?? details?.probability ?? 0,
+        testName,
+        score: scoreVal,
         completedAt: sr.created_at,
         details
       };
@@ -1604,11 +1610,17 @@ app.get('/api/user/profile/:userId', async (req, res) => {
       if (typeof details === 'string') {
         try { details = JSON.parse(details); } catch (e) { details = {}; }
       }
+      let testName = sr.score_summary || sr.test_type;
+      if (sr.test_type === 'kraepelin' && !testName.toLowerCase().includes('kraepelin')) {
+        testName = `Tes Kraepelin (${testName})`;
+      }
+      const scoreVal = details?.score ?? details?.accuracy ?? (details?.janker ? Math.round(details.janker) : undefined) ?? details?.probability ?? 0;
+
       return {
         id: `score-${sr.id}`,
         testType: sr.test_type,
-        testName: sr.score_summary || sr.test_type,
-        score: details?.score ?? details?.accuracy ?? details?.probability ?? 0,
+        testName,
+        score: scoreVal,
         totalQuestions: details?.totalQuestions,
         correctAnswers: details?.correctAnswers,
         completedAt: sr.created_at,
