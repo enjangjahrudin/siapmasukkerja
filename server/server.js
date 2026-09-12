@@ -481,28 +481,35 @@ try {
         console.warn('[Status Auto-Sync Warning]', syncErr.message);
       }
 
-      // Auto-deduplicate test_scores (clean up runaway duplicate sync rows)
+      // Auto-deduplicate test_scores (clean up runaway duplicate sync rows & dual-recording)
       try {
         const [allScores] = await pool.query(
           'SELECT id, user_id, test_type, score_summary, score_details, created_at FROM test_scores ORDER BY id ASC'
         );
 
-        const seenScores = new Map();
+        const seenSessions = new Map();
         const duplicateIds = [];
 
         for (const s of allScores) {
-          let detStr = '';
-          try {
-            const d = typeof s.score_details === 'string' ? JSON.parse(s.score_details) : s.score_details;
-            detStr = JSON.stringify(d || {});
-          } catch (_) {
-            detStr = String(s.score_details || '');
-          }
-          const key = `${s.user_id}___${s.test_type}___${s.score_summary}___${detStr}`;
-          if (seenScores.has(key)) {
-            duplicateIds.push(s.id);
+          const timeMinute = Math.floor(new Date(s.created_at).getTime() / 60000);
+          const userType = `${s.user_id}___${s.test_type}`;
+
+          let isDupe = false;
+          if (seenSessions.has(userType)) {
+            const list = seenSessions.get(userType);
+            for (const prev of list) {
+              if (Math.abs(prev.minute - timeMinute) <= 1) {
+                isDupe = true;
+                break;
+              }
+            }
+            if (isDupe) {
+              duplicateIds.push(s.id);
+            } else {
+              list.push({ id: s.id, minute: timeMinute });
+            }
           } else {
-            seenScores.set(key, s.id);
+            seenSessions.set(userType, [{ id: s.id, minute: timeMinute }]);
           }
         }
 
@@ -511,17 +518,19 @@ try {
             const batch = duplicateIds.slice(i, i + 500);
             await pool.query('DELETE FROM test_scores WHERE id IN (?)', [batch]);
           }
-          console.log(`[Auto-Deduplicate] Successfully removed ${duplicateIds.length} duplicate test_scores records.`);
+          console.log(`[Auto-Deduplicate] Successfully removed ${duplicateIds.length} duplicate test_scores records from database.`);
 
           // Recalculate completed_tests_count for all users
-          await pool.query(`
-            UPDATE users u
-            LEFT JOIN (
-              SELECT user_id, COUNT(*) as cnt FROM test_scores GROUP BY user_id
-            ) sc ON u.id = sc.user_id
-            SET u.completed_tests_count = COALESCE(sc.cnt, 0)
-          `);
-          console.log('[Auto-Deduplicate] Recalculated completed_tests_count for affected users.');
+          try {
+            await pool.query(`
+              UPDATE users u
+              LEFT JOIN (
+                SELECT user_id, COUNT(*) as cnt FROM test_scores GROUP BY user_id
+              ) sc ON u.id = sc.user_id
+              SET u.completed_tests_count = COALESCE(sc.cnt, 0)
+            `);
+            console.log('[Auto-Deduplicate] Recalculated completed_tests_count for affected users.');
+          } catch (_) {}
         }
       } catch (dedupErr) {
         console.warn('[Auto-Deduplicate Warning]', dedupErr.message);
@@ -1197,11 +1206,25 @@ app.get(['/api/admin/candidate-report/:userId', '/api/user/my-report/:userId'], 
       [u.id]
     );
 
-    const scores = extractUserScores(scoreRows);
+    // Deduplicate score rows on-the-fly for clean history presentation
+    const seenCandidateSessions = [];
+    const uniqueCandidateScoreRows = [];
+    for (const sr of scoreRows) {
+      const timeMin = Math.floor(new Date(sr.created_at).getTime() / 60000);
+      const isDupe = seenCandidateSessions.some(
+        s => s.test_type === sr.test_type && Math.abs(s.minute - timeMin) <= 1
+      );
+      if (!isDupe) {
+        seenCandidateSessions.push({ test_type: sr.test_type, minute: timeMin });
+        uniqueCandidateScoreRows.push(sr);
+      }
+    }
+
+    const scores = extractUserScores(uniqueCandidateScoreRows);
     const compStats = calculateCompositeScoreAndStatus(scores);
     const resolvedStatus = scores.completed6Count > 0 ? compStats.overallStatus : (u.overall_status === 'Lolos Unggul' && scores.completed6Count === 0 ? 'Perlu Latihan' : (u.overall_status || 'Perlu Latihan'));
 
-    const formattedHistory = scoreRows.map(sr => {
+    const formattedHistory = uniqueCandidateScoreRows.map(sr => {
       let details = sr.score_details;
       if (typeof details === 'string') {
         try { details = JSON.parse(details); } catch (e) { details = {}; }
@@ -1585,20 +1608,17 @@ app.get('/api/user/profile/:userId', async (req, res) => {
       [u.id]
     );
 
-    // Deduplicate score rows on-the-fly for clean history presentation
-    const seenScores = new Set();
+    // Deduplicate score rows on-the-fly for clean history presentation:
+    // Filter out dual-submissions within the same minute for the same test type
+    const seenSessions = [];
     const uniqueScoreRows = [];
     for (const sr of scoreRows) {
-      let detStr = '';
-      try {
-        const d = typeof sr.score_details === 'string' ? JSON.parse(sr.score_details) : sr.score_details;
-        detStr = JSON.stringify(d || {});
-      } catch (_) {
-        detStr = String(sr.score_details || '');
-      }
-      const scoreKey = `${sr.test_type}___${sr.score_summary}___${detStr}`;
-      if (!seenScores.has(scoreKey)) {
-        seenScores.add(scoreKey);
+      const timeMin = Math.floor(new Date(sr.created_at).getTime() / 60000);
+      const isDupe = seenSessions.some(
+        s => s.test_type === sr.test_type && Math.abs(s.minute - timeMin) <= 1
+      );
+      if (!isDupe) {
+        seenSessions.push({ test_type: sr.test_type, minute: timeMin });
         uniqueScoreRows.push(sr);
       }
     }
@@ -1799,6 +1819,15 @@ app.post('/api/scores', async (req, res) => {
 
     if (!userId || !testType) {
       return res.status(400).json({ success: false, message: 'userId dan testType wajib dikirim.' });
+    }
+
+    // Prevent duplicate insertion if this user recorded this testType within 30 seconds
+    const [recent] = await pool.query(
+      'SELECT id FROM test_scores WHERE user_id = ? AND test_type = ? AND created_at >= NOW() - INTERVAL 30 SECOND LIMIT 1',
+      [userId, testType]
+    );
+    if (recent.length > 0) {
+      return res.json({ success: true, message: 'Skor sudah dicatat (duplikat dicegah).' });
     }
 
     await pool.query(

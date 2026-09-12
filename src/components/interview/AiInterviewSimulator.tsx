@@ -659,7 +659,6 @@ export const AiInterviewSimulator: React.FC<AiInterviewSimulatorProps> = ({
 
       // Save score & history to User Database
       if (activeUser) {
-        updateActiveUserScore({ interviewScore: evalResult.totalAcceptanceProbability });
         recordUserTestResult({
           testType: 'interview',
           testName: `AI Voice Call — ${persona.name}`,

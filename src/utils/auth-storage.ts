@@ -476,84 +476,9 @@ export const updateActiveUserScore = (update: Partial<RegisteredUser>): void => 
   setActiveSession(updated);
   saveUser(updated);
 
-  // Sync to server scores
-  if (update.kraepelinScore) {
-    fetch(`${API_BASE_URL}/scores`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        userId: current.id,
-        testType: 'kraepelin',
-        scoreSummary: `Tes Kraepelin (Panker ${update.kraepelinScore.panker} • Akurasi ${update.kraepelinScore.janker}%)`,
-        scoreDetails: {
-          score: Math.round(update.kraepelinScore.janker),
-          accuracy: update.kraepelinScore.janker,
-          panker: update.kraepelinScore.panker,
-          janker: update.kraepelinScore.janker,
-          grade: update.kraepelinScore.grade
-        }
-      })
-    }).catch(() => {});
-  }
-  if (update.qcAccuracy !== undefined) {
-    fetch(`${API_BASE_URL}/scores`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        userId: current.id,
-        testType: 'qc',
-        scoreSummary: `Akurasi QC ${update.qcAccuracy}%`,
-        scoreDetails: { accuracy: update.qcAccuracy, score: update.qcAccuracy }
-      })
-    }).catch(() => {});
-  }
-  if (update.mathScore !== undefined) {
-    fetch(`${API_BASE_URL}/scores`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        userId: current.id,
-        testType: 'math',
-        scoreSummary: `Matematika Dasar ${update.mathScore}/100`,
-        scoreDetails: { score: update.mathScore }
-      })
-    }).catch(() => {});
-  }
-  if (update.multiplicationScore) {
-    fetch(`${API_BASE_URL}/scores`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        userId: current.id,
-        testType: 'multiplication',
-        scoreSummary: `Perkalian Kilat ${update.multiplicationScore.accuracy}%`,
-        scoreDetails: update.multiplicationScore
-      })
-    }).catch(() => {});
-  }
-  if (update.psychotestScore !== undefined) {
-    fetch(`${API_BASE_URL}/scores`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        userId: current.id,
-        testType: 'psychotest',
-        scoreSummary: `Psikotes & Penalaran ${update.psychotestScore}/100`,
-        scoreDetails: { score: update.psychotestScore }
-      })
-    }).catch(() => {});
-  }
-  if (update.mechanicalScore !== undefined) {
-    fetch(`${API_BASE_URL}/scores`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        userId: current.id,
-        testType: 'mechanical',
-        scoreSummary: `Mekanika Bennett ${update.mechanicalScore}/100`,
-        scoreDetails: { score: update.mechanicalScore }
-      })
-    }).catch(() => {});
+  // Dispatch custom window event for instant UI re-render
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('siapkerja_user_updated', { detail: updated }));
   }
 };
 
@@ -567,9 +492,10 @@ export const deduplicateTestHistory = (records?: UserTestRecord[]): UserTestReco
 
   for (const r of records) {
     if (!r) continue;
-    // Normalized key based on testType, testName, score, and approximate time
-    const timeKey = r.completedAt ? r.completedAt.substring(0, 16) : ''; // Minute resolution
-    const key = `${r.testType}___${r.testName}___${r.score}___${timeKey}`;
+    // Minute-level resolution (e.g. "2026-09-12T20:32")
+    const timeKey = r.completedAt ? r.completedAt.substring(0, 16) : '';
+    // A test type can only have 1 valid completed session in a given minute
+    const key = `${r.testType}___${timeKey}`;
 
     if (!seen.has(key)) {
       seen.add(key);

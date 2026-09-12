@@ -198,15 +198,8 @@ export const App: React.FC = () => {
     }
   };
 
-  const handleFinishKraepelin = (analysis: any) => {
+  const handleFinishKraepelin = (_analysis: any) => {
     if (currentUser) {
-      updateActiveUserScore({
-        kraepelinScore: {
-          panker: analysis.panker,
-          janker: analysis.janker,
-          grade: analysis.statusGrade
-        }
-      });
       setCurrentUser(getActiveSession());
     }
   };
