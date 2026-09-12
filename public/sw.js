@@ -1,13 +1,18 @@
 // Service Worker for SMK - Siap Masuk Kerja PWA
-const CACHE_NAME = 'siapkerja-pwa-v1';
+const CACHE_NAME = 'siapkerja-pwa-v2';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
   '/manifest.json',
-  '/favicon.svg',
+  '/favicon.ico',
+  '/favicon-16x16.png',
+  '/favicon-32x32.png',
+  '/android-chrome-192x192.png',
+  '/android-chrome-512x512.png',
   '/pwa-192x192.png',
   '/pwa-512x512.png',
-  '/apple-touch-icon.png'
+  '/apple-touch-icon.png',
+  '/logo.png'
 ];
 
 // Install: Cache critical static assets

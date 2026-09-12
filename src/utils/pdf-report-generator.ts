@@ -219,13 +219,7 @@ export function generateIndividualStudentReportHtml(student: RegisteredUser, sig
       
       <!-- KOP RESMI -->
       <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 2px double #0f172a; padding-bottom: 4px; margin-bottom: 6px;">
-        <svg style="width: 44px; height: 44px; flex-shrink: 0;" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <rect width="48" height="48" rx="10" fill="#090d16"/>
-          <path d="M10 34 L16 34 L16 25 L10 27 Z" fill="#38bdf8"/>
-          <path d="M19 34 L25 34 L25 18 L19 21 Z" fill="#0ea5e9"/>
-          <path d="M28 34 L34 34 L40 12 L34 12 L28 27 Z" fill="#10b981"/>
-          <polygon points="40,8 43,11 40,14 37,11" fill="#34d399"/>
-        </svg>
+        <img src="/android-chrome-192x192.png" alt="Logo" style="width: 44px; height: 44px; flex-shrink: 0; object-fit: cover; border-radius: 8px;" />
         <div style="flex: 1; text-align: center; padding: 0 10px;">
           <div style="font-size: 7.2pt; font-weight: 800; letter-spacing: 1px; color: #0284c7; text-transform: uppercase;">
             PLATFORM ASESMEN KESIAPAN KERJA &amp; SELEKSI INDUSTRI • BUATDIGITAL.ID

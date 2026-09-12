@@ -9,9 +9,11 @@ export const Footer: React.FC = () => {
           
           <div className="md:col-span-2">
             <div className="flex items-center gap-2 mb-3">
-              <div className="w-8 h-8 rounded-lg bg-brand-600 flex items-center justify-center text-white font-bold">
-                <Briefcase className="w-4 h-4" />
-              </div>
+              <img 
+                src="/android-chrome-192x192.png" 
+                alt="SMK - Siap Masuk Kerja" 
+                className="w-8 h-8 rounded-lg object-cover shadow-xs" 
+              />
               <span className="font-extrabold text-base text-white">SMK - Siap Masuk Kerja</span>
               <span className="text-[10px] bg-brand-900 text-brand-300 font-semibold px-2 py-0.5 rounded border border-brand-700">
                 Official Prep

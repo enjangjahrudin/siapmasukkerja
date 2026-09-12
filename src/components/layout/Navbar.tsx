@@ -35,9 +35,11 @@ export const Navbar: React.FC<NavbarProps> = ({
             className="flex items-center gap-3 cursor-pointer select-none"
             onClick={() => setActiveTab('dashboard')}
           >
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-brand-600 via-sky-500 to-teal-400 flex items-center justify-center text-slate-950 font-black text-sm shadow-md shadow-brand-500/20">
-              SMK
-            </div>
+            <img 
+              src="/android-chrome-192x192.png" 
+              alt="SMK - Siap Masuk Kerja" 
+              className="w-10 h-10 rounded-xl shadow-md shadow-brand-500/20 object-cover" 
+            />
             <div>
               <div className="flex items-center gap-1.5">
                 <span className="font-extrabold text-lg tracking-tight bg-gradient-to-r from-slate-900 via-brand-800 to-sky-600 bg-clip-text text-transparent">
