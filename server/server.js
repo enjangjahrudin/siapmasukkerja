@@ -291,6 +291,7 @@ try {
           target_role ENUM('operator', 'qc', 'maintenance', 'logistics') NOT NULL DEFAULT 'operator',
           target_company VARCHAR(255) DEFAULT 'PT Astra Daihatsu / PT Yamaha Motor',
           overall_status VARCHAR(50) DEFAULT 'Perlu Latihan',
+          completed_tests_count INT DEFAULT 0,
           is_admin BOOLEAN DEFAULT FALSE,
           is_verified BOOLEAN DEFAULT TRUE,
           created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -387,6 +388,13 @@ try {
       } catch (e) {
         try {
           await pool.query(`ALTER TABLE users ADD COLUMN npsn VARCHAR(20) NULL`);
+        } catch (_) {}
+      }
+      try {
+        await pool.query(`ALTER TABLE users ADD COLUMN completed_tests_count INT DEFAULT 0 AFTER overall_status`);
+      } catch (e) {
+        try {
+          await pool.query(`ALTER TABLE users ADD COLUMN completed_tests_count INT DEFAULT 0`);
         } catch (_) {}
       }
 
@@ -1437,10 +1445,14 @@ app.post('/api/user/record-test', async (req, res) => {
       await pool.query('UPDATE users SET last_active = NOW() WHERE id = ?', [userId]);
     }
 
-    // Refresh completed test count on user
-    const [countRows] = await pool.query('SELECT COUNT(*) as total FROM test_scores WHERE user_id = ?', [userId]);
-    const totalCompleted = countRows[0]?.total || 1;
-    await pool.query('UPDATE users SET completed_tests_count = ? WHERE id = ?', [totalCompleted, userId]);
+    // Refresh completed test count on user (safe optional update)
+    try {
+      const [countRows] = await pool.query('SELECT COUNT(*) as total FROM test_scores WHERE user_id = ?', [userId]);
+      const totalCompleted = countRows[0]?.total || 1;
+      await pool.query('UPDATE users SET completed_tests_count = ? WHERE id = ?', [totalCompleted, userId]);
+    } catch (countErr) {
+      console.warn('[Record Test] Warning updating completed_tests_count:', countErr.message);
+    }
 
     res.json({ success: true, message: 'Hasil tes berhasil dicatat ke database MySQL.' });
   } catch (err) {
