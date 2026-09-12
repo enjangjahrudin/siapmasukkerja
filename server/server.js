@@ -344,6 +344,22 @@ try {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
       `);
 
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS partner_schools (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          school_name VARCHAR(255) NOT NULL UNIQUE,
+          npsn VARCHAR(20) NULL,
+          coordinator_name VARCHAR(255) NULL,
+          coordinator_title VARCHAR(150) DEFAULT 'Koordinator BKK / Hubinmas',
+          coordinator_nip VARCHAR(100) NULL,
+          contact_phone VARCHAR(50) NULL,
+          contact_email VARCHAR(191) NULL,
+          notes TEXT NULL,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+      `);
+
       // Add email column to users if table already existed without email
       try {
         await pool.query(`ALTER TABLE users ADD COLUMN email VARCHAR(191) NULL UNIQUE AFTER phone`);
@@ -1010,6 +1026,120 @@ app.delete('/api/users/:id', async (req, res) => {
     res.status(500).json({ success: false, message: 'Gagal menghapus peserta: ' + err.message });
   }
 });
+
+// ----------------------------------------------------------------------------
+// 7D. PARTNER SCHOOLS & BKK COORDINATOR MANAGEMENT
+// ----------------------------------------------------------------------------
+app.get('/api/admin/partner-schools', async (req, res) => {
+  try {
+    // 1. Query unique schools from registered non-admin users
+    const [schoolStats] = await pool.query(`
+      SELECT 
+        u.school as school_name,
+        MAX(u.npsn) as npsn,
+        COUNT(u.id) as total_students,
+        MIN(u.created_at) as first_registered_at,
+        MAX(u.last_active) as latest_active_at
+      FROM users u
+      WHERE (u.is_admin = FALSE OR u.is_admin = 0 OR u.is_admin IS NULL) 
+        AND u.school IS NOT NULL 
+        AND TRIM(u.school) != ''
+      GROUP BY u.school
+      ORDER BY total_students DESC, school_name ASC
+    `);
+
+    // 2. Fetch coordinator settings from partner_schools
+    let coordinatorMap = new Map();
+    try {
+      const [coordinators] = await pool.query('SELECT * FROM partner_schools');
+      coordinators.forEach(c => {
+        if (c.school_name) {
+          coordinatorMap.set(c.school_name.trim().toLowerCase(), c);
+        }
+      });
+    } catch (_) {}
+
+    const result = schoolStats.map(s => {
+      const coord = coordinatorMap.get(s.school_name.trim().toLowerCase()) || {};
+      return {
+        schoolName: s.school_name,
+        npsn: s.npsn || coord.npsn || undefined,
+        totalStudents: parseInt(s.total_students || 0, 10),
+        firstRegisteredAt: s.first_registered_at,
+        latestActiveAt: s.latest_active_at,
+        coordinatorName: coord.coordinator_name || '',
+        coordinatorTitle: coord.coordinator_title || 'Koordinator BKK / Hubinmas',
+        coordinatorNip: coord.coordinator_nip || '',
+        contactPhone: coord.contact_phone || '',
+        contactEmail: coord.contact_email || '',
+        notes: coord.notes || '',
+        isConfigured: Boolean(coord.coordinator_name && coord.coordinator_name.trim())
+      };
+    });
+
+    res.json({
+      success: true,
+      totalSchools: result.length,
+      schools: result
+    });
+  } catch (err) {
+    console.error('[Get Partner Schools Error]', err);
+    res.status(500).json({ success: false, message: 'Gagal mengambil data sekolah mitra: ' + err.message });
+  }
+});
+
+app.post('/api/admin/partner-schools/coordinator', async (req, res) => {
+  try {
+    const { schoolName, npsn, coordinatorName, coordinatorTitle, coordinatorNip, contactPhone, contactEmail, notes } = req.body;
+
+    if (!schoolName || !schoolName.trim()) {
+      return res.status(400).json({ success: false, message: 'Nama sekolah wajib disertakan.' });
+    }
+
+    const cleanSchool = schoolName.trim();
+    const cleanNpsn = npsn ? npsn.trim() : null;
+    const cleanName = coordinatorName ? coordinatorName.trim() : null;
+    const cleanTitle = coordinatorTitle ? coordinatorTitle.trim() : 'Koordinator BKK / Hubinmas';
+    const cleanNip = coordinatorNip ? coordinatorNip.trim() : null;
+    const cleanPhone = contactPhone ? contactPhone.trim() : null;
+    const cleanEmail = contactEmail ? contactEmail.trim() : null;
+    const cleanNotes = notes ? notes.trim() : null;
+
+    await pool.query(`
+      INSERT INTO partner_schools 
+        (school_name, npsn, coordinator_name, coordinator_title, coordinator_nip, contact_phone, contact_email, notes, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())
+      ON DUPLICATE KEY UPDATE
+        npsn = COALESCE(VALUES(npsn), npsn),
+        coordinator_name = VALUES(coordinator_name),
+        coordinator_title = VALUES(coordinator_title),
+        coordinator_nip = VALUES(coordinator_nip),
+        contact_phone = VALUES(contact_phone),
+        contact_email = VALUES(contact_email),
+        notes = VALUES(notes),
+        updated_at = NOW()
+    `, [cleanSchool, cleanNpsn, cleanName, cleanTitle, cleanNip, cleanPhone, cleanEmail, cleanNotes]);
+
+    res.json({
+      success: true,
+      message: `Data Koordinator BKK untuk ${cleanSchool} berhasil disimpan!`,
+      coordinator: {
+        schoolName: cleanSchool,
+        npsn: cleanNpsn,
+        coordinatorName: cleanName,
+        coordinatorTitle: cleanTitle,
+        coordinatorNip: cleanNip,
+        contactPhone: cleanPhone,
+        contactEmail: cleanEmail,
+        notes: cleanNotes
+      }
+    });
+  } catch (err) {
+    console.error('[Save Coordinator Error]', err);
+    res.status(500).json({ success: false, message: 'Gagal menyimpan data koordinator: ' + err.message });
+  }
+});
+
 
 // ----------------------------------------------------------------------------
 // 8. USER PROFILE (GET & UPDATE)

@@ -54,7 +54,22 @@ CREATE TABLE IF NOT EXISTS `test_scores` (
   FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 4. DATA AWAL (SEED DEFAULT USERS & SUPER ADMIN)
+-- 4. TABEL PARTNER_SCHOOLS (Data Sekolah Kerjasama & Koordinator BKK)
+CREATE TABLE IF NOT EXISTS `partner_schools` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `school_name` VARCHAR(255) NOT NULL UNIQUE,
+  `npsn` VARCHAR(20) NULL,
+  `coordinator_name` VARCHAR(255) NULL,
+  `coordinator_title` VARCHAR(150) DEFAULT 'Koordinator BKK / Hubinmas',
+  `coordinator_nip` VARCHAR(100) NULL,
+  `contact_phone` VARCHAR(50) NULL,
+  `contact_email` VARCHAR(191) NULL,
+  `notes` TEXT NULL,
+  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 5. DATA AWAL (SEED DEFAULT USERS & SUPER ADMIN)
 INSERT INTO `users` (`id`, `name`, `phone`, `email`, `school`, `major`, `password`, `target_role`, `target_company`, `overall_status`, `is_admin`, `is_verified`, `created_at`, `last_active`)
 VALUES 
 ('SMK-ADMIN-001', 'Super Administrator', 'admin', 'admin@buatdigital.id', 'Management Pusat', 'Sistem Operasional', 'admin123', 'operator', 'HQ Siap Masuk Kerja', 'Lolos Unggul', TRUE, TRUE, NOW(), NOW()),

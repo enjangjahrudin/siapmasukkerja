@@ -81,9 +81,24 @@ interface AdminDashboardProps {
   onLogoutAdmin?: () => void;
 }
 
+export interface PartnerSchoolInfo {
+  schoolName: string;
+  npsn?: string;
+  totalStudents: number;
+  firstRegisteredAt?: string;
+  latestActiveAt?: string;
+  coordinatorName: string;
+  coordinatorTitle: string;
+  coordinatorNip: string;
+  contactPhone?: string;
+  contactEmail?: string;
+  notes?: string;
+  isConfigured: boolean;
+}
+
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobileApp, onLogoutAdmin }) => {
   const { isDark, toggleTheme } = useTheme();
-  const [adminTab, setAdminTab] = useState<'overview' | 'candidates' | 'questions' | 'interview-ai' | 'videos' | 'finance' | 'system'>('overview');
+  const [adminTab, setAdminTab] = useState<'overview' | 'candidates' | 'schools' | 'questions' | 'interview-ai' | 'videos' | 'finance' | 'system'>('overview');
   const [searchCandidate, setSearchCandidate] = useState<string>('');
   const [selectedRoleFilter, setSelectedRoleFilter] = useState<string>('all');
   const [selectedSchoolFilter, setSelectedSchoolFilter] = useState<string>('all');
@@ -91,6 +106,30 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
   const [realtimeCandidateData, setRealtimeCandidateData] = useState<RegisteredUser | null>(null);
   const [isLoadingReport, setIsLoadingReport] = useState<boolean>(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
+
+  // Partner Schools & BKK Coordinator State
+  const [partnerSchools, setPartnerSchools] = useState<PartnerSchoolInfo[]>([]);
+  const [isLoadingSchools, setIsLoadingSchools] = useState<boolean>(false);
+  const [searchSchool, setSearchSchool] = useState<string>('');
+  const [schoolCoordFilter, setSchoolCoordFilter] = useState<'all' | 'configured' | 'unconfigured'>('all');
+
+  // Coordinator Edit Modal State
+  const [coordinatorModalOpen, setCoordinatorModalOpen] = useState<boolean>(false);
+  const [editingSchoolForCoord, setEditingSchoolForCoord] = useState<PartnerSchoolInfo | null>(null);
+  const [coordFormName, setCoordFormName] = useState<string>('');
+  const [coordFormTitle, setCoordFormTitle] = useState<string>('Koordinator BKK / Hubinmas');
+  const [coordFormNip, setCoordFormNip] = useState<string>('');
+  const [coordFormPhone, setCoordFormPhone] = useState<string>('');
+  const [coordFormEmail, setCoordFormEmail] = useState<string>('');
+  const [coordFormNotes, setCoordFormNotes] = useState<string>('');
+  const [isSavingCoordinator, setIsSavingCoordinator] = useState<boolean>(false);
+  const [saveCoordStatus, setSaveCoordStatus] = useState<{ type: 'idle' | 'success' | 'error'; message: string }>({ type: 'idle', message: '' });
+
+  // School Students Detail Modal State
+  const [schoolStudentsModalOpen, setSchoolStudentsModalOpen] = useState<boolean>(false);
+  const [selectedSchoolForStudents, setSelectedSchoolForStudents] = useState<PartnerSchoolInfo | null>(null);
+  const [schoolStudentSearch, setSchoolStudentSearch] = useState<string>('');
+  const [schoolMajorFilter, setSchoolMajorFilter] = useState<string>('all');
 
   // PDF Signer / Pengesahan Modal State
   const [signerModalOpen, setSignerModalOpen] = useState<boolean>(false);
@@ -508,6 +547,205 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
     }
   };
 
+  // ─── Partner Schools & BKK Coordinator Helpers ───
+  const computeSchoolsFromCandidates = (): PartnerSchoolInfo[] => {
+    const list = candidates.filter(c => !c.isAdmin && c.school && c.school.trim() !== '');
+    const map = new Map<string, { npsn?: string; count: number; firstAt?: string; lastAt?: string }>();
+
+    list.forEach(c => {
+      const sName = c.school.trim();
+      const existing = map.get(sName);
+      if (existing) {
+        existing.count += 1;
+        if (c.npsn && !existing.npsn) existing.npsn = c.npsn;
+      } else {
+        map.set(sName, {
+          npsn: c.npsn,
+          count: 1,
+          firstAt: c.createdAt,
+          lastAt: c.createdAt
+        });
+      }
+    });
+
+    const result: PartnerSchoolInfo[] = [];
+    map.forEach((val, schoolName) => {
+      let coordName = '';
+      let coordTitle = 'Koordinator BKK / Hubinmas';
+      let coordNip = '';
+      let coordPhone = '';
+      try {
+        const saved = localStorage.getItem(`bkk_signer_${schoolName}`);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          coordName = parsed.name || '';
+          coordTitle = parsed.title || 'Koordinator BKK / Hubinmas';
+          coordNip = parsed.nip || '';
+          coordPhone = parsed.phone || '';
+        }
+      } catch (_) {}
+
+      result.push({
+        schoolName,
+        npsn: val.npsn,
+        totalStudents: val.count,
+        firstRegisteredAt: val.firstAt,
+        latestActiveAt: val.lastAt,
+        coordinatorName: coordName,
+        coordinatorTitle: coordTitle,
+        coordinatorNip: coordNip,
+        contactPhone: coordPhone,
+        isConfigured: Boolean(coordName && coordName.trim())
+      });
+    });
+
+    return result.sort((a, b) => b.totalStudents - a.totalStudents || a.schoolName.localeCompare(b.schoolName));
+  };
+
+  const fetchPartnerSchools = async () => {
+    setIsLoadingSchools(true);
+    try {
+      const res = await fetch('/api/admin/partner-schools');
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && Array.isArray(json.schools)) {
+          setPartnerSchools(json.schools);
+          localStorage.setItem('siapkerja_partner_schools', JSON.stringify(json.schools));
+          setIsLoadingSchools(false);
+          return;
+        }
+      }
+    } catch (_) {}
+
+    const computed = computeSchoolsFromCandidates();
+    setPartnerSchools(computed);
+    setIsLoadingSchools(false);
+  };
+
+  useEffect(() => {
+    fetchPartnerSchools();
+  }, [candidates]);
+
+  const openCoordinatorModal = (school: PartnerSchoolInfo) => {
+    setEditingSchoolForCoord(school);
+    setCoordFormName(school.coordinatorName || '');
+    setCoordFormTitle(school.coordinatorTitle || 'Koordinator BKK / Hubinmas');
+    setCoordFormNip(school.coordinatorNip || '');
+    setCoordFormPhone(school.contactPhone || '');
+    setCoordFormEmail(school.contactEmail || '');
+    setCoordFormNotes(school.notes || '');
+    setSaveCoordStatus({ type: 'idle', message: '' });
+    setCoordinatorModalOpen(true);
+  };
+
+  const handleSaveCoordinator = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingSchoolForCoord) return;
+
+    if (!coordFormName.trim()) {
+      setSaveCoordStatus({ type: 'error', message: 'Nama Koordinator BKK wajib diisi.' });
+      return;
+    }
+
+    setIsSavingCoordinator(true);
+    setSaveCoordStatus({ type: 'idle', message: '' });
+
+    const payload = {
+      schoolName: editingSchoolForCoord.schoolName,
+      npsn: editingSchoolForCoord.npsn || null,
+      coordinatorName: coordFormName.trim(),
+      coordinatorTitle: coordFormTitle.trim() || 'Koordinator BKK / Hubinmas',
+      coordinatorNip: coordFormNip.trim() || null,
+      contactPhone: coordFormPhone.trim() || null,
+      contactEmail: coordFormEmail.trim() || null,
+      notes: coordFormNotes.trim() || null
+    };
+
+    try {
+      await fetch('/api/admin/partner-schools/coordinator', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      // Also persist to localStorage for instant local sync and PDF generator
+      localStorage.setItem(`bkk_signer_${editingSchoolForCoord.schoolName}`, JSON.stringify({
+        name: payload.coordinatorName,
+        title: payload.coordinatorTitle,
+        nip: payload.coordinatorNip,
+        phone: payload.contactPhone
+      }));
+
+      // Update state
+      setPartnerSchools(prev => prev.map(s => {
+        if (s.schoolName.toLowerCase() === editingSchoolForCoord.schoolName.toLowerCase()) {
+          return {
+            ...s,
+            coordinatorName: payload.coordinatorName,
+            coordinatorTitle: payload.coordinatorTitle,
+            coordinatorNip: payload.coordinatorNip || '',
+            contactPhone: payload.contactPhone || '',
+            contactEmail: payload.contactEmail || '',
+            notes: payload.notes || '',
+            isConfigured: true
+          };
+        }
+        return s;
+      }));
+
+      setSaveCoordStatus({ type: 'success', message: 'Data Koordinator BKK berhasil disimpan!' });
+      setTimeout(() => {
+        setCoordinatorModalOpen(false);
+      }, 1000);
+    } catch (err: any) {
+      setSaveCoordStatus({ type: 'error', message: err.message || 'Gagal menyimpan ke server.' });
+    } finally {
+      setIsSavingCoordinator(false);
+    }
+  };
+
+  const openSchoolStudentsModal = (school: PartnerSchoolInfo) => {
+    setSelectedSchoolForStudents(school);
+    setSchoolStudentSearch('');
+    setSchoolMajorFilter('all');
+    setSchoolStudentsModalOpen(true);
+  };
+
+  const filteredSchools = useMemo(() => {
+    return partnerSchools.filter(s => {
+      const matchSearch = (s.schoolName || '').toLowerCase().includes(searchSchool.toLowerCase()) ||
+                          (s.npsn || '').toLowerCase().includes(searchSchool.toLowerCase()) ||
+                          (s.coordinatorName || '').toLowerCase().includes(searchSchool.toLowerCase());
+      const matchStatus = schoolCoordFilter === 'all' || 
+                          (schoolCoordFilter === 'configured' && s.isConfigured) ||
+                          (schoolCoordFilter === 'unconfigured' && !s.isConfigured);
+      return matchSearch && matchStatus;
+    });
+  }, [partnerSchools, searchSchool, schoolCoordFilter]);
+
+  const schoolStudentsList = useMemo(() => {
+    if (!selectedSchoolForStudents) return [];
+    return candidateListOnly.filter(c => 
+      c.school && c.school.trim().toLowerCase() === selectedSchoolForStudents.schoolName.trim().toLowerCase()
+    );
+  }, [candidateListOnly, selectedSchoolForStudents]);
+
+  const schoolMajors = useMemo(() => {
+    const set = new Set(schoolStudentsList.map(s => s.major).filter(Boolean));
+    return Array.from(set);
+  }, [schoolStudentsList]);
+
+  const filteredSchoolStudents = useMemo(() => {
+    return schoolStudentsList.filter(c => {
+      const matchSearch = (c.name || '').toLowerCase().includes(schoolStudentSearch.toLowerCase()) ||
+                          (c.id || '').toLowerCase().includes(schoolStudentSearch.toLowerCase()) ||
+                          (c.major || '').toLowerCase().includes(schoolStudentSearch.toLowerCase()) ||
+                          (c.phone || '').toLowerCase().includes(schoolStudentSearch.toLowerCase());
+      const matchMajor = schoolMajorFilter === 'all' || c.major === schoolMajorFilter;
+      return matchSearch && matchMajor;
+    });
+  }, [schoolStudentsList, schoolStudentSearch, schoolMajorFilter]);
+
   const openSignerModal = (target: {
     type: 'individual' | 'collective';
     student?: RegisteredUser;
@@ -516,22 +754,31 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
   }) => {
     setSignerTarget(target);
     const schoolKey = target.schoolName && target.schoolName !== 'all' ? target.schoolName : 'global';
-    try {
-      const saved = localStorage.getItem(`bkk_signer_${schoolKey}`);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        setSignerName(parsed.name || '');
-        setSignerTitle(parsed.title || 'Koordinator BKK / Hubinmas');
-        setSignerNip(parsed.nip || '');
-      } else {
+    
+    // Automatically match from partnerSchools if configured!
+    const matched = partnerSchools.find(s => s.schoolName.trim().toLowerCase() === schoolKey.trim().toLowerCase());
+    if (matched && matched.coordinatorName) {
+      setSignerName(matched.coordinatorName);
+      setSignerTitle(matched.coordinatorTitle || 'Koordinator BKK / Hubinmas');
+      setSignerNip(matched.coordinatorNip || '');
+    } else {
+      try {
+        const saved = localStorage.getItem(`bkk_signer_${schoolKey}`);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          setSignerName(parsed.name || '');
+          setSignerTitle(parsed.title || 'Koordinator BKK / Hubinmas');
+          setSignerNip(parsed.nip || '');
+        } else {
+          setSignerName('');
+          setSignerTitle('Koordinator BKK / Hubinmas');
+          setSignerNip('');
+        }
+      } catch {
         setSignerName('');
         setSignerTitle('Koordinator BKK / Hubinmas');
         setSignerNip('');
       }
-    } catch {
-      setSignerName('');
-      setSignerTitle('Koordinator BKK / Hubinmas');
-      setSignerNip('');
     }
     setSignerModalOpen(true);
   };
@@ -717,6 +964,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
                 {[
                   { id: 'overview', label: 'Ringkasan Utama', icon: LayoutDashboard, badge: 'Live' },
                   { id: 'candidates', label: 'Data Peserta & Nilai', icon: Users, badge: `${candidateListOnly.length}` },
+                  { id: 'schools', label: 'Sekolah Kerjasama', icon: GraduationCap, badge: `${partnerSchools.length}` },
                   { id: 'questions', label: 'Bank Soal 1.000+', icon: Database, badge: '1.000+' },
                   { id: 'interview-ai', label: 'Log AI Interview', icon: Mic, badge: 'Audio' },
                 ].map((item) => {
@@ -920,6 +1168,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
             {[
               { id: 'overview', label: 'Ringkasan', icon: LayoutDashboard },
               { id: 'candidates', label: `Peserta (${candidateListOnly.length})`, icon: Users },
+              { id: 'schools', label: `Sekolah (${partnerSchools.length})`, icon: GraduationCap },
               { id: 'videos', label: `Video (${videoList.length})`, icon: Video },
               { id: 'questions', label: 'Bank Soal', icon: Database },
               { id: 'interview-ai', label: 'AI Interview', icon: Mic },
@@ -1428,6 +1677,242 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
                     )}
                   </tbody>
                 </table>
+              </div>
+            </div>
+          )}
+
+          {/* TAB: PARTNER SCHOOLS & BKK COORDINATOR */}
+          {adminTab === 'schools' && (
+            <div className="space-y-6">
+              {/* Header */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <h1 className={`text-xl sm:text-2xl font-black ${isDark ? 'text-white' : 'text-slate-900'} flex items-center gap-2`}>
+                    <GraduationCap className="w-6 h-6 text-amber-500" />
+                    <span>Sekolah Kerjasama & Koordinator BKK</span>
+                  </h1>
+                  <p className={`text-xs mt-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                    Daftar sekolah SMK mitra yang terdaftar di platform, identitas resmi Koordinator BKK untuk penandatanganan rapor, dan rincian siswa per sekolah.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={fetchPartnerSchools}
+                    disabled={isLoadingSchools}
+                    className={`px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                      isDark ? 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700' : 'bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 shadow-xs'
+                    }`}
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${isLoadingSchools ? 'animate-spin' : ''}`} />
+                    <span>Segarkan</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* 3 Metric Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className={`p-4 rounded-2xl border ${isDark ? 'bg-slate-900/60 border-slate-800' : 'bg-white border-slate-200 shadow-xs'}`}>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-500">Total Sekolah Mitra</span>
+                    <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center font-bold">
+                      <Building2 className="w-4 h-4" />
+                    </div>
+                  </div>
+                  <div className="text-2xl font-black mt-2 text-slate-900 dark:text-white">
+                    {partnerSchools.length}
+                  </div>
+                  <span className="text-[11px] text-slate-400">Sekolah SMK memiliki siswa aktif</span>
+                </div>
+
+                <div className={`p-4 rounded-2xl border ${isDark ? 'bg-slate-900/60 border-slate-800' : 'bg-white border-slate-200 shadow-xs'}`}>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-500">Total Siswa Terdaftar</span>
+                    <div className="w-8 h-8 rounded-xl bg-sky-500/10 text-sky-500 flex items-center justify-center font-bold">
+                      <Users className="w-4 h-4" />
+                    </div>
+                  </div>
+                  <div className="text-2xl font-black mt-2 text-slate-900 dark:text-white">
+                    {candidateListOnly.length}
+                  </div>
+                  <span className="text-[11px] text-slate-400">Tersebar di seluruh SMK mitra</span>
+                </div>
+
+                <div className={`p-4 rounded-2xl border ${isDark ? 'bg-slate-900/60 border-slate-800' : 'bg-white border-slate-200 shadow-xs'}`}>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-500">Koordinator BKK Terisi</span>
+                    <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center font-bold">
+                      <CheckCircle2 className="w-4 h-4" />
+                    </div>
+                  </div>
+                  <div className="text-2xl font-black mt-2 text-slate-900 dark:text-white">
+                    {partnerSchools.filter(s => s.isConfigured).length} <span className="text-sm font-normal text-slate-400">/ {partnerSchools.length}</span>
+                  </div>
+                  <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">
+                    {partnerSchools.filter(s => s.isConfigured).length === partnerSchools.length && partnerSchools.length > 0
+                      ? 'Semua sekolah telah dikonfigurasi'
+                      : `${partnerSchools.filter(s => !s.isConfigured).length} sekolah belum diatur`}
+                  </span>
+                </div>
+              </div>
+
+              {/* Filter & Search Bar */}
+              <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
+                <div className="relative flex-1 max-w-md">
+                  <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    value={searchSchool}
+                    onChange={(e) => setSearchSchool(e.target.value)}
+                    placeholder="Cari nama sekolah SMK atau NPSN..."
+                    className={`w-full pl-10 pr-4 py-2.5 rounded-xl text-xs border outline-none transition-all ${
+                      isDark 
+                        ? 'bg-slate-900 border-slate-800 text-white placeholder-slate-500 focus:border-brand-500' 
+                        : 'bg-white border-slate-200 text-slate-900 placeholder-slate-400 focus:border-brand-500 shadow-xs'
+                    }`}
+                  />
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Filter className="w-3.5 h-3.5 text-slate-400" />
+                  <select
+                    value={schoolCoordFilter}
+                    onChange={(e) => setSchoolCoordFilter(e.target.value as any)}
+                    className={`px-3 py-2 rounded-xl text-xs font-semibold border outline-none cursor-pointer ${
+                      isDark ? 'bg-slate-900 border-slate-800 text-slate-200' : 'bg-white border-slate-200 text-slate-700 shadow-xs'
+                    }`}
+                  >
+                    <option value="all">Semua Status Koordinator</option>
+                    <option value="configured">Koordinator Terisi</option>
+                    <option value="unconfigured">Belum Diatur</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Schools List Cards / Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                {filteredSchools.length === 0 ? (
+                  <div className="col-span-full py-12 text-center text-slate-400 border border-dashed rounded-2xl">
+                    <GraduationCap className="w-12 h-12 mx-auto mb-2 text-slate-300 opacity-50" />
+                    <p className="font-semibold text-sm">Tidak ada sekolah mitra yang cocok dengan pencarian.</p>
+                  </div>
+                ) : (
+                  filteredSchools.map((school) => {
+                    const schoolStudents = candidateListOnly.filter(c => c.school && c.school.trim().toLowerCase() === school.schoolName.trim().toLowerCase());
+                    return (
+                      <div 
+                        key={school.schoolName}
+                        className={`rounded-2xl border p-5 flex flex-col justify-between transition-all hover:shadow-md ${
+                          isDark ? 'bg-slate-900/90 border-slate-800 hover:border-slate-700' : 'bg-white border-slate-200 hover:border-brand-200 shadow-xs'
+                        }`}
+                      >
+                        <div className="space-y-3">
+                          {/* Top: School Name & NPSN */}
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="space-y-1">
+                              <h3 className="font-black text-sm text-slate-900 dark:text-white line-clamp-2" title={school.schoolName}>
+                                {school.schoolName}
+                              </h3>
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                {school.npsn ? (
+                                  <span className="text-[10px] font-mono font-bold bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 px-2 py-0.5 rounded-md border border-sky-200 dark:border-sky-800">
+                                    NPSN: {school.npsn}
+                                  </span>
+                                ) : (
+                                  <span className="text-[10px] text-slate-400 italic">
+                                    NPSN Belum Ada
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            <button
+                              onClick={() => openSchoolStudentsModal(school)}
+                              title="Klik untuk lihat daftar siswa"
+                              className="px-2.5 py-1 rounded-lg text-[11px] font-extrabold bg-brand-50 hover:bg-brand-100 text-brand-700 dark:bg-brand-950 dark:hover:bg-brand-900 dark:text-brand-300 border border-brand-200 dark:border-brand-800 shrink-0 transition-all cursor-pointer"
+                            >
+                              {schoolStudents.length} Siswa
+                            </button>
+                          </div>
+
+                          {/* Coordinator Card Section */}
+                          <div className={`p-3 rounded-xl border text-xs ${
+                            school.isConfigured
+                              ? isDark ? 'bg-emerald-950/30 border-emerald-800/50 text-emerald-200' : 'bg-emerald-50/80 border-emerald-200 text-emerald-900'
+                              : isDark ? 'bg-amber-950/20 border-amber-800/40 text-amber-300' : 'bg-amber-50/70 border-amber-200 text-amber-900'
+                          }`}>
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-[10px] font-black uppercase tracking-wider opacity-70">
+                                Koordinator BKK / Hubinmas
+                              </span>
+                              {school.isConfigured ? (
+                                <span className="text-[9px] font-bold bg-emerald-600 text-white px-1.5 py-0.5 rounded-full">
+                                  Aktif
+                                </span>
+                              ) : (
+                                <span className="text-[9px] font-bold bg-amber-500 text-white px-1.5 py-0.5 rounded-full">
+                                  Belum Diatur
+                                </span>
+                              )}
+                            </div>
+
+                            {school.isConfigured ? (
+                              <div className="space-y-0.5">
+                                <div className="font-extrabold text-sm">{school.coordinatorName}</div>
+                                <div className="text-[11px] opacity-85">{school.coordinatorTitle}</div>
+                                {school.coordinatorNip && (
+                                  <div className="text-[10px] font-mono opacity-75">NIP. {school.coordinatorNip}</div>
+                                )}
+                              </div>
+                            ) : (
+                              <p className="text-[11px] leading-relaxed opacity-80 italic">
+                                Belum ada identitas Koordinator BKK. Klik tombol atur di bawah agar tercantum otomatis pada Rapor & Rekap Kolektif.
+                              </p>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Card Action Buttons */}
+                        <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 grid grid-cols-3 gap-1.5">
+                          <button
+                            onClick={() => openCoordinatorModal(school)}
+                            className={`py-2 px-2 rounded-xl text-[11px] font-bold flex items-center justify-center gap-1 transition-all cursor-pointer ${
+                              isDark 
+                                ? 'bg-slate-800 hover:bg-slate-700 text-slate-200' 
+                                : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                            }`}
+                            title="Atur Nama & NIP Koordinator BKK"
+                          >
+                            <Edit3 className="w-3.5 h-3.5 text-amber-500" />
+                            <span>Atur BKK</span>
+                          </button>
+
+                          <button
+                            onClick={() => openSchoolStudentsModal(school)}
+                            className="py-2 px-2 rounded-xl text-[11px] font-bold flex items-center justify-center gap-1 bg-sky-50 hover:bg-sky-100 text-sky-700 dark:bg-sky-950 dark:hover:bg-sky-900 dark:text-sky-300 border border-sky-200 dark:border-sky-800 transition-all cursor-pointer"
+                            title="Buka daftar siswa sekolah ini"
+                          >
+                            <Users className="w-3.5 h-3.5" />
+                            <span>Siswa</span>
+                          </button>
+
+                          <button
+                            onClick={() => openSignerModal({
+                              type: 'collective',
+                              schoolName: school.schoolName,
+                              students: schoolStudents
+                            })}
+                            disabled={schoolStudents.length === 0}
+                            className="py-2 px-2 rounded-xl text-[11px] font-bold flex items-center justify-center gap-1 bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-40 transition-all shadow-xs cursor-pointer"
+                            title="Unduh Rekap Kolektif Sekolah (PDF)"
+                          >
+                            <Printer className="w-3.5 h-3.5" />
+                            <span>Rekap</span>
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
               </div>
             </div>
           )}
@@ -3178,6 +3663,537 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
               </div>
             </div>
 
+          </div>
+        </div>
+      )}
+
+      {/* MODAL PENGATURAN KOORDINATOR BKK SEKOLAH */}
+      {coordinatorModalOpen && editingSchoolForCoord && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-xs overflow-y-auto animate-in fade-in duration-200">
+          <div className={`w-full max-w-lg rounded-3xl border shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 my-8 ${
+            isDark ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200 text-slate-900'
+          }`}>
+            {/* Header */}
+            <div className={`p-5 border-b flex items-center justify-between ${
+              isDark ? 'border-slate-800 bg-slate-900/90' : 'border-slate-100 bg-slate-50/90'
+            }`}>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-amber-500/20 text-amber-500 flex items-center justify-center font-bold">
+                  <Award className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-base leading-tight">Pengaturan Koordinator BKK</h3>
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    <span className="text-xs font-bold text-amber-500 line-clamp-1">
+                      {editingSchoolForCoord.schoolName}
+                    </span>
+                    {editingSchoolForCoord.npsn && (
+                      <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-sky-500/15 text-sky-400 border border-sky-500/30">
+                        NPSN: {editingSchoolForCoord.npsn}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setCoordinatorModalOpen(false)}
+                disabled={isSavingCoordinator}
+                className={`p-2 rounded-xl transition-colors cursor-pointer ${
+                  isDark ? 'hover:bg-slate-800 text-slate-400' : 'hover:bg-slate-200 text-slate-500'
+                }`}
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Form */}
+            <form onSubmit={handleSaveCoordinator} className="p-5 space-y-4">
+              <div className={`p-3.5 rounded-2xl border text-xs flex items-start gap-2.5 ${
+                isDark ? 'bg-sky-500/10 border-sky-500/20 text-sky-300' : 'bg-sky-50 border-sky-200 text-sky-800'
+              }`}>
+                <Building2 className="w-4 h-4 shrink-0 text-sky-500 mt-0.5" />
+                <p className="leading-relaxed">
+                  Identitas pejabat ini akan otomatis disimpan di database dan menjadi penandatangan default pada lembar pengesahan Rapor Kesiapan Kerja Siswa & Rekap Kolektif PDF resmi.
+                </p>
+              </div>
+
+              {/* Status Alert */}
+              {saveCoordStatus.type !== 'idle' && (
+                <div className={`p-3 rounded-xl text-xs font-bold flex items-center gap-2 border ${
+                  saveCoordStatus.type === 'success'
+                    ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-400'
+                    : 'bg-red-500/15 border-red-500/30 text-red-400'
+                }`}>
+                  {saveCoordStatus.type === 'success' ? (
+                    <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                  ) : (
+                    <AlertTriangle className="w-4 h-4 text-red-500 shrink-0" />
+                  )}
+                  <span>{saveCoordStatus.message}</span>
+                </div>
+              )}
+
+              {/* Nama Pejabat */}
+              <div>
+                <label className="block text-xs font-bold mb-1 flex items-center justify-between">
+                  <span>Nama Lengkap Pejabat / Pihak Sekolah <span className="text-red-500">*</span></span>
+                  <span className="text-[10px] font-normal text-slate-400">(dengan gelar resmi)</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={coordFormName}
+                  onChange={(e) => setCoordFormName(e.target.value)}
+                  placeholder="Contoh: Drs. H. Mulyadi, M.Pd / Rina Anggraeni, S.Pd"
+                  disabled={isSavingCoordinator}
+                  className={`w-full px-3.5 py-2.5 rounded-xl border text-xs font-semibold transition-all focus:ring-2 focus:ring-amber-500 focus:outline-none ${
+                    isDark 
+                      ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-500' 
+                      : 'bg-white border-slate-200 text-slate-800 placeholder-slate-400'
+                  }`}
+                />
+              </div>
+
+              {/* Jabatan Resmi */}
+              <div>
+                <label className="block text-xs font-bold mb-1">
+                  Jabatan / Posisi Resmi di Sekolah <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={coordFormTitle}
+                  onChange={(e) => setCoordFormTitle(e.target.value)}
+                  placeholder="Contoh: Koordinator BKK & Hubinmas"
+                  disabled={isSavingCoordinator}
+                  className={`w-full px-3.5 py-2.5 rounded-xl border text-xs font-semibold transition-all focus:ring-2 focus:ring-amber-500 focus:outline-none ${
+                    isDark 
+                      ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-500' 
+                      : 'bg-white border-slate-200 text-slate-800 placeholder-slate-400'
+                  }`}
+                />
+                {/* Suggestions */}
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                  {[
+                    'Koordinator BKK & Hubinmas',
+                    'Ketua Bursa Kerja Khusus (BKK)',
+                    'Wakil Kepala Sekolah Bidang Humas/Hubin',
+                    'Kepala Sekolah'
+                  ].map((titleOpt) => (
+                    <button
+                      key={titleOpt}
+                      type="button"
+                      onClick={() => setCoordFormTitle(titleOpt)}
+                      className={`text-[10px] font-semibold px-2 py-1 rounded-lg border transition-all cursor-pointer ${
+                        coordFormTitle === titleOpt
+                          ? 'bg-amber-500 text-white border-amber-500'
+                          : isDark
+                          ? 'bg-slate-800/80 border-slate-700 text-slate-300 hover:border-slate-600'
+                          : 'bg-slate-100 border-slate-200 text-slate-600 hover:bg-slate-200'
+                      }`}
+                    >
+                      {titleOpt}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* NIP */}
+              <div>
+                <label className="block text-xs font-bold mb-1 flex items-center justify-between">
+                  <span>NIP / NUPTK (Opsional)</span>
+                  <span className="text-[10px] font-normal text-slate-400">Kosongkan jika bukan ASN/PNS</span>
+                </label>
+                <input
+                  type="text"
+                  value={coordFormNip}
+                  onChange={(e) => setCoordFormNip(e.target.value)}
+                  placeholder="Contoh: 19780512 200501 1 003"
+                  disabled={isSavingCoordinator}
+                  className={`w-full px-3.5 py-2.5 rounded-xl border text-xs font-semibold font-mono transition-all focus:ring-2 focus:ring-amber-500 focus:outline-none ${
+                    isDark 
+                      ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-500' 
+                      : 'bg-white border-slate-200 text-slate-800 placeholder-slate-400'
+                  }`}
+                />
+              </div>
+
+              {/* Phone & Email */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold mb-1">
+                    No. Kontak / WhatsApp (Opsional)
+                  </label>
+                  <input
+                    type="text"
+                    value={coordFormPhone}
+                    onChange={(e) => setCoordFormPhone(e.target.value)}
+                    placeholder="0812-3456-7890"
+                    disabled={isSavingCoordinator}
+                    className={`w-full px-3.5 py-2.5 rounded-xl border text-xs font-semibold transition-all focus:ring-2 focus:ring-amber-500 focus:outline-none ${
+                      isDark 
+                        ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-500' 
+                        : 'bg-white border-slate-200 text-slate-800 placeholder-slate-400'
+                    }`}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold mb-1">
+                    Email Resmi / BKK (Opsional)
+                  </label>
+                  <input
+                    type="email"
+                    value={coordFormEmail}
+                    onChange={(e) => setCoordFormEmail(e.target.value)}
+                    placeholder="bkk@smk.sch.id"
+                    disabled={isSavingCoordinator}
+                    className={`w-full px-3.5 py-2.5 rounded-xl border text-xs font-semibold transition-all focus:ring-2 focus:ring-amber-500 focus:outline-none ${
+                      isDark 
+                        ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-500' 
+                        : 'bg-white border-slate-200 text-slate-800 placeholder-slate-400'
+                    }`}
+                  />
+                </div>
+              </div>
+
+              {/* Catatan / Keterangan */}
+              <div>
+                <label className="block text-xs font-bold mb-1">
+                  Catatan / MoU Kerjasama (Opsional)
+                </label>
+                <textarea
+                  rows={2}
+                  value={coordFormNotes}
+                  onChange={(e) => setCoordFormNotes(e.target.value)}
+                  placeholder="Contoh: MoU No. 12/BKK-SMK/2026 tanggal 10 Januari 2026"
+                  disabled={isSavingCoordinator}
+                  className={`w-full px-3.5 py-2 rounded-xl border text-xs font-semibold transition-all focus:ring-2 focus:ring-amber-500 focus:outline-none ${
+                    isDark 
+                      ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-500' 
+                      : 'bg-white border-slate-200 text-slate-800 placeholder-slate-400'
+                  }`}
+                />
+              </div>
+
+              {/* Actions */}
+              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-200 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setCoordinatorModalOpen(false)}
+                  disabled={isSavingCoordinator}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-colors cursor-pointer ${
+                    isDark ? 'hover:bg-slate-800 text-slate-300' : 'hover:bg-slate-100 text-slate-700'
+                  }`}
+                >
+                  Batal
+                </button>
+
+                <button
+                  type="submit"
+                  disabled={isSavingCoordinator}
+                  className="px-5 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-extrabold text-xs rounded-xl shadow-md shadow-amber-500/20 flex items-center gap-2 transition-all transform active:scale-95 cursor-pointer disabled:opacity-50"
+                >
+                  {isSavingCoordinator ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin text-white" />
+                      <span>Menyimpan...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Check className="w-4 h-4 text-white" />
+                      <span>Simpan Data Koordinator</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DETAIL DAFTAR SISWA PER SEKOLAH */}
+      {schoolStudentsModalOpen && selectedSchoolForStudents && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-950/85 backdrop-blur-md overflow-y-auto animate-in fade-in duration-200">
+          <div className={`w-full max-w-5xl rounded-3xl border shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[92vh] my-auto ${
+            isDark ? 'bg-[#0f172a] border-slate-800 text-white' : 'bg-white border-slate-200 text-slate-900'
+          }`}>
+            {/* Modal Header */}
+            <div className={`p-5 border-b flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+              isDark ? 'border-slate-800 bg-slate-900/90' : 'border-slate-100 bg-slate-50/90'
+            }`}>
+              <div className="flex items-start sm:items-center gap-3">
+                <div className="w-11 h-11 rounded-2xl bg-brand-500/20 text-brand-500 flex items-center justify-center font-bold shrink-0">
+                  <GraduationCap className="w-6 h-6" />
+                </div>
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-brand-500 bg-brand-500/10 px-2 py-0.5 rounded-full border border-brand-500/20">
+                      Sekolah Kerjasama Mitra
+                    </span>
+                    {selectedSchoolForStudents.npsn && (
+                      <span className="text-[10px] font-mono font-bold bg-sky-500/15 text-sky-400 border border-sky-500/30 px-2 py-0.5 rounded-full">
+                        NPSN: {selectedSchoolForStudents.npsn}
+                      </span>
+                    )}
+                    <span className="text-[10px] font-extrabold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full">
+                      {schoolStudentsList.length} Siswa Terdaftar
+                    </span>
+                  </div>
+                  <h2 className="text-base sm:text-lg font-black mt-1 leading-tight text-slate-900 dark:text-white">
+                    {selectedSchoolForStudents.schoolName}
+                  </h2>
+                  <div className="text-xs text-slate-400 mt-0.5 flex flex-wrap items-center gap-2">
+                    <span>
+                      Koordinator BKK:{' '}
+                      <strong className={isDark ? 'text-slate-200' : 'text-slate-700'}>
+                        {selectedSchoolForStudents.coordinatorName || 'Belum diatur'}
+                      </strong>
+                    </span>
+                    <button
+                      onClick={() => {
+                        setSchoolStudentsModalOpen(false);
+                        openCoordinatorModal(selectedSchoolForStudents);
+                      }}
+                      className="text-[10px] font-bold text-amber-500 hover:underline cursor-pointer flex items-center gap-0.5"
+                    >
+                      <Edit3 className="w-3 h-3" />
+                      <span>{selectedSchoolForStudents.isConfigured ? 'Ubah' : 'Atur Sekarang'}</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Top Action Buttons */}
+              <div className="flex items-center gap-2 self-end sm:self-center">
+                <button
+                  onClick={() => openSignerModal({
+                    type: 'collective',
+                    schoolName: selectedSchoolForStudents.schoolName,
+                    students: schoolStudentsList
+                  })}
+                  disabled={schoolStudentsList.length === 0}
+                  className="px-3.5 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 disabled:opacity-40 text-white font-extrabold text-xs rounded-xl shadow-md shadow-emerald-600/20 flex items-center gap-1.5 transition-all transform active:scale-95 cursor-pointer"
+                  title="Unduh Rekap Kolektif Nilai Siswa Sekolah Ini"
+                >
+                  <Printer className="w-3.5 h-3.5" />
+                  <span>Cetak Rekap PDF</span>
+                </button>
+
+                <button
+                  onClick={() => setSchoolStudentsModalOpen(false)}
+                  className={`p-2 rounded-xl transition-colors cursor-pointer ${
+                    isDark ? 'hover:bg-slate-800 text-slate-400' : 'hover:bg-slate-200 text-slate-500'
+                  }`}
+                  title="Tutup Modal"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Filter and Search Bar */}
+            <div className={`p-4 border-b flex flex-col sm:flex-row items-center justify-between gap-3 ${
+              isDark ? 'border-slate-800 bg-slate-900/50' : 'border-slate-100 bg-slate-50/50'
+            }`}>
+              <div className="relative w-full sm:w-80">
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={schoolStudentSearch}
+                  onChange={(e) => setSchoolStudentSearch(e.target.value)}
+                  placeholder="Cari nama siswa, NIS/ID, nomor HP..."
+                  className={`w-full pl-9 pr-3 py-2 text-xs rounded-xl border outline-none transition-all ${
+                    isDark 
+                      ? 'bg-slate-800 border-slate-700 text-white focus:border-brand-500' 
+                      : 'bg-white border-slate-200 text-slate-800 focus:border-brand-500 shadow-xs'
+                  }`}
+                />
+              </div>
+
+              {/* Major Filter */}
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                <Filter className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                <select
+                  value={schoolMajorFilter}
+                  onChange={(e) => setSchoolMajorFilter(e.target.value)}
+                  className={`px-3 py-2 rounded-xl border text-xs font-bold outline-none transition-all w-full sm:w-auto ${
+                    isDark 
+                      ? 'bg-slate-800 border-slate-700 text-white' 
+                      : 'bg-white border-slate-200 text-slate-700 shadow-xs'
+                  }`}
+                >
+                  <option value="all">Semua Jurusan ({schoolStudentsList.length})</option>
+                  {schoolMajors.map((major) => (
+                    <option key={major} value={major}>
+                      {major}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Students Table / List */}
+            <div className="p-4 sm:p-5 overflow-y-auto flex-1">
+              {filteredSchoolStudents.length === 0 ? (
+                <div className="py-14 text-center text-slate-400 border border-dashed rounded-2xl">
+                  <Users className="w-12 h-12 mx-auto mb-2 text-slate-300 dark:text-slate-600" />
+                  <p className="font-bold text-sm">Tidak ada siswa yang sesuai pencarian atau filter.</p>
+                  <button
+                    onClick={() => {
+                      setSchoolStudentSearch('');
+                      setSchoolMajorFilter('all');
+                    }}
+                    className="mt-3 px-3 py-1.5 rounded-xl bg-slate-200 dark:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-300"
+                  >
+                    Reset Filter
+                  </button>
+                </div>
+              ) : (
+                <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className={`border-b text-[11px] font-black uppercase tracking-wider ${
+                        isDark ? 'bg-slate-900 text-slate-400 border-slate-800' : 'bg-slate-100/75 text-slate-600 border-slate-200'
+                      }`}>
+                        <th className="py-3 px-3.5">Nama & Identitas Siswa</th>
+                        <th className="py-3 px-3.5">Jurusan & Target Role</th>
+                        <th className="py-3 px-3.5">Skor & Kelayakan</th>
+                        <th className="py-3 px-3.5 text-center">Rincian Tes</th>
+                        <th className="py-3 px-3.5 text-right">Aksi Dokumen</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-medium">
+                      {filteredSchoolStudents.map((cand) => {
+                        const compScore = calculateCompositeScore(cand);
+                        const isLolosUnggul = cand.overallStatus === 'Lolos Unggul';
+                        const isLolosStandar = cand.overallStatus === 'Lolos Standar';
+
+                        return (
+                          <tr 
+                            key={cand.id}
+                            className={`transition-colors hover:bg-slate-50/50 dark:hover:bg-slate-850/50 ${
+                              isDark ? 'text-slate-200' : 'text-slate-800'
+                            }`}
+                          >
+                            {/* Siswa info */}
+                            <td className="py-3 px-3.5">
+                              <div className="flex items-center gap-2.5">
+                                <div className="w-8 h-8 rounded-xl bg-brand-500/15 text-brand-500 flex items-center justify-center font-bold text-xs shrink-0">
+                                  {cand.name ? cand.name.charAt(0).toUpperCase() : 'S'}
+                                </div>
+                                <div>
+                                  <div className="font-extrabold text-xs text-slate-900 dark:text-white">
+                                    {cand.name}
+                                  </div>
+                                  <div className="text-[10px] text-slate-400 font-mono">
+                                    ID: {cand.id} {cand.phone ? `• ${cand.phone}` : ''}
+                                  </div>
+                                </div>
+                              </div>
+                            </td>
+
+                            {/* Jurusan & Role */}
+                            <td className="py-3 px-3.5">
+                              <div className="font-bold text-xs">{cand.major || '-'}</div>
+                              <span className="inline-block mt-0.5 text-[10px] font-bold px-1.5 py-0.2 rounded bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-800">
+                                {cand.targetRole}
+                              </span>
+                            </td>
+
+                            {/* Skor Composite & Status */}
+                            <td className="py-3 px-3.5">
+                              <div className="flex items-center gap-2">
+                                <span className={`text-xs font-black px-2 py-0.5 rounded-md ${
+                                  compScore >= 80 
+                                    ? 'bg-emerald-500/15 text-emerald-500 font-black' 
+                                    : compScore >= 70 
+                                    ? 'bg-sky-500/15 text-sky-500' 
+                                    : 'bg-amber-500/15 text-amber-500'
+                                }`}>
+                                  {compScore}%
+                                </span>
+                                <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${
+                                  isLolosUnggul 
+                                    ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' 
+                                    : isLolosStandar
+                                    ? 'bg-sky-500/20 text-sky-400 border border-sky-500/30'
+                                    : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                                }`}>
+                                  {cand.overallStatus}
+                                </span>
+                              </div>
+                            </td>
+
+                            {/* Sub scores pills */}
+                            <td className="py-3 px-3.5 text-center">
+                              <div className="flex items-center justify-center gap-1.5 text-[10px] font-mono">
+                                <span className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300" title="Kraepelin (Panker)">
+                                  K: {cand.kraepelinScore?.panker ?? '-'}
+                                </span>
+                                <span className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300" title="Psikotes / QC CAT">
+                                  P: {cand.psychotestScore ?? cand.qcAccuracy ?? '-'}
+                                </span>
+                                <span className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300" title="Interview HRD AI">
+                                  I: {cand.interviewScore ? `${cand.interviewScore}%` : '-'}
+                                </span>
+                              </div>
+                            </td>
+
+                            {/* Actions */}
+                            <td className="py-3 px-3.5 text-right">
+                              <div className="flex items-center justify-end gap-1.5">
+                                <button
+                                  onClick={() => handleOpenRaporModal(cand)}
+                                  className="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-sky-50 hover:bg-sky-100 text-sky-700 dark:bg-sky-950 dark:hover:bg-sky-900 dark:text-sky-300 border border-sky-200 dark:border-sky-800 transition-all cursor-pointer flex items-center gap-1"
+                                  title="Buka Rapor Realtime Siswa"
+                                >
+                                  <FileText className="w-3 h-3" />
+                                  <span>Rapor</span>
+                                </button>
+
+                                <button
+                                  onClick={() => openSignerModal({
+                                    type: 'individual',
+                                    student: cand,
+                                    schoolName: cand.school
+                                  })}
+                                  className="px-2 py-1 rounded-lg text-[11px] font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs transition-all cursor-pointer flex items-center gap-1"
+                                  title="Cetak PDF Rapor Siswa"
+                                >
+                                  <Printer className="w-3 h-3" />
+                                  <span>PDF</span>
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className={`p-4 border-t flex items-center justify-between text-xs ${
+              isDark ? 'border-slate-800 bg-slate-900/80 text-slate-400' : 'border-slate-100 bg-slate-50/80 text-slate-600'
+            }`}>
+              <div>
+                Menampilkan <strong>{filteredSchoolStudents.length}</strong> dari <strong>{schoolStudentsList.length}</strong> siswa terdaftar di {selectedSchoolForStudents.schoolName}
+              </div>
+
+              <button
+                onClick={() => setSchoolStudentsModalOpen(false)}
+                className={`px-4 py-1.5 rounded-xl font-bold transition-colors cursor-pointer ${
+                  isDark ? 'bg-slate-800 hover:bg-slate-700 text-slate-300' : 'bg-slate-200 hover:bg-slate-300 text-slate-700'
+                }`}
+              >
+                Tutup
+              </button>
+            </div>
           </div>
         </div>
       )}
