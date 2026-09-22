@@ -224,11 +224,15 @@ app.use('/api/', generalApiLimiter);
 // ─── SECURITY: requireAdmin Middleware ───
 // Admin routes are protected by X-Admin-Key header matching ADMIN_SECRET_KEY in .env
 const ADMIN_SECRET_KEY = process.env.ADMIN_SECRET_KEY || '';
+let hasWarnedAdminSecret = false;
+if (!ADMIN_SECRET_KEY) {
+  console.warn('[Security Notice] ADMIN_SECRET_KEY belum diisi di .env. Endpoint admin saat ini terbuka (isi ADMIN_SECRET_KEY jika ingin memproteksi dengan kunci rahasia).');
+}
+
 function requireAdmin(req, res, next) {
   const clientKey = req.headers['x-admin-key'] || '';
   if (!ADMIN_SECRET_KEY) {
-    // If not configured in .env, allow access but log a warning
-    console.warn('[Security Warning] ADMIN_SECRET_KEY not set in .env. Admin routes are unprotected!');
+    // If not configured in .env, allow access without spamming logs
     return next();
   }
   if (!clientKey || clientKey !== ADMIN_SECRET_KEY) {
