@@ -8,6 +8,7 @@ function createTransporter() {
   const user = process.env.SMTP_USER || '';
   const pass = process.env.SMTP_PASS || '';
 
+  // 1. Jika ada user & pass, gunakan autentikasi SMTP biasa
   if (user && pass) {
     const isSecure = port === 465;
     const rejectUnauthorized = process.env.SMTP_REJECT_UNAUTHORIZED === 'true';
@@ -19,12 +20,10 @@ function createTransporter() {
       auth: { user, pass },
       tls: {
         rejectUnauthorized,
-        // Mendukung server lokal yang mungkin menggunakan nama host berbeda
         servername: host === '127.0.0.1' || host === 'localhost' ? undefined : host
       }
     };
 
-    // Jika lewat port 25 internal localhost, izinkan STARTTLS fleksibel
     if (port === 25) {
       transportConfig.ignoreTLS = process.env.SMTP_IGNORE_TLS === 'true';
     }
@@ -32,7 +31,18 @@ function createTransporter() {
     return nodemailer.createTransport(transportConfig);
   }
 
-  // Fallback console transporter if SMTP is not yet configured
+  // 2. Jika koneksi internal localhost (127.0.0.1 port 25) tanpa password (trusted relay Postfix mynetworks)
+  if (host === '127.0.0.1' || host === 'localhost') {
+    return nodemailer.createTransport({
+      host,
+      port,
+      secure: false,
+      ignoreTLS: true,
+      tls: { rejectUnauthorized: false }
+    });
+  }
+
+  // Fallback console transporter if SMTP is not configured
   return null;
 }
 
