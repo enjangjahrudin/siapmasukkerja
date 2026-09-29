@@ -3,20 +3,33 @@ require('dotenv').config();
 
 // Create reusable transporter object using SMTP transport or Ethereal/Console fallback
 function createTransporter() {
-  const host = process.env.SMTP_HOST || 'smtp.gmail.com';
+  const host = process.env.SMTP_HOST || '127.0.0.1';
   const port = parseInt(process.env.SMTP_PORT || '587', 10);
   const user = process.env.SMTP_USER || '';
   const pass = process.env.SMTP_PASS || '';
 
   if (user && pass) {
-    const rejectUnauthorized = process.env.SMTP_REJECT_UNAUTHORIZED !== 'false';
-    return nodemailer.createTransport({
+    const isSecure = port === 465;
+    const rejectUnauthorized = process.env.SMTP_REJECT_UNAUTHORIZED === 'true';
+
+    const transportConfig = {
       host,
       port,
-      secure: port === 465, // true for 465, false for other ports
+      secure: isSecure, // true for 465, false for 587/25
       auth: { user, pass },
-      tls: { rejectUnauthorized }
-    });
+      tls: {
+        rejectUnauthorized,
+        // Mendukung server lokal yang mungkin menggunakan nama host berbeda
+        servername: host === '127.0.0.1' || host === 'localhost' ? undefined : host
+      }
+    };
+
+    // Jika lewat port 25 internal localhost, izinkan STARTTLS fleksibel
+    if (port === 25) {
+      transportConfig.ignoreTLS = process.env.SMTP_IGNORE_TLS === 'true';
+    }
+
+    return nodemailer.createTransport(transportConfig);
   }
 
   // Fallback console transporter if SMTP is not yet configured
