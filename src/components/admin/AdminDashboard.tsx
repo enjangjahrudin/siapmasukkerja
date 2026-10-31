@@ -15,6 +15,7 @@ import {
   Smartphone, 
   RefreshCw, 
   ChevronRight, 
+  ChevronLeft,
   Sparkles, 
   ShieldCheck, 
   Database,
@@ -117,6 +118,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
   const [searchCandidate, setSearchCandidate] = useState<string>('');
   const [selectedRoleFilter, setSelectedRoleFilter] = useState<string>('all');
   const [selectedSchoolFilter, setSelectedSchoolFilter] = useState<string>('all');
+  const [candidatePage, setCandidatePage] = useState<number>(1);
+  const [candidatePageSize, setCandidatePageSize] = useState<number>(10);
   const [selectedCandidateModal, setSelectedCandidateModal] = useState<RegisteredUser | null>(null);
   const [realtimeCandidateData, setRealtimeCandidateData] = useState<RegisteredUser | null>(null);
   const [isLoadingReport, setIsLoadingReport] = useState<boolean>(false);
@@ -532,6 +535,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
                         (c.id || '').toLowerCase().includes(searchCandidate.toLowerCase());
     return matchSchool && matchRole && matchSearch;
   });
+
+  // Reset pagination to page 1 on search or filter changes
+  useEffect(() => {
+    setCandidatePage(1);
+  }, [searchCandidate, selectedRoleFilter, selectedSchoolFilter, candidatePageSize]);
+
+  // Candidate Pagination calculations
+  const totalCandidatePages = Math.max(1, Math.ceil(filteredCandidates.length / candidatePageSize));
+  const safeCandidatePage = Math.min(candidatePage, totalCandidatePages);
+  const startCandidateIdx = (safeCandidatePage - 1) * candidatePageSize;
+  const paginatedCandidates = useMemo(() => {
+    return filteredCandidates.slice(startCandidateIdx, startCandidateIdx + candidatePageSize);
+  }, [filteredCandidates, startCandidateIdx, candidatePageSize]);
 
   // Realtime Candidate Report Fetcher
   const handleOpenRaporModal = async (candidate: RegisteredUser) => {
@@ -1521,7 +1537,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
                         </td>
                       </tr>
                     ) : (
-                      filteredCandidates.map((c) => (
+                      paginatedCandidates.map((c) => (
                         <tr key={c.id} className={`transition-colors ${isDark ? 'hover:bg-slate-850/50' : 'hover:bg-slate-50'}`}>
                           <td className="p-4">
                             <div className="text-[10px] text-slate-400 font-semibold">{c.id}</div>
@@ -1623,6 +1639,104 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
                     )}
                   </tbody>
                 </table>
+
+                {/* Pagination Controls */}
+                {filteredCandidates.length > 0 && (
+                  <div className={`p-4 border-t flex flex-col sm:flex-row items-center justify-between gap-3 text-xs ${
+                    isDark ? 'border-slate-800 bg-slate-900/40 text-slate-400' : 'border-slate-200 bg-slate-50/70 text-slate-600'
+                  }`}>
+                    {/* Left: Summary & Page Size Selector */}
+                    <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto justify-between sm:justify-start">
+                      <span>
+                        Menampilkan <strong className={isDark ? 'text-white' : 'text-slate-900'}>{startCandidateIdx + 1}</strong> – <strong className={isDark ? 'text-white' : 'text-slate-900'}>{Math.min(startCandidateIdx + candidatePageSize, filteredCandidates.length)}</strong> dari <strong className="text-blue-500 font-extrabold">{filteredCandidates.length}</strong> peserta
+                      </span>
+
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[11px] text-slate-400">Tampilkan:</span>
+                        <select
+                          value={candidatePageSize}
+                          onChange={(e) => setCandidatePageSize(Number(e.target.value))}
+                          className={`px-2 py-1 rounded-lg border text-xs font-semibold outline-none cursor-pointer ${
+                            isDark ? 'bg-slate-900 border-slate-700 text-slate-200' : 'bg-white border-slate-200 text-slate-700'
+                          }`}
+                        >
+                          <option value={10}>10</option>
+                          <option value={20}>20</option>
+                          <option value={50}>50</option>
+                          <option value={100}>100</option>
+                        </select>
+                        <span className="text-[11px] text-slate-400">/ halaman</span>
+                      </div>
+                    </div>
+
+                    {/* Right: Page Navigation Buttons */}
+                    <div className="flex items-center gap-1.5 self-center sm:self-auto">
+                      {/* Previous Page Button */}
+                      <button
+                        onClick={() => setCandidatePage(prev => Math.max(1, prev - 1))}
+                        disabled={safeCandidatePage <= 1}
+                        className={`px-3 py-1.5 rounded-xl border flex items-center gap-1 font-bold transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${
+                          isDark 
+                            ? 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700 hover:text-white' 
+                            : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100 shadow-xs'
+                        }`}
+                        title="Halaman Sebelumnya"
+                      >
+                        <ChevronLeft className="w-3.5 h-3.5" />
+                        <span className="hidden sm:inline">Sebelumnya</span>
+                      </button>
+
+                      {/* Numeric Page Buttons */}
+                      <div className="flex items-center gap-1">
+                        {Array.from({ length: totalCandidatePages }, (_, i) => i + 1)
+                          .filter(p => {
+                            if (totalCandidatePages <= 7) return true;
+                            if (p === 1 || p === totalCandidatePages) return true;
+                            if (Math.abs(p - safeCandidatePage) <= 1) return true;
+                            return false;
+                          })
+                          .map((p, idx, arr) => {
+                            const prevP = arr[idx - 1];
+                            const isGap = prevP && p - prevP > 1;
+                            const isActive = p === safeCandidatePage;
+
+                            return (
+                              <React.Fragment key={p}>
+                                {isGap && <span className="px-1 text-slate-400">...</span>}
+                                <button
+                                  onClick={() => setCandidatePage(p)}
+                                  className={`w-8 h-8 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center ${
+                                    isActive
+                                      ? 'bg-blue-600 text-white shadow-[0_0_15px_rgba(37,99,235,0.5)] border border-blue-400/40'
+                                      : isDark
+                                      ? 'bg-slate-900 border border-slate-800 text-slate-400 hover:text-white hover:bg-slate-800'
+                                      : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
+                                  }`}
+                                >
+                                  {p}
+                                </button>
+                              </React.Fragment>
+                            );
+                          })}
+                      </div>
+
+                      {/* Next Page Button */}
+                      <button
+                        onClick={() => setCandidatePage(prev => Math.min(totalCandidatePages, prev + 1))}
+                        disabled={safeCandidatePage >= totalCandidatePages}
+                        className={`px-3 py-1.5 rounded-xl border flex items-center gap-1 font-bold transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${
+                          isDark 
+                            ? 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700 hover:text-white' 
+                            : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100 shadow-xs'
+                        }`}
+                        title="Halaman Selanjutnya"
+                      >
+                        <span className="hidden sm:inline">Selanjutnya</span>
+                        <ChevronRight className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}
