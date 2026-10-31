@@ -171,11 +171,11 @@ app.use(helmet({
 }));
 
 // ─── SECURITY: CORS – Allowlist domain ───
-const ALLOWED_ORIGINS = (process.env.CORS_ORIGINS || 'https://siapkerja.buatdigital.id,http://localhost:5173,http://localhost:3000').split(',');
+const ALLOWED_ORIGINS = (process.env.CORS_ORIGINS || 'https://siapkerja.buatdigital.id,http://localhost:5173,http://localhost:3000,https://localhost,capacitor://localhost').split(',');
 app.use(cors({
   origin: (origin, callback) => {
-    // Allow requests with no origin (Postman, server-to-server)
-    if (!origin || ALLOWED_ORIGINS.includes(origin)) {
+    // Allow requests with no origin (Postman, server-to-server) or Capacitor/Android localhost
+    if (!origin || ALLOWED_ORIGINS.includes(origin) || origin === 'https://localhost' || origin === 'capacitor://localhost') {
       callback(null, true);
     } else {
       callback(new Error('CORS: Origin tidak diizinkan.'));

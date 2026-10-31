@@ -25,6 +25,7 @@ import {
   Smartphone
 } from 'lucide-react';
 import { isRunningStandalone } from '../../utils/pwa-manager';
+import { isNativePlatform } from '../../config/api';
 
 interface MobileHomeDashboardProps {
   onSelectTest: (test: TestCategory | 'tips' | 'tryout-full') => void;
@@ -41,7 +42,7 @@ export const MobileHomeDashboard: React.FC<MobileHomeDashboardProps> = ({
   onOpenRapor,
   onOpenInstallPwa
 }) => {
-  const isStandalone = isRunningStandalone();
+  const isStandalone = isRunningStandalone() || isNativePlatform();
   const sectorTargets: Record<TargetRole, { sector: string; examples: string; roleLabel: string }> = {
     operator: {
       sector: 'Manufaktur Otomotif & Assembling',

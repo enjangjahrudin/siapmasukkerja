@@ -1,4 +1,5 @@
 import { TargetRole } from '../types';
+import { API_BASE_URL } from '../config/api';
 
 export interface UserTestRecord {
   id: string;
@@ -55,7 +56,7 @@ const STORAGE_USERS_KEY = 'siapkerja_users_database';
 const STORAGE_CURRENT_USER_KEY = 'siapkerja_active_session';
 const STORAGE_PENDING_REGISTRATION_KEY = 'siapkerja_pending_registration_otp';
 const STORAGE_PENDING_RESET_KEY = 'siapkerja_pending_reset_otp';
-const API_BASE_URL = '/api';
+// API_BASE_URL is imported from ../config/api
 
 export const initialDefaultUsers: RegisteredUser[] = [
   {

@@ -1,4 +1,5 @@
 import { TargetRole, InterviewRubric } from '../types';
+import { API_BASE_URL } from '../config/api';
 
 export interface RecruiterPersonaInfo {
   id: string;
@@ -556,7 +557,7 @@ export async function generateAdaptiveFollowUp(
 }> {
   // 1. Try Live Backend LLM / Gemini Generation if server is online
   try {
-    const res = await fetch('/api/interview/generate-followup', {
+    const res = await fetch(`${API_BASE_URL}/interview/generate-followup`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -704,7 +705,7 @@ export async function evaluateInterviewSessionWithAi(
   }
 
   try {
-    const res = await fetch('/api/interview/evaluate-session', {
+    const res = await fetch(`${API_BASE_URL}/interview/evaluate-session`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

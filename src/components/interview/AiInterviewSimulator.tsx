@@ -9,6 +9,7 @@ import {
   InterviewQuestionItem 
 } from '../../data/interview-data';
 import { sounds } from '../../utils/sound-effects';
+import { API_BASE_URL } from '../../config/api';
 import { 
   Mic, 
   MicOff, 
@@ -397,7 +398,7 @@ export const AiInterviewSimulator: React.FC<AiInterviewSimulatorProps> = ({
     setConversationStatus('ai_talking');
 
     try {
-      const response = await fetch('/api/interview/speak', {
+      const response = await fetch(`${API_BASE_URL}/interview/speak`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

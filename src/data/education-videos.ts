@@ -1,3 +1,5 @@
+import { API_BASE_URL } from '../config/api';
+
 export interface VideoCategory {
   id: string;
   label: string;
@@ -37,7 +39,7 @@ export const uploadVideoFile = async (file: File): Promise<{ success: boolean; v
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5 * 60 * 1000); // 5 minute timeout
 
-      const streamRes = await fetch('/api/upload/video-stream', {
+      const streamRes = await fetch(`${API_BASE_URL}/upload/video-stream`, {
         method: 'POST',
         headers: {
           'x-file-name': encodeURIComponent(file.name),
@@ -76,7 +78,7 @@ export const uploadVideoFile = async (file: File): Promise<{ success: boolean; v
         try {
           const controller2 = new AbortController();
           const timeoutId2 = setTimeout(() => controller2.abort(), 5 * 60 * 1000);
-          const res = await fetch('/api/upload/video', {
+          const res = await fetch(`${API_BASE_URL}/upload/video`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ fileData: base64Data, fileName: file.name }),
@@ -325,7 +327,7 @@ export const saveStoredVideos = (videos: EducationVideo[]): void => {
 
 export const fetchLiveVideos = async (): Promise<EducationVideo[]> => {
   try {
-    const res = await fetch('/api/videos');
+    const res = await fetch(`${API_BASE_URL}/videos`);
     if (res.ok) {
       const json = await res.json();
       if (json.success && Array.isArray(json.data) && json.data.length > 0) {
@@ -345,7 +347,7 @@ export const addStoredVideo = async (video: EducationVideo): Promise<EducationVi
   saveStoredVideos(updated);
 
   try {
-    await fetch('/api/videos', {
+    await fetch(`${API_BASE_URL}/videos`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(video)
@@ -366,7 +368,7 @@ export const updateStoredVideo = async (video: EducationVideo): Promise<Educatio
   saveStoredVideos(current);
 
   try {
-    await fetch('/api/videos', {
+    await fetch(`${API_BASE_URL}/videos`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(video)
@@ -382,7 +384,7 @@ export const deleteStoredVideo = async (id: string): Promise<EducationVideo[]> =
   saveStoredVideos(updated);
 
   try {
-    await fetch(`/api/videos/${id}`, { method: 'DELETE' });
+    await fetch(`${API_BASE_URL}/videos/${id}`, { method: 'DELETE' });
   } catch (err) {}
 
   return updated;

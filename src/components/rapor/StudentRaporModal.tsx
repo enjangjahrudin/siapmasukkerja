@@ -19,6 +19,7 @@ import confetti from 'canvas-confetti';
 import { sounds } from '../../utils/sound-effects';
 import { useTheme } from '../../utils/theme-context';
 import { RegisteredUser } from '../../utils/auth-storage';
+import { API_BASE_URL } from '../../config/api';
 import { 
   downloadIndividualStudentReportPdf,
   calculateCompositeScore,
@@ -75,7 +76,7 @@ export const StudentRaporModal: React.FC<StudentRaporModalProps> = ({
     }
 
     // Fetch fresh details from MySQL
-    fetch(`/api/user/my-report/${student.id}`)
+    fetch(`${API_BASE_URL}/user/my-report/${student.id}`)
       .then(res => res.json())
       .then(json => {
         if (json.success && json.candidate) {

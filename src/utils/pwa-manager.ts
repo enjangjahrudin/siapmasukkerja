@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { isNativePlatform } from '../config/api';
 
 // Global reference for BeforeInstallPromptEvent
 let deferredPrompt: any = null;
@@ -39,12 +40,16 @@ export const registerServiceWorker = () => {
 };
 
 /**
- * Check if running in standalone PWA mode (already installed)
+ * Check if running in standalone PWA mode (already installed) or native Android / iOS app
  */
 export const isRunningStandalone = (): boolean => {
   if (typeof window === 'undefined') return false;
+  if (isNativePlatform()) {
+    return true;
+  }
   return (
     window.matchMedia('(display-mode: standalone)').matches ||
+    window.matchMedia('(display-mode: fullscreen)').matches ||
     (window.navigator as any).standalone === true ||
     document.referrer.includes('android-app://')
   );
@@ -109,10 +114,12 @@ export const usePwaInstall = () => {
     return await promptInstallApp();
   };
 
+  const isNative = isNativePlatform();
+
   return {
-    isStandalone,
-    canInstall: hasPrompt || (!isStandalone && isIos),
-    hasNativePrompt: hasPrompt,
+    isStandalone: isStandalone || isNative,
+    canInstall: !isNative && (hasPrompt || (!isStandalone && isIos)),
+    hasNativePrompt: !isNative && hasPrompt,
     isIos,
     install
   };

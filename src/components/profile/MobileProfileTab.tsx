@@ -38,6 +38,7 @@ import { sounds } from '../../utils/sound-effects';
 import { SchoolPicker } from '../common/SchoolPicker';
 import { useTheme } from '../../utils/theme-context';
 import { isRunningStandalone } from '../../utils/pwa-manager';
+import { isNativePlatform } from '../../config/api';
 import { 
   RegisteredUser, 
   getActiveSession, 
@@ -1116,8 +1117,8 @@ export const MobileProfileTab: React.FC<MobileProfileTabProps> = ({
         </div>
       </div>
 
-      {/* PWA Install Action */}
-      {!isRunningStandalone() && (
+      {/* PWA Install Action - Hidden on Native Android / iOS App or Standalone PWA */}
+      {!isRunningStandalone() && !isNativePlatform() && (
         <div className="pt-1">
           <button
             onClick={onOpenInstallPwa}

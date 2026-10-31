@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { API_BASE_URL } from '../../config/api';
 import { 
   LayoutDashboard, 
   Users, 
@@ -48,8 +49,18 @@ import {
   Printer,
   FileText,
   Award,
-  Pencil
+  Pencil,
+  Calendar,
+  Bell,
+  MessageSquare,
+  Crown,
+  ChevronsLeft,
+  ChevronsRight,
+  Settings,
+  BarChart3,
+  ChevronDown
 } from 'lucide-react';
+import { NexoraOverviewWidgets } from './NexoraAdminWidgets';
 import { TargetRole } from '../../types';
 import { getStoredUsers, RegisteredUser, saveUser, changeUserPassword } from '../../utils/auth-storage';
 import { EditCandidateModal } from './EditCandidateModal';
@@ -475,7 +486,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
   const fetchLiveCandidates = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch('/api/users');
+      const res = await fetch(`${API_BASE_URL}/users`);
       if (res.ok) {
         const json = await res.json();
         if (json.success && Array.isArray(json.data)) {
@@ -528,7 +539,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
     setRealtimeCandidateData(candidate);
     setIsLoadingReport(true);
     try {
-      const res = await fetch(`/api/admin/candidate-report/${candidate.id}`);
+      const res = await fetch(`${API_BASE_URL}/admin/candidate-report/${candidate.id}`);
       if (res.ok) {
         const json = await res.json();
         if (json.success && json.candidate) {
@@ -545,7 +556,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
   const handleDeleteCandidate = async (id: string) => {
     if (window.confirm('Apakah Anda yakin ingin menghapus data peserta ini dari database?')) {
       try {
-        await fetch(`/api/users/${id}`, { method: 'DELETE' });
+        await fetch(`${API_BASE_URL}/users/${id}`, { method: 'DELETE' });
       } catch (e) {}
 
       const updated = candidates.filter(c => c.id !== id);
@@ -712,7 +723,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
   const fetchPartnerSchools = async () => {
     setIsLoadingSchools(true);
     try {
-      const res = await fetch('/api/admin/partner-schools');
+      const res = await fetch(`${API_BASE_URL}/admin/partner-schools`);
       if (res.ok) {
         const json = await res.json();
         if (json.success && Array.isArray(json.schools)) {
@@ -769,7 +780,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
     };
 
     try {
-      await fetch('/api/admin/partner-schools/coordinator', {
+      await fetch(`${API_BASE_URL}/admin/partner-schools/coordinator`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -928,352 +939,335 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
   };
 
   return (
-    <div className={`min-h-screen flex flex-col font-sans transition-colors duration-200 ${
-      isDark ? 'bg-[#090d16] text-slate-100' : 'bg-slate-100 text-slate-900'
+    <div className={`min-h-screen h-screen flex overflow-hidden font-sans transition-colors duration-200 ${
+      isDark ? 'bg-[#070a12] text-slate-100' : 'bg-slate-100 text-slate-900'
     }`}>
       
-      {/* Top Admin Global Bar */}
-      <header className={`h-16 border-b px-4 sm:px-6 flex items-center justify-between sticky top-0 z-40 backdrop-blur-md transition-colors ${
-        isDark ? 'bg-[#0d1322]/90 border-slate-800/90' : 'bg-white/95 border-slate-200 shadow-xs'
-      }`}>
+      {/* ─── LEFT NEXORA SIDEBAR NAVIGATION (FULL HEIGHT) ─── */}
+      <aside className={`border-r flex flex-col justify-between p-3.5 shrink-0 hidden md:flex transition-all duration-300 select-none ${
+        isSidebarCollapsed ? 'w-20' : 'w-64'
+      } ${isDark ? 'bg-[#0a0d16] border-white/[0.06]' : 'bg-white border-slate-200'}`}>
         
-        {/* Left: Sidebar Toggle Button & Brand Logo */}
-        <div className="flex items-center gap-3">
-          
-          <button
-            onClick={() => setIsSidebarCollapsed(prev => !prev)}
-            className={`p-2 rounded-xl border transition-colors flex items-center justify-center ${
-              isDark 
-                ? 'bg-slate-800/80 border-slate-700 text-slate-300 hover:text-white hover:bg-slate-700' 
-                : 'bg-slate-100 border-slate-200 text-slate-700 hover:bg-slate-200'
-            }`}
-            title={isSidebarCollapsed ? 'Buka Sidebar Penuh' : 'Sembunyikan Sidebar (Hanya Ikon)'}
-          >
-            {isSidebarCollapsed ? <PanelLeftOpen className="w-4 h-4 text-sky-400" /> : <PanelLeftClose className="w-4 h-4" />}
-          </button>
-
-          <AppLogo size="md" isDark={isDark} showText={true} />
-
-          <div className={`hidden lg:flex items-center gap-2 pl-4 border-l text-xs ${isDark ? 'border-slate-800' : 'border-slate-200'}`}>
-            <span className={`inline-block w-2.5 h-2.5 rounded-full ${serverConnection === 'connected' ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
-            <span className={isDark ? 'text-slate-400' : 'text-slate-600'}>
-              MySQL: <strong className={serverConnection === 'connected' ? 'text-emerald-500 font-bold' : 'text-amber-500'}>
-                {serverConnection === 'connected' ? 'Live Realtime' : 'Cache'}
-              </strong>
-            </span>
-            <span className="text-[10px] text-slate-400 font-semibold ml-0.5">({lastSyncTime})</span>
-          </div>
-        </div>
-
-        {/* Center: Quick Search */}
-        <div className="hidden md:flex items-center relative w-72 lg:w-80">
-          <Search className={`w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 ${isDark ? 'text-slate-400' : 'text-slate-500'}`} />
-          <input
-            type="text"
-            value={searchCandidate}
-            onChange={(e) => setSearchCandidate(e.target.value)}
-            placeholder="Cari nama, SMK, no WA, ID..."
-            className={`w-full pl-10 pr-4 py-2 rounded-xl text-xs outline-none transition-colors border font-sans ${
-              isDark 
-                ? 'bg-slate-900/80 border-slate-800 text-white placeholder-slate-500 focus:border-brand-500' 
-                : 'bg-slate-50 border-slate-300 text-slate-900 placeholder-slate-400 focus:border-brand-600 shadow-xs'
-            }`}
-          />
-        </div>
-
-        {/* Right: Theme Toggle, Switch to User App & Admin Profile */}
-        <div className="flex items-center gap-2.5">
-          
-          {/* Theme Toggle Sun / Moon */}
-          <button
-            onClick={toggleTheme}
-            className={`p-2 rounded-xl border transition-colors flex items-center justify-center ${
-              isDark 
-                ? 'bg-slate-800 border-slate-700 text-amber-300 hover:bg-slate-750' 
-                : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100 shadow-xs'
-            }`}
-            title={isDark ? 'Beralih ke Mode Terang (Light Mode)' : 'Beralih ke Mode Gelap (Dark Mode)'}
-          >
-            {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-          </button>
-
-          <button
-            onClick={onSwitchToMobileApp}
-            className="px-3 py-2 bg-gradient-to-r from-brand-600 via-sky-500 to-teal-400 hover:from-brand-500 text-slate-950 font-extrabold text-xs rounded-xl shadow-md shadow-brand-500/20 flex items-center gap-1.5 transition-all transform active:scale-95"
-            title="Buka tampilan smartphone aplikasi pengguna"
-          >
-            <Smartphone className="w-4 h-4" />
-            <span className="hidden sm:inline">Tampilan HP</span>
-          </button>
-
-          <div className={`flex items-center gap-2 pl-2 sm:pl-3 border-l ${isDark ? 'border-slate-800' : 'border-slate-200'}`}>
-            <div className="w-8 h-8 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center font-bold text-xs text-amber-400">
-              AD
-            </div>
-            <div className="hidden xl:block text-left">
-              <span className={`text-xs font-bold block leading-tight ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>Super Admin</span>
-              <span className="text-[10px] text-slate-500">Divisi Rekrutmen</span>
+        {/* Top Brand + Collapse Chevron */}
+        <div className="space-y-6">
+          <div className={`flex items-center ${isSidebarCollapsed ? 'justify-center' : 'justify-between px-1.5'} pt-1`}>
+            <div className="flex items-center gap-2.5 min-w-0">
+              <AppLogo size="sm" isDark={isDark} showText={!isSidebarCollapsed} />
             </div>
 
             <button
-              onClick={() => {
-                setAdminOldPassword('');
-                setAdminNewPassword('');
-                setAdminConfirmPassword('');
-                setAdminPassStatus({ type: 'idle', message: '' });
-                setIsAdminPasswordModalOpen(true);
-              }}
-              className={`p-1.5 px-2 rounded-xl border text-xs font-bold transition-all flex items-center gap-1.5 ${
+              onClick={() => setIsSidebarCollapsed(prev => !prev)}
+              className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
                 isDark 
-                  ? 'bg-amber-500/15 border-amber-500/30 text-amber-300 hover:bg-amber-500/25' 
-                  : 'bg-amber-50 border-amber-300 text-amber-800 hover:bg-amber-100 shadow-xs'
+                  ? 'text-slate-400 hover:text-white hover:bg-white/[0.06]' 
+                  : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
               }`}
-              title="Ganti Kata Sandi Super Admin"
+              title={isSidebarCollapsed ? 'Perluas Sidebar' : 'Kecilkan Sidebar'}
             >
-              <KeyRound className="w-3.5 h-3.5 text-amber-500" />
-              <span className="hidden md:inline text-[11px]">Ganti Sandi</span>
+              {isSidebarCollapsed ? <ChevronsRight className="w-4 h-4 text-blue-400" /> : <ChevronsLeft className="w-4 h-4" />}
             </button>
-
-            {onLogoutAdmin && (
-              <button
-                onClick={onLogoutAdmin}
-                className={`p-1.5 rounded-lg border ml-0.5 transition-colors ${
-                  isDark ? 'text-red-400 border-red-900/40 hover:bg-red-950/60' : 'text-red-600 border-red-200 hover:bg-red-50'
-                }`}
-                title="Keluar Admin"
-              >
-                <LogOut className="w-3.5 h-3.5" />
-              </button>
-            )}
           </div>
+
+          {/* Nexora Navigation Menu Items */}
+          <nav className="space-y-1.5">
+            {[
+              { id: 'overview', label: 'Dashboard', icon: LayoutDashboard },
+              { id: 'candidates', label: 'Peserta & Rapor', icon: Users, badge: `${candidateListOnly.length}`, badgeColor: 'blue' },
+              { id: 'schools', label: 'Sekolah Mitra BKK', icon: GraduationCap, badge: `${partnerSchools.length}`, badgeColor: 'teal' },
+              { id: 'questions', label: 'Bank Soal 1.000+', icon: Database },
+              { id: 'interview-ai', label: 'AI Interview Log', icon: Mic },
+              { id: 'videos', label: 'Video Edukasi', icon: Video, badge: `${videoList.length}`, badgeColor: 'purple' },
+              { id: 'finance', label: 'Keuangan & QRIS', icon: CreditCard },
+              { id: 'system', label: 'Pengaturan Server', icon: Settings },
+            ].map((item) => {
+              const Icon = item.icon;
+              const isActive = adminTab === item.id;
+
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => setAdminTab(item.id as any)}
+                  title={isSidebarCollapsed ? item.label : undefined}
+                  className={`w-full flex items-center rounded-xl text-xs font-semibold transition-all duration-200 relative cursor-pointer ${
+                    isSidebarCollapsed 
+                      ? 'justify-center p-3' 
+                      : 'justify-between px-3.5 py-2.5 text-left'
+                  } ${
+                    isActive
+                      ? isDark 
+                        ? 'bg-gradient-to-r from-[#2563eb] via-[#1d4ed8]/85 to-[#1e3a8a]/30 text-white border border-blue-400/30 shadow-[0_0_25px_rgba(37,99,235,0.4)] font-bold' 
+                        : 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/20 font-bold'
+                      : isDark 
+                        ? 'text-slate-400 hover:text-slate-100 hover:bg-white/[0.04]' 
+                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                  }`}
+                >
+                  <div className={`flex items-center gap-3 ${isSidebarCollapsed ? 'justify-center' : 'text-left min-w-0'}`}>
+                    <Icon className={`w-4 h-4 shrink-0 ${
+                      isActive 
+                        ? 'text-white drop-shadow-[0_0_6px_rgba(255,255,255,0.6)]' 
+                        : isDark ? 'text-slate-400' : 'text-slate-500'
+                    }`} />
+                    {!isSidebarCollapsed && <span className="truncate">{item.label}</span>}
+                  </div>
+
+                  {/* Pill Counter Badge (Nexora style) */}
+                  {!isSidebarCollapsed && item.badge && (
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ml-1.5 ${
+                      isActive 
+                        ? 'bg-white/20 text-white' 
+                        : item.badgeColor === 'purple'
+                        ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
+                        : item.badgeColor === 'teal'
+                        ? 'bg-teal-500/20 text-teal-300 border border-teal-500/30'
+                        : isDark
+                        ? 'bg-slate-800 text-slate-300 border border-white/10'
+                        : 'bg-slate-100 text-slate-700 border border-slate-200'
+                    }`}>
+                      {item.badge}
+                    </span>
+                  )}
+
+                  {isSidebarCollapsed && item.badge && (
+                    <span className="absolute top-2 right-2 w-1.5 h-1.5 rounded-full bg-purple-400" />
+                  )}
+                </button>
+              );
+            })}
+          </nav>
         </div>
 
-      </header>
+        {/* Bottom Section: Nexora Pro Card + Dark/Light Theme Selector */}
+        <div className="space-y-3">
+          {!isSidebarCollapsed ? (
+            <div className={`rounded-2xl p-4 text-center relative overflow-hidden border transition-all ${
+              isDark 
+                ? 'bg-gradient-to-b from-[#171930] via-[#121528] to-[#0d101d] border-indigo-500/25 shadow-[0_10px_30px_rgba(0,0,0,0.5)]' 
+                : 'bg-gradient-to-b from-indigo-50 to-blue-50 border-indigo-200'
+            }`}>
+              <div className="absolute -top-10 left-1/2 -translate-x-1/2 w-28 h-28 bg-purple-500/20 rounded-full blur-2xl pointer-events-none" />
+              <div className="w-9 h-9 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center mx-auto mb-2.5 text-amber-400">
+                <Crown className="w-4 h-4" />
+              </div>
+              <h4 className={`text-xs font-extrabold ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                Rekap Kolektif BKK
+              </h4>
+              <p className={`text-[10px] mt-1 leading-relaxed ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+                Unduh laporan nilai seleksi seluruh siswa SMK dalam format PDF resmi.
+              </p>
+              <button
+                onClick={() => openSignerModal({
+                  type: 'collective',
+                  schoolName: selectedSchoolFilter,
+                  students: filteredCandidates
+                })}
+                className="mt-3 w-full py-2 px-3 rounded-xl text-xs font-extrabold text-white bg-gradient-to-r from-purple-600 via-indigo-500 to-blue-500 hover:from-purple-500 hover:to-blue-400 shadow-[0_0_20px_rgba(99,102,241,0.4)] transition-all transform active:scale-95 cursor-pointer"
+              >
+                Cetak Rekap PDF
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => openSignerModal({
+                type: 'collective',
+                schoolName: selectedSchoolFilter,
+                students: filteredCandidates
+              })}
+              className="w-full p-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-blue-500 text-white flex items-center justify-center shadow-md cursor-pointer"
+              title="Cetak Rekap Kolektif PDF"
+            >
+              <Crown className="w-4 h-4" />
+            </button>
+          )}
 
-      {/* Main Admin Workspace with Collapsible Sidebar */}
-      <div className="flex-1 flex overflow-hidden">
-        
-        {/* Left Collapsible Sidebar Navigation */}
-        <aside className={`border-r flex flex-col justify-between p-3 shrink-0 hidden md:flex transition-all duration-300 ${
-          isSidebarCollapsed ? 'w-20' : 'w-64'
-        } ${isDark ? 'bg-[#0b101d] border-slate-800/90' : 'bg-white border-slate-200'}`}>
+          {/* Theme Selector Pill (Nexora Bottom-Left Style) */}
+          <button
+            onClick={toggleTheme}
+            className={`w-full px-3.5 py-2.5 rounded-xl border text-xs font-semibold flex items-center justify-between transition-colors cursor-pointer ${
+              isDark 
+                ? 'bg-[#101422] border-white/[0.08] text-slate-200 hover:bg-[#161b2e]' 
+                : 'bg-slate-100 border-slate-200 text-slate-700 hover:bg-slate-200'
+            }`}
+            title="Ubah Tema Tampilan"
+          >
+            <div className="flex items-center gap-2">
+              {isDark ? <Moon className="w-4 h-4 text-slate-300" /> : <Sun className="w-4 h-4 text-amber-500" />}
+              {!isSidebarCollapsed && <span>{isDark ? 'Dark' : 'Light'}</span>}
+            </div>
+            {!isSidebarCollapsed && <ChevronDown className="w-3.5 h-3.5 text-slate-400" />}
+          </button>
+        </div>
+
+      </aside>
+
+      {/* ─── RIGHT MAIN COLUMN (TOPBAR + SCROLLABLE CONTENT) ─── */}
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+
+        {/* Top Nexora Header Bar */}
+        <header className={`h-16 border-b px-4 sm:px-7 flex items-center justify-between shrink-0 z-30 transition-colors ${
+          isDark ? 'bg-[#0a0d16]/95 border-white/[0.06]' : 'bg-white/95 border-slate-200 shadow-xs'
+        }`}>
           
-          <div className="space-y-5">
-            
-            {/* Group 1: Monitoring */}
-            <div>
-              {!isSidebarCollapsed && (
-                <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 px-3 block mb-2 text-left">
-                  Monitoring & Database
-                </span>
-              )}
-              <nav className="space-y-1">
-                {[
-                  { id: 'overview', label: 'Ringkasan Utama', icon: LayoutDashboard, badge: 'Live' },
-                  { id: 'candidates', label: 'Data Peserta & Nilai', icon: Users, badge: `${candidateListOnly.length}` },
-                  { id: 'schools', label: 'Sekolah Kerjasama', icon: GraduationCap, badge: `${partnerSchools.length}` },
-                  { id: 'questions', label: 'Bank Soal 1.000+', icon: Database, badge: '1.000+' },
-                  { id: 'interview-ai', label: 'Log AI Interview', icon: Mic, badge: 'Audio' },
-                ].map((item) => {
-                  const Icon = item.icon;
-                  const isActive = adminTab === item.id;
-
-                  return (
-                    <button
-                      key={item.id}
-                      onClick={() => setAdminTab(item.id as any)}
-                      title={isSidebarCollapsed ? `${item.label} (${item.badge})` : undefined}
-                      className={`w-full flex items-center rounded-xl text-xs font-bold transition-all relative ${
-                        isSidebarCollapsed 
-                          ? 'justify-center p-3' 
-                          : 'justify-between px-3 py-2.5 text-left'
-                      } ${
-                        isActive
-                          ? isDark 
-                            ? 'bg-brand-600/20 text-sky-300 border border-brand-500/40 shadow-xs' 
-                            : 'bg-brand-50 text-brand-900 border border-brand-300 shadow-xs font-black'
-                          : isDark 
-                            ? 'text-slate-400 hover:text-slate-200 hover:bg-slate-850' 
-                            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-                      }`}
-                    >
-                      <div className={`flex items-center gap-2.5 ${isSidebarCollapsed ? 'justify-center' : 'text-left'}`}>
-                        <Icon className={`w-4 h-4 shrink-0 ${isActive ? (isDark ? 'text-sky-400' : 'text-brand-600') : 'text-slate-400'}`} />
-                        {!isSidebarCollapsed && <span className="truncate">{item.label}</span>}
-                      </div>
-
-                      {/* Mini Compact Badge (Does not overflow) */}
-                      {!isSidebarCollapsed && item.badge && (
-                        <span className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded-full shrink-0 ml-1.5 border ${
-                          isActive 
-                            ? isDark ? 'bg-sky-500/20 text-sky-300 border-sky-500/40' : 'bg-brand-600 text-white border-brand-700' 
-                            : isDark ? 'bg-slate-800 text-slate-400 border-slate-700' : 'bg-slate-100 text-slate-600 border-slate-200'
-                        }`}>
-                          {item.badge}
-                        </span>
-                      )}
-
-                      {/* Dot for collapsed mode */}
-                      {isSidebarCollapsed && (
-                        <span className={`absolute top-2 right-2 w-1.5 h-1.5 rounded-full ${isActive ? 'bg-sky-400' : 'bg-slate-600'}`} />
-                      )}
-                    </button>
-                  );
-                })}
-              </nav>
+          {/* Left: Search Input with ⌘K badge */}
+          <div className="flex items-center gap-3 flex-1 max-w-md">
+            <div className="md:hidden">
+              <AppLogo size="sm" isDark={isDark} showText={false} />
             </div>
 
-            {/* Group 2: Edukasi & Konten */}
-            <div>
-              {!isSidebarCollapsed && (
-                <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 px-3 block mb-2 text-left">
-                  Konten Edukasi
-                </span>
-              )}
-              <nav className="space-y-1">
-                {[
-                  { id: 'videos', label: 'Video Edukasi', icon: Video, badge: `${videoList.length}` },
-                ].map((item) => {
-                  const Icon = item.icon;
-                  const isActive = adminTab === item.id;
-
-                  return (
-                    <button
-                      key={item.id}
-                      onClick={() => setAdminTab(item.id as any)}
-                      title={isSidebarCollapsed ? `${item.label} (${item.badge})` : undefined}
-                      className={`w-full flex items-center rounded-xl text-xs font-bold transition-all relative ${
-                        isSidebarCollapsed 
-                          ? 'justify-center p-3' 
-                          : 'justify-between px-3 py-2.5 text-left'
-                      } ${
-                        isActive
-                          ? isDark 
-                            ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-xs' 
-                            : 'bg-amber-50 text-amber-900 border border-amber-300 shadow-xs font-black'
-                          : isDark 
-                            ? 'text-slate-400 hover:text-slate-200 hover:bg-slate-850' 
-                            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-                      }`}
-                    >
-                      <div className={`flex items-center gap-2.5 ${isSidebarCollapsed ? 'justify-center' : 'text-left'}`}>
-                        <Icon className={`w-4 h-4 shrink-0 ${isActive ? (isDark ? 'text-amber-400' : 'text-amber-600') : 'text-slate-400'}`} />
-                        {!isSidebarCollapsed && <span className="truncate">{item.label}</span>}
-                      </div>
-
-                      {!isSidebarCollapsed && item.badge && (
-                        <span className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded-full shrink-0 ml-1.5 border ${
-                          isActive 
-                            ? isDark ? 'bg-amber-500/20 text-amber-300 border-amber-500/40' : 'bg-amber-600 text-white border-amber-700' 
-                            : isDark ? 'bg-slate-800 text-slate-400 border-slate-700' : 'bg-slate-100 text-slate-600 border-slate-200'
-                        }`}>
-                          {item.badge}
-                        </span>
-                      )}
-
-                      {isSidebarCollapsed && (
-                        <span className={`absolute top-2 right-2 w-1.5 h-1.5 rounded-full ${isActive ? 'bg-amber-400' : 'bg-slate-600'}`} />
-                      )}
-                    </button>
-                  );
-                })}
-              </nav>
-            </div>
-
-            {/* Group 3: Business & System */}
-            <div>
-              {!isSidebarCollapsed && (
-                <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 px-3 block mb-2 text-left">
-                  Bisnis & Server
-                </span>
-              )}
-              <nav className="space-y-1">
-                {[
-                  { id: 'finance', label: 'Transaksi & Token', icon: CreditCard, badge: 'QRIS' },
-                  { id: 'system', label: 'Server & Latency', icon: Activity, badge: '98ms' },
-                ].map((item) => {
-                  const Icon = item.icon;
-                  const isActive = adminTab === item.id;
-
-                  return (
-                    <button
-                      key={item.id}
-                      onClick={() => setAdminTab(item.id as any)}
-                      title={isSidebarCollapsed ? `${item.label} (${item.badge})` : undefined}
-                      className={`w-full flex items-center rounded-xl text-xs font-bold transition-all relative ${
-                        isSidebarCollapsed 
-                          ? 'justify-center p-3' 
-                          : 'justify-between px-3 py-2.5 text-left'
-                      } ${
-                        isActive
-                          ? isDark 
-                            ? 'bg-brand-600/20 text-sky-300 border border-brand-500/40' 
-                            : 'bg-brand-50 text-brand-900 border border-brand-300'
-                          : isDark 
-                            ? 'text-slate-400 hover:text-slate-200 hover:bg-slate-850' 
-                            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-                      }`}
-                    >
-                      <div className={`flex items-center gap-2.5 ${isSidebarCollapsed ? 'justify-center' : 'text-left'}`}>
-                        <Icon className={`w-4 h-4 shrink-0 ${isActive ? (isDark ? 'text-sky-400' : 'text-brand-600') : 'text-slate-400'}`} />
-                        {!isSidebarCollapsed && <span className="truncate">{item.label}</span>}
-                      </div>
-
-                      {/* Mini Compact Badge */}
-                      {!isSidebarCollapsed && item.badge && (
-                        <span className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded-full shrink-0 ml-1.5 border ${
-                          isDark ? 'bg-slate-800 text-slate-400 border-slate-700' : 'bg-slate-100 text-slate-600 border-slate-200'
-                        }`}>
-                          {item.badge}
-                        </span>
-                      )}
-
-                      {/* Dot for collapsed mode */}
-                      {isSidebarCollapsed && (
-                        <span className={`absolute top-2 right-2 w-1.5 h-1.5 rounded-full ${isActive ? 'bg-sky-400' : 'bg-slate-600'}`} />
-                      )}
-                    </button>
-                  );
-                })}
-              </nav>
+            <div className="relative w-full">
+              <Search className={`w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 ${isDark ? 'text-slate-400' : 'text-slate-500'}`} />
+              <input
+                type="text"
+                value={searchCandidate}
+                onChange={(e) => {
+                  setSearchCandidate(e.target.value);
+                  if (adminTab === 'overview' && e.target.value.trim().length > 1) {
+                    setAdminTab('candidates');
+                  }
+                }}
+                placeholder="Search for anything... (nama, SMK, NPSN, WA)"
+                className={`w-full pl-10 pr-14 py-2 rounded-xl text-xs outline-none transition-all border ${
+                  isDark 
+                    ? 'bg-[#121624] border-white/[0.08] text-white placeholder-slate-500 focus:border-blue-500/60' 
+                    : 'bg-slate-100 border-slate-200 text-slate-900 placeholder-slate-400 focus:border-blue-500'
+                }`}
+              />
+              <span className={`hidden sm:inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold absolute right-2.5 top-1/2 -translate-y-1/2 border ${
+                isDark ? 'bg-[#1a2035] border-white/10 text-slate-400' : 'bg-white border-slate-200 text-slate-500'
+              }`}>
+                ⌘ K
+              </span>
             </div>
           </div>
 
-          {/* Quick Info Box / Footer Toggle */}
-          {!isSidebarCollapsed ? (
-            <div className={`border rounded-2xl p-3 space-y-1.5 text-left transition-colors ${
-              isDark ? 'bg-slate-900/80 border-slate-800' : 'bg-slate-50 border-slate-200'
-            }`}>
-              <div className="flex items-center justify-between text-[11px]">
-                <span className="text-slate-400">Terdaftar:</span>
-                <strong className="text-emerald-500 font-bold">{candidateListOnly.length} Siswa</strong>
-              </div>
-              <div className="flex items-center justify-between text-[11px]">
-                <span className="text-slate-400">Video Edukasi:</span>
-                <strong className="text-amber-500 font-bold">{videoList.length} Materi</strong>
-              </div>
-              <div className="flex items-center justify-between text-[11px]">
-                <span className="text-slate-400">Database:</span>
-                <strong className="text-sky-500 font-bold">MySQL Live</strong>
-              </div>
-            </div>
-          ) : (
-            <div className="text-center">
-              <span className="text-[10px] font-bold text-emerald-500 bg-emerald-500/10 py-1 px-1.5 rounded-lg block">
+          {/* Right: Date Range Pill, Notification Badges, Mobile View & Admin Profile */}
+          <div className="flex items-center gap-2.5 sm:gap-3.5">
+            
+            {/* Date / Live Sync Status Selector */}
+            <button
+              onClick={fetchLiveCandidates}
+              disabled={isLoading}
+              className={`hidden lg:flex items-center gap-2.5 px-3.5 py-2 rounded-xl border text-xs font-medium transition-colors cursor-pointer ${
+                isDark 
+                  ? 'bg-[#121624] border-white/[0.08] text-slate-200 hover:bg-[#171c2e]' 
+                  : 'bg-slate-100 border-slate-200 text-slate-700 hover:bg-slate-200'
+              }`}
+              title="Klik untuk sinkronisasi langsung dengan MySQL VPS"
+            >
+              <Calendar className={`w-4 h-4 ${isLoading ? 'animate-spin text-blue-400' : 'text-slate-400'}`} />
+              <span>
+                {new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })} – Live MySQL ({lastSyncTime})
+              </span>
+              <span className={`w-2 h-2 rounded-full ${serverConnection === 'connected' ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
+              <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+            </button>
+
+            {/* Bell Notification Icon with Red Badge */}
+            <button
+              onClick={() => setAdminTab('candidates')}
+              className={`relative p-2.5 rounded-xl border transition-colors cursor-pointer ${
+                isDark 
+                  ? 'bg-[#121624] border-white/[0.08] text-slate-300 hover:text-white hover:bg-[#171c2e]' 
+                  : 'bg-slate-100 border-slate-200 text-slate-700 hover:bg-slate-200'
+              }`}
+              title={`${candidateListOnly.length} Peserta Terdaftar`}
+            >
+              <Bell className="w-4 h-4" />
+              <span className="absolute -top-1 -right-1 px-1.5 py-0.2 min-w-[18px] h-[18px] rounded-full bg-rose-500 text-white text-[9px] font-extrabold flex items-center justify-center shadow-md">
                 {candidateListOnly.length}
               </span>
+            </button>
+
+            {/* Video / Messages Icon with Purple Badge */}
+            <button
+              onClick={() => setAdminTab('videos')}
+              className={`relative p-2.5 rounded-xl border transition-colors cursor-pointer hidden sm:flex ${
+                isDark 
+                  ? 'bg-[#121624] border-white/[0.08] text-slate-300 hover:text-white hover:bg-[#171c2e]' 
+                  : 'bg-slate-100 border-slate-200 text-slate-700 hover:bg-slate-200'
+              }`}
+              title={`${videoList.length} Video Edukasi`}
+            >
+              <MessageSquare className="w-4 h-4" />
+              <span className="absolute -top-1 -right-1 px-1.5 py-0.2 min-w-[18px] h-[18px] rounded-full bg-purple-600 text-white text-[9px] font-extrabold flex items-center justify-center shadow-md">
+                {videoList.length}
+              </span>
+            </button>
+
+            {/* Switch to Mobile App Button */}
+            <button
+              onClick={onSwitchToMobileApp}
+              className={`px-3 py-2 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                isDark
+                  ? 'bg-blue-600/20 border-blue-500/40 text-blue-300 hover:bg-blue-600/30'
+                  : 'bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100'
+              }`}
+              title="Buka tampilan aplikasi siswa"
+            >
+              <Smartphone className="w-3.5 h-3.5" />
+              <span className="hidden xl:inline">Tampilan HP</span>
+            </button>
+
+            {/* Admin Profile Section (Nexora Top-Right Style) */}
+            <div className={`flex items-center gap-2.5 pl-2.5 sm:pl-3.5 border-l ${isDark ? 'border-white/[0.08]' : 'border-slate-200'}`}>
+              <div className="relative">
+                <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-blue-600 via-indigo-500 to-purple-500 flex items-center justify-center font-extrabold text-xs text-white shadow-md">
+                  SA
+                </div>
+                <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-400 ring-2 ring-[#0a0d16]" />
+              </div>
+
+              <div className="hidden xl:block text-left">
+                <span className={`text-xs font-bold block leading-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                  Super Admin
+                </span>
+                <span className="text-[10px] text-slate-400">Administrator</span>
+              </div>
+
+              <button
+                onClick={() => {
+                  setAdminOldPassword('');
+                  setAdminNewPassword('');
+                  setAdminConfirmPassword('');
+                  setAdminPassStatus({ type: 'idle', message: '' });
+                  setIsAdminPasswordModalOpen(true);
+                }}
+                className={`p-2 rounded-xl border transition-colors cursor-pointer ${
+                  isDark 
+                    ? 'bg-[#121624] border-white/[0.08] text-amber-400 hover:bg-[#171c2e]' 
+                    : 'bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100'
+                }`}
+                title="Ganti Kata Sandi Super Admin"
+              >
+                <KeyRound className="w-3.5 h-3.5" />
+              </button>
+
+              {onLogoutAdmin && (
+                <button
+                  onClick={onLogoutAdmin}
+                  className={`p-2 rounded-xl border transition-colors cursor-pointer ${
+                    isDark 
+                      ? 'bg-rose-500/10 border-rose-500/25 text-rose-400 hover:bg-rose-500/20' 
+                      : 'bg-rose-50 border-rose-200 text-rose-600 hover:bg-rose-100'
+                  }`}
+                  title="Keluar Admin"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                </button>
+              )}
             </div>
-          )}
 
-        </aside>
+          </div>
 
-        {/* Right Main Content Area */}
-        <main className="flex-1 overflow-y-auto p-3 sm:p-6 lg:p-8 space-y-5 sm:space-y-6">
+        </header>
+
+        {/* Scrollable Main Content Area */}
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-7 space-y-5 sm:space-y-6">
           
           {/* Mobile Top Tab Navigation Bar (Visible only on smartphones) */}
           <div className="flex md:hidden items-center gap-1.5 overflow-x-auto pb-2 border-b border-slate-200 dark:border-slate-800 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden shrink-0">
             {[
-              { id: 'overview', label: 'Ringkasan', icon: LayoutDashboard },
+              { id: 'overview', label: 'Dashboard', icon: LayoutDashboard },
               { id: 'candidates', label: `Peserta (${candidateListOnly.length})`, icon: Users },
               { id: 'schools', label: `Sekolah (${partnerSchools.length})`, icon: GraduationCap },
               { id: 'videos', label: `Video (${videoList.length})`, icon: Video },
@@ -1290,9 +1284,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
                   onClick={() => setAdminTab(tab.id as any)}
                   className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap flex items-center gap-1.5 transition-all shrink-0 ${
                     isActive
-                      ? 'bg-amber-500 text-white shadow-xs'
+                      ? 'bg-blue-600 text-white shadow-xs'
                       : isDark
-                        ? 'bg-slate-800 text-slate-300'
+                        ? 'bg-[#121624] text-slate-300 border border-white/10'
                         : 'bg-white text-slate-700 border border-slate-200'
                   }`}
                 >
@@ -1303,258 +1297,65 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToMobile
             })}
           </div>
           
-          {/* TAB 1: OVERVIEW & REAL-TIME OPS */}
+          {/* TAB 1: NEXORA ADMIN DASHBOARD OVERVIEW */}
           {adminTab === 'overview' && (
-            <div className="space-y-6">
+            <div className="space-y-5">
               
-              {/* Header Info */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              {/* Nexora Style Title & Greeting */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
-                  <h1 className={`text-xl sm:text-2xl font-black tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>
-                    Dashboard Operasional & Pemantauan Pengguna
+                  <h1 className={`text-2xl sm:text-[26px] font-extrabold tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                    Admin Dashboard
                   </h1>
-                  <p className={`text-xs mt-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-                    Data real-time aktivitas pengerjaan tes, psikotes koran, akurasi QC, dan sesi interview AI kandidat SMK / SMA.
+                  <p className={`text-xs sm:text-sm mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                    Selamat datang kembali, Super Admin! Berikut pantauan real-time seleksi & kesiapan kerja siswa hari ini.
                   </p>
                 </div>
 
                 <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => openSignerModal({
+                      type: 'collective',
+                      schoolName: selectedSchoolFilter,
+                      students: filteredCandidates
+                    })}
+                    className="px-3.5 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white shadow-[0_0_20px_rgba(37,99,235,0.35)] flex items-center gap-1.5 transition-all cursor-pointer"
+                  >
+                    <Printer className="w-3.5 h-3.5" />
+                    <span>Rekap Kolektif PDF</span>
+                  </button>
+
                   <button 
                     onClick={fetchLiveCandidates}
                     disabled={isLoading}
-                    className={`px-3 py-2 rounded-xl text-xs font-bold border transition-colors flex items-center gap-1.5 ${
+                    className={`px-3 py-2 rounded-xl text-xs font-bold border transition-colors flex items-center gap-1.5 cursor-pointer ${
                       isDark 
-                        ? 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700' 
-                        : 'bg-white hover:bg-slate-100 text-slate-700 border-slate-300 shadow-xs'
+                        ? 'bg-[#121624] hover:bg-[#191f32] text-slate-200 border-white/10' 
+                        : 'bg-white hover:bg-slate-100 text-slate-700 border-slate-200 shadow-xs'
                     }`}
-                    title="Segarkan Data Peserta dari MySQL"
                   >
-                    <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin text-sky-400' : ''}`} />
-                    <span>{isLoading ? 'Menyinkronkan...' : 'Refresh MySQL'}</span>
+                    <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin text-blue-400' : ''}`} />
+                    <span>{isLoading ? 'Sinkronisasi...' : 'Sync MySQL'}</span>
                   </button>
                 </div>
               </div>
 
-              {/* 4 Bento KPI Metric Cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                
-                {/* KPI 1 */}
-                <div className={`border rounded-2xl p-5 shadow-xs transition-colors ${
-                  isDark ? 'bg-[#0f172a] border-slate-800/90' : 'bg-white border-slate-200'
-                }`}>
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                      Peserta Terdaftar
-                    </span>
-                    <div className="w-8 h-8 rounded-xl bg-brand-500/15 text-sky-500 flex items-center justify-center">
-                      <Users className="w-4 h-4" />
-                    </div>
-                  </div>
-                  <div className="mt-3 flex items-baseline gap-2">
-                    <span className={`text-2xl font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>{candidateListOnly.length}</span>
-                    <span className="text-[11px] font-bold text-emerald-500 flex items-center gap-0.5">
-                      <ArrowUpRight className="w-3.5 h-3.5" /> Aktif
-                    </span>
-                  </div>
-                  <span className="text-[10px] text-slate-400 mt-1 block">Tersimpan di MySQL VPS</span>
-                </div>
-
-                {/* KPI 2 */}
-                <div className={`border rounded-2xl p-5 shadow-xs transition-colors ${
-                  isDark ? 'bg-[#0f172a] border-slate-800/90' : 'bg-white border-slate-200'
-                }`}>
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                      Sesi Tes Kraepelin
-                    </span>
-                    <div className="w-8 h-8 rounded-xl bg-sky-500/15 text-sky-500 flex items-center justify-center">
-                      <Layers className="w-4 h-4" />
-                    </div>
-                  </div>
-                  <div className="mt-3 flex items-baseline gap-2">
-                    <span className={`text-2xl font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>
-                      {candidateListOnly.reduce((acc, c) => acc + (c.completedTestsCount || 1), 0) * 3}
-                    </span>
-                    <span className="text-[11px] font-bold text-emerald-500 flex items-center gap-0.5">
-                      <ArrowUpRight className="w-3.5 h-3.5" /> +24%
-                    </span>
-                  </div>
-                  <span className="text-[10px] text-slate-400 mt-1 block">Rata-rata Panker: 16.2 baris/kolom</span>
-                </div>
-
-                {/* KPI 3 */}
-                <div className={`border rounded-2xl p-5 shadow-xs transition-colors ${
-                  isDark ? 'bg-[#0f172a] border-slate-800/90' : 'bg-white border-slate-200'
-                }`}>
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                      Simulasi AI Interview
-                    </span>
-                    <div className="w-8 h-8 rounded-xl bg-purple-500/15 text-purple-500 flex items-center justify-center">
-                      <Mic className="w-4 h-4" />
-                    </div>
-                  </div>
-                  <div className="mt-3 flex items-baseline gap-2">
-                    <span className="text-2xl font-black text-purple-500">
-                      {candidateListOnly.length * 2} Sesi
-                    </span>
-                    <span className="text-[11px] font-bold text-emerald-500 flex items-center gap-0.5">
-                      <ArrowUpRight className="w-3.5 h-3.5" /> +32%
-                    </span>
-                  </div>
-                  <span className="text-[10px] text-slate-400 mt-1 block">Rata-rata Prediksi Diterima: 86.4%</span>
-                </div>
-
-                {/* KPI 4 */}
-                <div className={`border rounded-2xl p-5 shadow-xs transition-colors ${
-                  isDark ? 'bg-[#0f172a] border-slate-800/90' : 'bg-white border-slate-200'
-                }`}>
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                      Tingkat Kelulusan Standar
-                    </span>
-                    <div className="w-8 h-8 rounded-xl bg-emerald-500/15 text-emerald-500 flex items-center justify-center">
-                      <ShieldCheck className="w-4 h-4" />
-                    </div>
-                  </div>
-                  <div className="mt-3 flex items-baseline gap-2">
-                    <span className="text-2xl font-black text-emerald-500">78.5%</span>
-                    <span className="text-[11px] font-bold text-emerald-500 flex items-center gap-0.5">
-                      <ArrowUpRight className="w-3.5 h-3.5" /> +6.1%
-                    </span>
-                  </div>
-                  <span className="text-[10px] text-slate-400 mt-1 block">Standar Kelulusan PT Astra / Epson</span>
-                </div>
-
-              </div>
-
-              {/* Candidates Performance Table */}
-              <div className={`border rounded-2xl p-5 shadow-xs space-y-4 transition-colors ${
-                isDark ? 'bg-[#0f172a] border-slate-800' : 'bg-white border-slate-200'
-              }`}>
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div>
-                    <h3 className={`text-sm font-extrabold ${isDark ? 'text-white' : 'text-slate-900'}`}>
-                      Daftar Peserta Terdaftar & Rapor Nilai
-                    </h3>
-                    <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-                      Data terhubung langsung dengan akun siswa di database MySQL VPS.
-                    </p>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <select
-                      value={selectedRoleFilter}
-                      onChange={(e) => setSelectedRoleFilter(e.target.value)}
-                      className={`text-xs font-bold rounded-xl px-3 py-1.5 outline-none border transition-colors ${
-                        isDark 
-                          ? 'bg-slate-900 text-slate-200 border-slate-700' 
-                          : 'bg-slate-50 text-slate-800 border-slate-300'
-                      }`}
-                    >
-                      <option value="all">Semua Posisi</option>
-                      <option value="operator">Operator Produksi</option>
-                      <option value="qc">Quality Control (QC)</option>
-                      <option value="maintenance">Maintenance</option>
-                      <option value="logistics">Logistik & Gudang</option>
-                    </select>
-
-                    <button
-                      onClick={fetchLiveCandidates}
-                      disabled={isLoading}
-                      className={`px-3 py-1.5 text-xs font-bold rounded-xl border flex items-center gap-1 transition-colors ${
-                        isDark 
-                          ? 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700' 
-                          : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-300'
-                      }`}
-                    >
-                      <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
-                      <span>Sync</span>
-                    </button>
-                  </div>
-                </div>
-
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs">
-                    <thead>
-                      <tr className={`border-b text-slate-400 font-bold uppercase text-[10px] ${isDark ? 'border-slate-800' : 'border-slate-200'}`}>
-                        <th className="pb-3 pl-2">Peserta & Kontak</th>
-                        <th className="pb-3">Asal Sekolah & Jurusan</th>
-                        <th className="pb-3">Target Posisi</th>
-                        <th className="pb-3">Kraepelin</th>
-                        <th className="pb-3">Akurasi QC</th>
-                        <th className="pb-3">AI Interview</th>
-                        <th className="pb-3">Status</th>
-                        <th className="pb-3 pr-2 text-right">Aksi</th>
-                      </tr>
-                    </thead>
-                    <tbody className={`divide-y font-medium ${isDark ? 'divide-slate-800/60' : 'divide-slate-100'}`}>
-                      {filteredCandidates.map((cand) => (
-                        <tr key={cand.id} className={`transition-colors ${isDark ? 'hover:bg-slate-850/60' : 'hover:bg-slate-50'}`}>
-                          <td className="py-3.5 pl-2">
-                            <div className={`font-bold text-xs ${isDark ? 'text-white' : 'text-slate-900'}`}>{cand.name}</div>
-                            <div className="text-[10px] text-sky-500 font-semibold">{cand.phone || cand.id}</div>
-                          </td>
-                          <td className="py-3.5">
-                            <span className={`block font-semibold ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>{cand.school}</span>
-                            <span className="text-[10px] text-slate-400">{cand.major}</span>
-                          </td>
-                          <td className="py-3.5">
-                            <span className={`capitalize font-semibold ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>{cand.targetRole}</span>
-                            <span className="block text-[10px] text-slate-400">{cand.targetCompany}</span>
-                          </td>
-                          <td className="py-3.5">
-                            <span className="text-sky-500 font-bold">{cand.kraepelinScore?.panker || '-'}</span>
-                            <span className="text-[10px] text-slate-400 block">{cand.kraepelinScore?.janker ? `${cand.kraepelinScore.janker}% akurat` : 'Belum tes'}</span>
-                          </td>
-                          <td className="py-3.5">
-                            <span className="text-emerald-500 font-bold">{cand.qcAccuracy ? `${cand.qcAccuracy}%` : '-'}</span>
-                          </td>
-                          <td className="py-3.5">
-                            <span className="text-purple-500 font-bold">{cand.interviewScore ? `${cand.interviewScore}%` : '-'}</span>
-                          </td>
-                          <td className="py-3.5">
-                            {(() => {
-                              const candStatus = calculateOverallStatus(cand);
-                              return (
-                                <span className={`text-[10px] font-black px-2 py-0.5 rounded-md ${
-                                  candStatus === 'Lolos Unggul'
-                                    ? 'bg-emerald-500/20 text-emerald-500 border border-emerald-500/30'
-                                    : candStatus === 'Lolos Standar'
-                                    ? 'bg-blue-500/20 text-sky-500 border border-blue-500/30'
-                                    : 'bg-amber-500/20 text-amber-500 border border-amber-500/30'
-                                }`}>
-                                  {candStatus}
-                                </span>
-                              );
-                            })()}
-                          </td>
-                          <td className="py-3.5 pr-2 text-right">
-                            <div className="flex items-center justify-end gap-1.5">
-                              <button
-                                onClick={() => setSelectedCandidateModal(cand)}
-                                className={`p-1.5 rounded-lg border transition-colors ${
-                                  isDark ? 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700' : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200'
-                                }`}
-                                title="Lihat Rapor Lengkap"
-                              >
-                                <Eye className="w-3.5 h-3.5" />
-                              </button>
-                              <button
-                                onClick={() => handleDeleteCandidate(cand.id)}
-                                className="p-1.5 rounded-lg bg-red-500/20 hover:bg-red-500/40 text-red-500 transition-colors"
-                                title="Hapus Peserta"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
+              {/* Nexora Overview Widgets (4 Sparkline KPIs, 3 Charts, Recent Table, Top Schools, Calendar, Activity, Tasks) */}
+              <NexoraOverviewWidgets
+                isDark={isDark}
+                candidates={filteredCandidates}
+                partnerSchools={partnerSchools}
+                videoCount={videoList.length}
+                onNavigateTab={(tab) => setAdminTab(tab)}
+                onSelectCandidateRapor={(cand) => handleOpenRaporModal(cand)}
+                onOpenEditCandidate={(cand) => handleOpenEditCandidate(cand)}
+                onOpenDownloadPdf={(cand) => openSignerModal({
+                  type: 'individual',
+                  student: cand,
+                  schoolName: cand.school
+                })}
+                onDeleteCandidate={(id) => handleDeleteCandidate(id)}
+              />
 
             </div>
           )}
